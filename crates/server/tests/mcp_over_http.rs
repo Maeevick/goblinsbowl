@@ -158,6 +158,24 @@ async fn given_a_coach_reading_the_state_when_the_call_log_is_read_then_it_holds
 }
 
 #[tokio::test]
+async fn given_a_coach_ending_its_turn_when_the_call_log_is_read_then_the_call_spans_one_more_version()
+-> Outcome<()> {
+    let server = start_server().await?;
+    let team = server.client.latest().state.active_team().unwrap();
+    let coach = coach(&server.url, token_of(team)).await?;
+    call(&coach, "get_state", json!({})).await?;
+    call(&coach, "play", json!({"activations": [], "end_turn": true})).await?;
+    let play = server
+        .calls
+        .entries()?
+        .into_iter()
+        .find(|entry| entry.tool == "play")
+        .ok_or("no play call logged")?;
+    assert_eq!(play.version, play.version_before + 1);
+    Ok(())
+}
+
+#[tokio::test]
 async fn given_the_home_token_when_reading_the_state_then_the_view_is_from_the_home_seat()
 -> Outcome<()> {
     let server = start_server().await?;

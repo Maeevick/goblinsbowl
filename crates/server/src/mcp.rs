@@ -368,6 +368,7 @@ impl CoachServer {
         body: impl AsyncFnOnce(TeamId) -> Result<T, String>,
     ) -> Result<T, String> {
         let started_ms = self.log.elapsed_ms();
+        let version_before = self.client.latest().version;
         let seat = seat_of(context);
         let seat_label = seat
             .as_ref()
@@ -383,6 +384,7 @@ impl CoachServer {
             arguments,
             latency_ms: self.log.elapsed_ms().saturating_sub(started_ms),
             error: result.as_ref().err().cloned(),
+            version_before,
             version: self.client.latest().version,
         });
         result

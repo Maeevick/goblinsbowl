@@ -21,7 +21,10 @@ pub struct CallEntry {
     pub latency_ms: u64,
     /// The refusal returned to the agent, if the call failed.
     pub error: Option<String>,
-    /// Version of the match after the call.
+    /// Version of the match when the call started.
+    pub version_before: u64,
+    /// Version of the match after the call: the record's entries from `version_before` up to here
+    /// are the commands the call applied.
     pub version: u64,
 }
 
@@ -95,6 +98,7 @@ mod tests {
             arguments: serde_json::json!({"end_turn": true}),
             latency_ms: 35,
             error: None,
+            version_before: 3,
             version: 4,
         }
     }
