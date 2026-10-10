@@ -3,6 +3,7 @@
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hasher};
 use std::path::Path;
+use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
@@ -10,6 +11,7 @@ use clap::Parser;
 use goblins_rules::host::MatchHost;
 use goblins_rules::ruleset::{Ruleset, RulesetError};
 
+use goblinsbowl::bot_seat::BotSeatPlugin;
 use goblinsbowl::local_match::LocalMatchPlugin;
 use goblinsbowl::options::GameOptions;
 use goblinsbowl::texts::Texts;
@@ -50,6 +52,10 @@ fn main() -> AppExit {
             LocalMatchPlugin {
                 host,
                 opening_events,
+            },
+            BotSeatPlugin {
+                seed: seed.wrapping_add(1),
+                pause: Duration::from_millis(800),
             },
             bowl_view::BowlViewPlugin,
             goblin_view::GoblinViewPlugin,
