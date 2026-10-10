@@ -100,7 +100,7 @@ impl<D: DiceRoller> Game<D> {
         let Some(tackler) = self.most_dangerous_tackler(id, from) else {
             return true;
         };
-        let dice = dodge_dice(&self.state, id, tackler).unwrap_or(ContestDice {
+        let dice = dodge_dice(&self.ruleset, &self.state, id, tackler).unwrap_or(ContestDice {
             actor_faces: 1,
             opponent_faces: 1,
             opponent_modifier: 0,

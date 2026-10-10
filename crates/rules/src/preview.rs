@@ -99,7 +99,8 @@ pub fn assault_dice(
     } else {
         0
     };
-    let modifier = i16::from(state.stance_bonus(defender)) - downed_malus;
+    let stance_bonus = state.stance_bonus(defender).min(ruleset.stance_bonus_cap);
+    let modifier = i16::from(stance_bonus) - downed_malus;
     Some(ContestDice {
         actor_faces,
         opponent_faces: target.characteristics.defense,
@@ -108,18 +109,25 @@ pub fn assault_dice(
 }
 
 /// The dice of `mover` slipping away from `tackler`: Agility against Defense plus the tackler's Stance bonus.
-pub fn dodge_dice(state: &GameState, mover: GoblinId, tackler: GoblinId) -> Option<ContestDice> {
+pub fn dodge_dice(
+    ruleset: &Ruleset,
+    state: &GameState,
+    mover: GoblinId,
+    tackler: GoblinId,
+) -> Option<ContestDice> {
     let actor_faces = state.goblin(mover)?.characteristics.agility;
     let opponent = state.goblin(tackler)?;
+    let stance_bonus = state.stance_bonus(tackler).min(ruleset.stance_bonus_cap);
     Some(ContestDice {
         actor_faces,
         opponent_faces: opponent.characteristics.defense,
-        opponent_modifier: i8::try_from(state.stance_bonus(tackler)).unwrap_or(i8::MAX),
+        opponent_modifier: i8::try_from(stance_bonus).unwrap_or(i8::MAX),
     })
 }
 
 /// The adjacent standing enemy most likely to stop `mover` leaving `from`, with the mover's chance to escape.
 pub fn most_dangerous_tackler(
+    ruleset: &Ruleset,
     state: &GameState,
     mover: GoblinId,
     from: Square,
@@ -128,7 +136,7 @@ pub fn most_dangerous_tackler(
     state
         .standing_opponents_next_to(from, team)
         .filter_map(|tackler| {
-            dodge_dice(state, mover, tackler.id).map(|dice| (dice.success(), tackler.id))
+            dodge_dice(ruleset, state, mover, tackler.id).map(|dice| (dice.success(), tackler.id))
         })
         .min()
         .map(|(escape, tackler)| (tackler, escape))
@@ -158,9 +166,10 @@ pub fn activation_odds(
         let Some(from) = sketch.goblin(id).and_then(|goblin| goblin.square()) else {
             break;
         };
-        let dodge = most_dangerous_tackler(&sketch, id, from).and_then(|(tackler, escape)| {
-            dodge_dice(&sketch, id, tackler).map(|dice| (tackler, dice, escape))
-        });
+        let dodge =
+            most_dangerous_tackler(ruleset, &sketch, id, from).and_then(|(tackler, escape)| {
+                dodge_dice(ruleset, &sketch, id, tackler).map(|dice| (tackler, dice, escape))
+            });
         if let Some((tackler, dice, escape)) = dodge {
             risky_steps.push(RiskyStep::Dodge {
                 from,
@@ -362,6 +371,27 @@ mod tests {
     }
 
     #[test]
+    fn given_a_stance_cap_of_one_when_reading_the_dice_against_a_braced_wall_then_only_one_counts()
+    {
+        let scenario = Scenario::new()
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Sprinter, 6, 7)
+            .goblin("A2", Bruiser, 6, 8)
+            .edit("A1", |goblin| goblin.in_stance = true)
+            .edit("A2", |goblin| goblin.in_stance = true);
+        let game = scenario.game([]);
+        let capped = Ruleset {
+            stance_bonus_cap: 1,
+            ..game.ruleset().clone()
+        };
+        assert_eq!(
+            assault_dice(&capped, game.state(), id("H1"), id("A1"))
+                .map(|dice| dice.opponent_modifier),
+            Some(1)
+        );
+    }
+
+    #[test]
     fn given_a_downed_defender_when_reading_assault_dice_then_its_die_loses_the_downed_malus() {
         let scenario = Scenario::new()
             .goblin("H1", Sprinter, 5, 7)
@@ -399,7 +429,12 @@ mod tests {
     fn given_a_braced_tackler_when_reading_dodge_dice_then_agility_against_its_defense_plus_one() {
         let scenario = sprinter_next_to_a_bruiser().edit("A1", |goblin| goblin.in_stance = true);
         assert_eq!(
-            dice_of(scenario, |_, state| dodge_dice(state, id("H1"), id("A1"))),
+            dice_of(scenario, |ruleset, state| dodge_dice(
+                ruleset,
+                state,
+                id("H1"),
+                id("A1")
+            )),
             Some(ContestDice {
                 actor_faces: 4,
                 opponent_faces: 4,
@@ -547,7 +582,7 @@ mod tests {
             .goblin("A2", Bruiser, 5, 6)
             .game([]);
         assert_eq!(
-            most_dangerous_tackler(game.state(), id("H1"), Square::new(5, 7)),
+            most_dangerous_tackler(game.ruleset(), game.state(), id("H1"), Square::new(5, 7)),
             Some((id("A2"), Probability::new(5, 8)))
         );
     }

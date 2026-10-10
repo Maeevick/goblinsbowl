@@ -30,10 +30,32 @@ impl<D: DiceRoller> Game<D> {
                 self.line_up(id, square, events);
             }
         }
-        let centre = self.arena.centre();
-        self.state.ball = Ball::Loose { at: centre };
-        events.push(GameEvent::BallDropped { at: centre });
-        self.bounce_ball(centre, events);
+        let drop = self.kickoff_drop(receiving_team);
+        self.state.ball = Ball::Loose { at: drop };
+        events.push(GameEvent::BallDropped { at: drop });
+        self.bounce_ball(drop, events);
+    }
+
+    fn kickoff_drop(&self, receiving_team: TeamId) -> Square {
+        let den_distance = |square: Square| {
+            self.arena
+                .den_squares(receiving_team)
+                .map(|den| den.orthogonal_distance(square))
+                .min()
+        };
+        let mut drop = self.arena.centre();
+        for _ in 0..self.ruleset.kickoff_depth {
+            let deeper = Direction::ALL
+                .into_iter()
+                .filter_map(|direction| direction.step_from(drop))
+                .filter(|square| self.arena.is_in_bounds(*square))
+                .min_by_key(|square| den_distance(*square));
+            match deeper {
+                Some(square) if den_distance(square) < den_distance(drop) => drop = square,
+                _ => break,
+            }
+        }
+        drop
     }
 
     fn line_up(&mut self, id: GoblinId, square: Square, events: &mut Vec<GameEvent>) {

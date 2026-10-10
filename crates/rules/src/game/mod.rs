@@ -213,6 +213,24 @@ mod tests {
     }
 
     #[test]
+    fn given_a_kick_off_depth_of_three_when_the_away_team_receives_then_the_ball_drops_three_squares_into_its_half()
+     {
+        let ruleset = Ruleset {
+            kickoff_depth: 3,
+            ..Ruleset::default()
+        };
+        let (_, events) = Game::start(
+            ruleset,
+            [Roster::DEFAULT, Roster::DEFAULT],
+            ScriptedDice::new([COIN_AWAY, BOUNCE_EAST]),
+        )
+        .unwrap();
+        assert!(events.contains(&GameEvent::BallDropped {
+            at: Square::new(10, 7)
+        }));
+    }
+
+    #[test]
     fn given_default_rosters_when_the_match_starts_then_eighteen_goblins_stand_on_the_bowl() {
         let (game, _) = started([COIN_HOME, BOUNCE_EAST]);
         assert_eq!(

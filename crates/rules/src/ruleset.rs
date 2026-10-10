@@ -50,6 +50,12 @@ pub struct Ruleset {
     pub interception_surprise_malus: u8,
     /// Malus on the defense roll of a goblin assaulted while down.
     pub downed_defense_malus: u8,
+    /// Squares the kick-off drops the ball into the receiving team's half, from the centre.
+    #[serde(default)]
+    pub kickoff_depth: u8,
+    /// Most a Stance bonus adds to one roll; 5, a goblin and its four neighbours, means no cap.
+    #[serde(default = "uncapped_stance_bonus")]
+    pub stance_bonus_cap: u8,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Characteristics per archetype.
@@ -80,6 +86,10 @@ pub enum RulesetError {
     NoTurns,
 }
 
+fn uncapped_stance_bonus() -> u8 {
+    5
+}
+
 impl Default for Ruleset {
     fn default() -> Self {
         Self {
@@ -91,6 +101,8 @@ impl Default for Ruleset {
             throw_free_range: 6,
             interception_surprise_malus: 1,
             downed_defense_malus: 2,
+            kickoff_depth: 0,
+            stance_bonus_cap: uncapped_stance_bonus(),
             arena: BOWL_15_MASK.iter().map(|row| (*row).to_string()).collect(),
             archetypes: ArchetypeCharacteristics {
                 bruiser: Characteristics {

@@ -36,7 +36,7 @@ impl<D: DiceRoller> Game<D> {
         dodger: GoblinId,
         from: Square,
     ) -> Option<GoblinId> {
-        most_dangerous_tackler(&self.state, dodger, from).map(|(tackler, _)| tackler)
+        most_dangerous_tackler(&self.ruleset, &self.state, dodger, from).map(|(tackler, _)| tackler)
     }
 
     pub(super) fn knock_down(
