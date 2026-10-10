@@ -158,6 +158,20 @@ pub enum GameEvent {
         /// Its catch roll, with the surprise malus.
         roll: BallRoll,
     },
+    /// A goblin assaulted an adjacent enemy.
+    AssaultResolved {
+        /// The attacker.
+        attacker: GoblinId,
+        /// The defender.
+        defender: GoblinId,
+        /// Attack die against the defense die, Stance walls and the downed malus.
+        contest: ContestRoll,
+    },
+    /// A goblin braced in Stance until its team's next turn.
+    StanceTaken {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// A goblin fell or was knocked over on a square.
     KnockedDown {
         /// The goblin.

@@ -92,4 +92,22 @@ pub enum RuleViolation {
         /// The refused receiver.
         receiver: GoblinId,
     },
+    /// The assault target plays for the same team.
+    #[error("{target} is not an opponent")]
+    TargetNotAnOpponent {
+        /// The refused target.
+        target: GoblinId,
+    },
+    /// The assault target is knocked out.
+    #[error("{target} is not on the bowl")]
+    TargetNotOnTheBowl {
+        /// The refused target.
+        target: GoblinId,
+    },
+    /// The assault target is not next to the square where the attacker ends its move.
+    #[error("{target} is not next to where the attacker ends its move")]
+    TargetNotAdjacent {
+        /// The refused target.
+        target: GoblinId,
+    },
 }

@@ -1,7 +1,7 @@
 //! Contests and their consequences: opposed rolls, knockdowns, health loss and knock-outs.
 
 use crate::dice::DiceRoller;
-use crate::event::{ContestRoll, GameEvent};
+use crate::event::{ContestRoll, GameEvent, TurnEndReason};
 use crate::odds::contest_success;
 use crate::roster::GoblinId;
 use crate::square::Square;
@@ -94,5 +94,61 @@ impl<D: DiceRoller> Game<D> {
             hurt.in_stance = false;
             events.push(GameEvent::KnockedOut { goblin });
         }
+    }
+
+    pub(super) fn take_stance(&mut self, goblin: GoblinId, events: &mut Vec<GameEvent>) {
+        if let Some(braced) = self.state.goblin_mut(goblin) {
+            braced.in_stance = true;
+            events.push(GameEvent::StanceTaken { goblin });
+        }
+    }
+
+    pub(super) fn resolve_assault(
+        &mut self,
+        attacker: GoblinId,
+        defender: GoblinId,
+        events: &mut Vec<GameEvent>,
+    ) -> Option<TurnEndReason> {
+        let attack = self
+            .state
+            .goblin(attacker)
+            .map_or(1, |goblin| goblin.characteristics.attack);
+        let (defense, defender_is_down) =
+            self.state.goblin(defender).map_or((1, false), |goblin| {
+                (
+                    goblin.characteristics.defense,
+                    matches!(goblin.presence, Presence::Down(_)),
+                )
+            });
+        let stance_bonus = i16::from(self.state.stance_bonus(defender));
+        let downed_malus = if defender_is_down {
+            i16::from(self.ruleset.downed_defense_malus)
+        } else {
+            0
+        };
+        let modifier = i8::try_from(stance_bonus - downed_malus).unwrap_or(i8::MIN);
+        let contest = self.roll_contest(attack, defense, modifier);
+        events.push(GameEvent::AssaultResolved {
+            attacker,
+            defender,
+            contest,
+        });
+        if !contest.actor_won() {
+            let damage = contest.margin.unsigned_abs().saturating_sub(1);
+            self.knock_down(attacker, damage, events);
+            return Some(TurnEndReason::Knockdown);
+        }
+        let damage = contest.margin.unsigned_abs();
+        let missed_catches = if defender_is_down {
+            self.lose_health(defender, damage, events);
+            Vec::new()
+        } else {
+            self.knock_down(defender, damage, events)
+        };
+        let active_team = self.state.active_team();
+        missed_catches
+            .iter()
+            .any(|goblin| Some(goblin.team) == active_team)
+            .then_some(TurnEndReason::Fumble)
     }
 }

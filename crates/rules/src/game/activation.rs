@@ -56,12 +56,36 @@ impl<D: DiceRoller> Game<D> {
             }
             visited.push(square);
         }
+        let final_square = visited.last().copied().unwrap_or(start);
         match activation.action {
-            None => Ok(()),
+            None | Some(Action::Stance) => Ok(()),
+            Some(Action::Assault { target }) => self.validate_assault(team, final_square, target),
             Some(Action::Throw { receiver }) => {
                 self.validate_throw(team, id, &activation.path, receiver)
             }
         }
+    }
+
+    fn validate_assault(
+        &self,
+        team: TeamId,
+        attacker_square: Square,
+        target: GoblinId,
+    ) -> Result<(), RuleViolation> {
+        let defender = self
+            .state
+            .goblin(target)
+            .ok_or(RuleViolation::UnknownGoblin { goblin: target })?;
+        if defender.team() == team {
+            return Err(RuleViolation::TargetNotAnOpponent { target });
+        }
+        let Some(defender_square) = defender.square() else {
+            return Err(RuleViolation::TargetNotOnTheBowl { target });
+        };
+        if !attacker_square.is_orthogonally_adjacent(defender_square) {
+            return Err(RuleViolation::TargetNotAdjacent { target });
+        }
+        Ok(())
     }
 
     fn validate_throw(
@@ -122,12 +146,19 @@ impl<D: DiceRoller> Game<D> {
         if let Some(goblin) = self.state.goblin_mut(id) {
             goblin.has_acted = true;
         }
-        let action_failed = match activation.action {
-            None => false,
-            Some(Action::Throw { receiver }) => !self.throw_completes(id, receiver, events),
+        let turn_ending = match activation.action {
+            None => None,
+            Some(Action::Stance) => {
+                self.take_stance(id, events);
+                None
+            }
+            Some(Action::Assault { target }) => self.resolve_assault(id, target, events),
+            Some(Action::Throw { receiver }) => {
+                (!self.throw_completes(id, receiver, events)).then_some(TurnEndReason::Fumble)
+            }
         };
-        if action_failed {
-            self.finish_turn(TurnEndReason::Fumble, events);
+        if let Some(reason) = turn_ending {
+            self.finish_turn(reason, events);
             return;
         }
         if !self.has_goblin_able_to_act(team) {

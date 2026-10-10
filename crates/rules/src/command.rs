@@ -9,6 +9,13 @@ use crate::square::Square;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Action {
+    /// Assault an adjacent enemy, standing or down.
+    Assault {
+        /// The enemy to hit.
+        target: GoblinId,
+    },
+    /// Brace until the team's next turn: +1 defense to itself and to each adjacent teammate.
+    Stance,
     /// Throw the ball to a standing teammate, at any distance.
     Throw {
         /// The teammate who should catch it.
