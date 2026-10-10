@@ -8,7 +8,7 @@ use goblins_rules::arena::Arena;
 use goblins_rules::command::Command;
 use goblins_rules::dice::SeededDice;
 use goblins_rules::event::GameEvent;
-use goblins_rules::host::{HostError, MatchHost, MatchSnapshot, SeatKind};
+use goblins_rules::host::{HostError, MatchHost, MatchRecord, MatchSnapshot, SeatKind};
 use goblins_rules::policies::random::random_command;
 use goblins_rules::ruleset::Ruleset;
 use goblins_rules::team::TeamId;
@@ -63,6 +63,9 @@ enum SeatRequest {
     EventsSince {
         cursor: usize,
         reply: oneshot::Sender<(Vec<GameEvent>, usize)>,
+    },
+    Record {
+        reply: oneshot::Sender<MatchRecord>,
     },
 }
 
@@ -135,6 +138,16 @@ impl MatchClient {
     ) -> Result<(Vec<GameEvent>, usize), ClientError> {
         let (reply, answer) = oneshot::channel();
         self.send(SeatRequest::EventsSince { cursor, reply })?;
+        answer.await.map_err(|_| ClientError::ServerUnavailable)
+    }
+
+    /// The record of the match so far, enough to replay it.
+    ///
+    /// # Errors
+    /// [`ClientError::ServerUnavailable`] when the server is gone.
+    pub async fn record(&self) -> Result<MatchRecord, ClientError> {
+        let (reply, answer) = oneshot::channel();
+        self.send(SeatRequest::Record { reply })?;
         answer.await.map_err(|_| ClientError::ServerUnavailable)
     }
 
@@ -227,6 +240,7 @@ enum PendingReply {
         oneshot::Sender<(Vec<GameEvent>, usize)>,
         (Vec<GameEvent>, usize),
     ),
+    Recorded(oneshot::Sender<MatchRecord>, MatchRecord),
 }
 
 impl PendingReply {
@@ -235,6 +249,7 @@ impl PendingReply {
             PendingReply::Submitted(reply, outcome) => reply.send(outcome).map_err(drop),
             PendingReply::Readied(reply, outcome) => reply.send(outcome).map_err(drop),
             PendingReply::Events(reply, outcome) => reply.send(outcome).map_err(drop),
+            PendingReply::Recorded(reply, record) => reply.send(record).map_err(drop),
         };
     }
 }
@@ -251,6 +266,7 @@ fn answer(host: &mut MatchHost, request: SeatRequest) -> PendingReply {
             reply,
             (host.events_since(cursor).to_vec(), host.event_count()),
         ),
+        SeatRequest::Record { reply } => PendingReply::Recorded(reply, host.record().clone()),
     }
 }
 
@@ -403,5 +419,25 @@ mod tests {
             }
         }
         assert_eq!(versions_seen_late, 0);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn given_a_command_when_reading_the_record_then_it_is_recorded() {
+        let client = spawn_match(
+            host([SeatKind::Agent, SeatKind::Agent]),
+            ServerPacing::default(),
+        );
+        let team = active_team(&client);
+        client.submit(team, Command::EndTurn).await.unwrap();
+        assert_eq!(
+            client
+                .record()
+                .await
+                .unwrap()
+                .entries
+                .last()
+                .map(|entry| entry.command.clone()),
+            Some(Command::EndTurn)
+        );
     }
 }
