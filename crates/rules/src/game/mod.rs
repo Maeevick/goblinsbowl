@@ -4,16 +4,15 @@ use thiserror::Error;
 
 use crate::arena::Arena;
 use crate::dice::DiceRoller;
-use crate::event::{BallRoll, GameEvent};
+use crate::event::GameEvent;
 use crate::formation::kickoff_squares;
 use crate::roster::{GoblinId, Roster, RosterError};
 use crate::ruleset::{Ruleset, RulesetError};
-use crate::square::{Direction, Square};
 use crate::state::{Ball, GameState, Goblin, Phase, Presence};
 use crate::team::TeamId;
 
-const MAX_DIRECTION_ROLLS: usize = 32;
-const MAX_BOUNCES: usize = 32;
+mod kickoff;
+mod turns;
 
 /// Why a match cannot start.
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -148,188 +147,13 @@ impl<D: DiceRoller> Game<D> {
     pub fn dice(&self) -> &D {
         &self.dice
     }
-
-    fn kick_off(&mut self, receiving_team: TeamId, events: &mut Vec<GameEvent>) {
-        events.push(GameEvent::KickedOff { receiving_team });
-        for team in TeamId::DUEL {
-            let roster = self.state.rosters[team.index()];
-            let lineup = kickoff_squares(&self.arena, team, &roster);
-            let ids: Vec<GoblinId> = self
-                .state
-                .goblins_of(team)
-                .map(|goblin| goblin.id)
-                .collect();
-            for (id, square) in ids.into_iter().zip(lineup) {
-                self.line_up(id, square, events);
-            }
-        }
-        let centre = self.arena.centre();
-        self.state.ball = Ball::Loose { at: centre };
-        events.push(GameEvent::BallDropped { at: centre });
-        self.bounce_ball(centre, events);
-    }
-
-    fn line_up(&mut self, id: GoblinId, square: Square, events: &mut Vec<GameEvent>) {
-        let Some(goblin) = self.state.goblin(id) else {
-            return;
-        };
-        let full_health = goblin.characteristics.health;
-        let health = if goblin.presence == Presence::KnockedOut {
-            let health = self.dice.roll(full_health);
-            events.push(GameEvent::ReturnedFromKnockOut { goblin: id, health });
-            health
-        } else {
-            full_health
-        };
-        if let Some(goblin) = self.state.goblin_mut(id) {
-            goblin.health = health;
-            goblin.presence = Presence::Standing(square);
-            goblin.in_stance = false;
-            goblin.has_acted = false;
-        }
-    }
-
-    fn start_turn(&mut self, team: TeamId, events: &mut Vec<GameEvent>) {
-        let turn = self.state.turns_played[team.index()].saturating_add(1);
-        self.state.turns_played[team.index()] = turn;
-        self.state.phase = Phase::Playing { active_team: team };
-        events.push(GameEvent::TurnStarted {
-            team,
-            half: self.state.half,
-            turn,
-        });
-        let mut stood_up = Vec::new();
-        for goblin in self
-            .state
-            .goblins
-            .iter_mut()
-            .filter(|goblin| goblin.team() == team)
-        {
-            goblin.has_acted = false;
-            goblin.in_stance = false;
-            if let Presence::Down(square) = goblin.presence {
-                goblin.presence = Presence::Standing(square);
-                goblin.has_acted = true;
-                stood_up.push(goblin.id);
-            }
-        }
-        events.extend(
-            stood_up
-                .into_iter()
-                .map(|goblin| GameEvent::StoodUp { goblin }),
-        );
-    }
-
-    fn bounce_ball(&mut self, origin: Square, events: &mut Vec<GameEvent>) -> Vec<GoblinId> {
-        let mut from = origin;
-        let mut missed_catches = Vec::new();
-        for _ in 0..MAX_BOUNCES {
-            let to = self.roll_bounce_destination(from);
-            events.push(GameEvent::BallBounced { from, to });
-            self.state.ball = Ball::Loose { at: to };
-            match self
-                .state
-                .goblin_at(to)
-                .map(|goblin| (goblin.id, goblin.is_standing()))
-            {
-                None => return missed_catches,
-                Some((catcher, true)) => {
-                    if self.attempt_catch(catcher, 0, events) {
-                        return missed_catches;
-                    }
-                    missed_catches.push(catcher);
-                }
-                Some((_, false)) => {}
-            }
-            from = to;
-        }
-        if let Some(resting_square) = self.nearest_empty_square(from) {
-            self.state.ball = Ball::Loose { at: resting_square };
-        }
-        missed_catches
-    }
-
-    fn roll_bounce_destination(&mut self, from: Square) -> Square {
-        for _ in 0..MAX_DIRECTION_ROLLS {
-            let face = self.dice.roll(4);
-            let destination = Direction::from_d4_face(face)
-                .and_then(|direction| direction.step_from(from))
-                .filter(|square| self.arena.is_in_bounds(*square));
-            if let Some(destination) = destination {
-                return destination;
-            }
-        }
-        self.arena.in_bounds_neighbours(from).next().unwrap_or(from)
-    }
-
-    fn attempt_catch(
-        &mut self,
-        catcher: GoblinId,
-        extra_malus: u8,
-        events: &mut Vec<GameEvent>,
-    ) -> bool {
-        let roll = self.ball_roll(catcher, extra_malus);
-        events.push(GameEvent::CatchAttempted {
-            goblin: catcher,
-            roll,
-        });
-        if roll.success {
-            self.state.ball = Ball::Carried { by: catcher };
-        }
-        roll.success
-    }
-
-    fn ball_roll(&mut self, goblin: GoblinId, extra_malus: u8) -> BallRoll {
-        let (faces, adjacent_opponents) = self
-            .state
-            .goblin(goblin)
-            .and_then(|goblin| {
-                goblin.square().map(|square| {
-                    (
-                        goblin.characteristics.agility,
-                        self.state
-                            .standing_opponents_next_to(square, goblin.team())
-                            .count(),
-                    )
-                })
-            })
-            .unwrap_or((1, 0));
-        let malus = u8::try_from(adjacent_opponents)
-            .unwrap_or(u8::MAX)
-            .saturating_add(extra_malus);
-        let rolled = self.dice.roll(faces);
-        let target = self.ruleset.ball_roll_target;
-        BallRoll {
-            faces,
-            rolled,
-            malus,
-            target,
-            success: i16::from(rolled) - i16::from(malus) >= i16::from(target),
-        }
-    }
-
-    fn nearest_empty_square(&self, origin: Square) -> Option<Square> {
-        let mut visited = vec![origin];
-        let mut frontier = std::collections::VecDeque::from([origin]);
-        while let Some(square) = frontier.pop_front() {
-            if self.state.goblin_at(square).is_none() {
-                return Some(square);
-            }
-            for neighbour in self.arena.in_bounds_neighbours(square) {
-                if !visited.contains(&neighbour) {
-                    visited.push(neighbour);
-                    frontier.push_back(neighbour);
-                }
-            }
-        }
-        None
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::dice::ScriptedDice;
+    use crate::square::Square;
 
     const COIN_HOME: u8 = 1;
     const COIN_AWAY: u8 = 2;
