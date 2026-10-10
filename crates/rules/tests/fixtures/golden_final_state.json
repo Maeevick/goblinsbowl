@@ -1,0 +1,395 @@
+{
+  "rosters": [
+    {
+      "bruisers": 4,
+      "sprinters": 4,
+      "throwers": 1
+    },
+    {
+      "bruisers": 4,
+      "sprinters": 4,
+      "throwers": 1
+    }
+  ],
+  "goblins": [
+    {
+      "id": "H1",
+      "archetype": "bruiser",
+      "characteristics": {
+        "attack": 4,
+        "defense": 4,
+        "agility": 2,
+        "health": 6,
+        "movement": 3
+      },
+      "health": 6,
+      "presence": {
+        "standing": [
+          5,
+          3
+        ]
+      },
+      "in_stance": true,
+      "has_acted": true
+    },
+    {
+      "id": "H2",
+      "archetype": "bruiser",
+      "characteristics": {
+        "attack": 4,
+        "defense": 4,
+        "agility": 2,
+        "health": 6,
+        "movement": 3
+      },
+      "health": 6,
+      "presence": {
+        "standing": [
+          3,
+          14
+        ]
+      },
+      "in_stance": true,
+      "has_acted": true
+    },
+    {
+      "id": "H3",
+      "archetype": "bruiser",
+      "characteristics": {
+        "attack": 4,
+        "defense": 4,
+        "agility": 2,
+        "health": 6,
+        "movement": 3
+      },
+      "health": 6,
+      "presence": {
+        "standing": [
+          12,
+          8
+        ]
+      },
+      "in_stance": true,
+      "has_acted": true
+    },
+    {
+      "id": "H4",
+      "archetype": "bruiser",
+      "characteristics": {
+        "attack": 4,
+        "defense": 4,
+        "agility": 2,
+        "health": 6,
+        "movement": 3
+      },
+      "health": 6,
+      "presence": {
+        "standing": [
+          10,
+          10
+        ]
+      },
+      "in_stance": false,
+      "has_acted": true
+    },
+    {
+      "id": "H5",
+      "archetype": "sprinter",
+      "characteristics": {
+        "attack": 3,
+        "defense": 2,
+        "agility": 4,
+        "health": 3,
+        "movement": 5
+      },
+      "health": 3,
+      "presence": {
+        "standing": [
+          7,
+          2
+        ]
+      },
+      "in_stance": false,
+      "has_acted": true
+    },
+    {
+      "id": "H6",
+      "archetype": "sprinter",
+      "characteristics": {
+        "attack": 3,
+        "defense": 2,
+        "agility": 4,
+        "health": 3,
+        "movement": 5
+      },
+      "health": 1,
+      "presence": {
+        "standing": [
+          10,
+          3
+        ]
+      },
+      "in_stance": false,
+      "has_acted": true
+    },
+    {
+      "id": "H7",
+      "archetype": "sprinter",
+      "characteristics": {
+        "attack": 3,
+        "defense": 2,
+        "agility": 4,
+        "health": 3,
+        "movement": 5
+      },
+      "health": 3,
+      "presence": {
+        "standing": [
+          5,
+          5
+        ]
+      },
+      "in_stance": false,
+      "has_acted": true
+    },
+    {
+      "id": "H8",
+      "archetype": "sprinter",
+      "characteristics": {
+        "attack": 3,
+        "defense": 2,
+        "agility": 4,
+        "health": 3,
+        "movement": 5
+      },
+      "health": 3,
+      "presence": {
+        "standing": [
+          6,
+          14
+        ]
+      },
+      "in_stance": false,
+      "has_acted": true
+    },
+    {
+      "id": "H9",
+      "archetype": "thrower",
+      "characteristics": {
+        "attack": 2,
+        "defense": 3,
+        "agility": 4,
+        "health": 3,
+        "movement": 4
+      },
+      "health": 3,
+      "presence": {
+        "standing": [
+          4,
+          5
+        ]
+      },
+      "in_stance": false,
+      "has_acted": true
+    },
+    {
+      "id": "A1",
+      "archetype": "bruiser",
+      "characteristics": {
+        "attack": 4,
+        "defense": 4,
+        "agility": 2,
+        "health": 6,
+        "movement": 3
+      },
+      "health": 6,
+      "presence": {
+        "down": [
+          8,
+          2
+        ]
+      },
+      "in_stance": false,
+      "has_acted": true
+    },
+    {
+      "id": "A2",
+      "archetype": "bruiser",
+      "characteristics": {
+        "attack": 4,
+        "defense": 4,
+        "agility": 2,
+        "health": 6,
+        "movement": 3
+      },
+      "health": 6,
+      "presence": {
+        "standing": [
+          9,
+          2
+        ]
+      },
+      "in_stance": false,
+      "has_acted": false
+    },
+    {
+      "id": "A3",
+      "archetype": "bruiser",
+      "characteristics": {
+        "attack": 4,
+        "defense": 4,
+        "agility": 2,
+        "health": 6,
+        "movement": 3
+      },
+      "health": 6,
+      "presence": {
+        "standing": [
+          3,
+          8
+        ]
+      },
+      "in_stance": false,
+      "has_acted": false
+    },
+    {
+      "id": "A4",
+      "archetype": "bruiser",
+      "characteristics": {
+        "attack": 4,
+        "defense": 4,
+        "agility": 2,
+        "health": 6,
+        "movement": 3
+      },
+      "health": 3,
+      "presence": {
+        "standing": [
+          8,
+          9
+        ]
+      },
+      "in_stance": false,
+      "has_acted": false
+    },
+    {
+      "id": "A5",
+      "archetype": "sprinter",
+      "characteristics": {
+        "attack": 3,
+        "defense": 2,
+        "agility": 4,
+        "health": 3,
+        "movement": 5
+      },
+      "health": 3,
+      "presence": {
+        "standing": [
+          9,
+          4
+        ]
+      },
+      "in_stance": false,
+      "has_acted": false
+    },
+    {
+      "id": "A6",
+      "archetype": "sprinter",
+      "characteristics": {
+        "attack": 3,
+        "defense": 2,
+        "agility": 4,
+        "health": 3,
+        "movement": 5
+      },
+      "health": 3,
+      "presence": {
+        "standing": [
+          14,
+          9
+        ]
+      },
+      "in_stance": true,
+      "has_acted": true
+    },
+    {
+      "id": "A7",
+      "archetype": "sprinter",
+      "characteristics": {
+        "attack": 3,
+        "defense": 2,
+        "agility": 4,
+        "health": 3,
+        "movement": 5
+      },
+      "health": 3,
+      "presence": {
+        "standing": [
+          8,
+          4
+        ]
+      },
+      "in_stance": false,
+      "has_acted": false
+    },
+    {
+      "id": "A8",
+      "archetype": "sprinter",
+      "characteristics": {
+        "attack": 3,
+        "defense": 2,
+        "agility": 4,
+        "health": 3,
+        "movement": 5
+      },
+      "health": 3,
+      "presence": {
+        "standing": [
+          8,
+          12
+        ]
+      },
+      "in_stance": false,
+      "has_acted": false
+    },
+    {
+      "id": "A9",
+      "archetype": "thrower",
+      "characteristics": {
+        "attack": 2,
+        "defense": 3,
+        "agility": 4,
+        "health": 3,
+        "movement": 4
+      },
+      "health": 3,
+      "presence": {
+        "standing": [
+          7,
+          3
+        ]
+      },
+      "in_stance": false,
+      "has_acted": false
+    }
+  ],
+  "ball": {
+    "loose": {
+      "at": [
+        8,
+        8
+      ]
+    }
+  },
+  "score": [
+    0,
+    0
+  ],
+  "half": 2,
+  "turns_played": [
+    10,
+    10
+  ],
+  "phase": "finished",
+  "opening_team": 1
+}

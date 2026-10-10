@@ -1,4 +1,4 @@
-.PHONY: test-unit test-integrated test-system test-all lint fmt run check
+.PHONY: test-unit test-integrated test-system test-all lint fmt run check golden
 
 test-unit:
 	cargo test --workspace --lib --bins
@@ -22,3 +22,6 @@ check: lint test-unit test-integrated
 
 run:
 	cargo run -p goblinsbowl --features bevy/dynamic_linking -- $(ARGS)
+
+golden:
+	cargo run -p goblins_rules --example record_golden_match
