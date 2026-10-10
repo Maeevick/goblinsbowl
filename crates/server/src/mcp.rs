@@ -32,6 +32,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::match_server::MatchClient;
+use crate::view::drop_integer_formats;
 use crate::view::{CoachView, OddsHints, coach_view, describe_chance};
 
 const LONGEST_WAIT_SECONDS: u64 = 50;
@@ -88,6 +89,7 @@ fn turn_mark(snapshot: &MatchSnapshot) -> TurnMark {
 
 /// Arguments of wait_for_my_turn.
 #[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 pub struct WaitArgs {
     /// Longest wait in seconds (at most 50, default 45). Call again if the status is still waiting.
     pub max_wait_seconds: Option<u64>,
@@ -95,6 +97,7 @@ pub struct WaitArgs {
 
 /// An action that ends an activation.
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PlannedAction {
     /// Assault an adjacent enemy (standing or down) after moving.
@@ -113,6 +116,7 @@ pub enum PlannedAction {
 
 /// One goblin's order.
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 pub struct PlannedActivation {
     /// Goblin id such as H3.
     pub goblin: String,
@@ -128,6 +132,7 @@ pub struct PlannedActivation {
 
 /// Arguments of play.
 #[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 pub struct PlayArgs {
     /// Activations resolved in this order; resolution stops at the first that ends your turn.
     pub activations: Vec<PlannedActivation>,
@@ -143,6 +148,7 @@ pub struct PlayArgs {
 
 /// What happened to one planned activation.
 #[derive(Debug, Serialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 pub struct ActivationReport {
     /// The goblin.
     pub goblin: String,
@@ -158,6 +164,7 @@ pub struct ActivationReport {
 
 /// Result of play.
 #[derive(Debug, Serialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 pub struct PlayReport {
     /// One report per planned activation, in order.
     pub activations: Vec<ActivationReport>,
@@ -598,4 +605,29 @@ pub async fn serve_mcp(
         .nest_service("/mcp", service)
         .layer(middleware::from_fn_with_state(seats, authorize));
     axum::serve(listener, app).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn has_integer_width_format<T: JsonSchema>() -> bool {
+        let schema = serde_json::to_string(&schemars::schema_for!(T)).unwrap_or_default();
+        schema.contains("\"format\":\"uint") || schema.contains("\"format\":\"int")
+    }
+
+    #[test]
+    fn given_the_play_arguments_schema_when_generated_then_no_integer_width_format_remains() {
+        assert!(!has_integer_width_format::<PlayArgs>());
+    }
+
+    #[test]
+    fn given_the_play_report_schema_when_generated_then_no_integer_width_format_remains() {
+        assert!(!has_integer_width_format::<PlayReport>());
+    }
+
+    #[test]
+    fn given_the_wait_arguments_schema_when_generated_then_no_integer_width_format_remains() {
+        assert!(!has_integer_width_format::<WaitArgs>());
+    }
 }

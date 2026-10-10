@@ -29,6 +29,7 @@ pub enum OddsHints {
 
 /// Whether the agent should act.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 #[serde(rename_all = "snake_case")]
 pub enum CoachStatus {
     /// Your team is playing: act now, the clock runs.
@@ -41,6 +42,7 @@ pub enum CoachStatus {
 
 /// A value for each team.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 pub struct PerTeam {
     /// Home team (H, defends the west den).
     pub home: u8,
@@ -50,6 +52,7 @@ pub struct PerTeam {
 
 /// One goblin as the agent sees it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 pub struct GoblinView {
     /// Id such as H3 or A7.
     pub id: String,
@@ -79,6 +82,7 @@ pub struct GoblinView {
 
 /// An assault one of your goblins could make without moving.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 pub struct AssaultOption {
     /// Your goblin.
     pub attacker: String,
@@ -92,6 +96,7 @@ pub struct AssaultOption {
 
 /// The match as seen from one seat.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
 pub struct CoachView {
     /// your_turn, waiting or game_over.
     pub status: CoachStatus,
@@ -117,6 +122,31 @@ pub struct CoachView {
     pub assault_options: Vec<AssaultOption>,
     /// What happened since your previous call.
     pub events: Vec<serde_json::Value>,
+}
+
+/// Removes the integer width formats (`uint8`, `uint64`, ...) that schemars writes and strict JSON Schema
+/// validators reject, keeping plain `integer` types.
+pub fn drop_integer_formats(schema: &mut schemars::Schema) {
+    fn walk(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(map) => {
+                let names_an_integer_width = map
+                    .get("format")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|format| format.starts_with("int") || format.starts_with("uint"));
+                if names_an_integer_width {
+                    map.remove("format");
+                }
+                map.values_mut().for_each(walk);
+            }
+            serde_json::Value::Array(items) => items.iter_mut().for_each(walk),
+            _ => {}
+        }
+    }
+    if let Some(map) = schema.as_object_mut() {
+        map.values_mut().for_each(walk);
+        map.remove("format");
+    }
 }
 
 /// Builds the view of `snapshot` for the coach of `seat`, with the events it has not seen yet.
@@ -409,5 +439,11 @@ mod tests {
             describe_chance(Probability::new(5, 8), OddsHints::Dice),
             None
         );
+    }
+
+    #[test]
+    fn given_the_coach_view_schema_when_generated_then_no_integer_width_format_remains() {
+        let schema = serde_json::to_string(&schemars::schema_for!(CoachView)).unwrap();
+        assert!(!schema.contains("\"format\":\"uint") && !schema.contains("\"format\":\"int"));
     }
 }
