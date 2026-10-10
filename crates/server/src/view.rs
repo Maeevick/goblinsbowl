@@ -8,8 +8,10 @@ use goblins_rules::board::render_board;
 use goblins_rules::command::{Action, Activation};
 use goblins_rules::event::GameEvent;
 use goblins_rules::host::{MatchSnapshot, TurnClock};
-use goblins_rules::odds::Probability;
-use goblins_rules::preview::{activation_odds, assault_dice};
+use goblins_rules::odds::{ContestDice, Probability};
+use goblins_rules::preview::{
+    ActionOdds, ActivationOdds, RiskyStep, activation_odds, assault_dice,
+};
 use goblins_rules::ruleset::Ruleset;
 use goblins_rules::state::{Ball, Goblin, Phase, Presence};
 use goblins_rules::team::TeamId;
@@ -206,6 +208,88 @@ pub fn describe_chance(chance: Probability, hints: OddsHints) -> Option<String> 
     })
 }
 
+/// Which dice face off, for example "d4 vs d4+1".
+pub fn describe_dice(dice: &ContestDice) -> String {
+    let modifier = if dice.opponent_modifier == 0 {
+        String::new()
+    } else {
+        format!("{:+}", dice.opponent_modifier)
+    };
+    format!(
+        "d{} vs d{}{modifier}",
+        dice.actor_faces, dice.opponent_faces
+    )
+}
+
+/// What an agent is told about a planned activation: every roll with its dice, and its chance
+/// when odds hints are full; nothing when hints are off.
+pub fn odds_lines(odds: &ActivationOdds, hints: OddsHints) -> Vec<String> {
+    if hints == OddsHints::None {
+        return Vec::new();
+    }
+    let annotate = |text: String, dice: Option<String>, chance: Probability| match (
+        dice,
+        describe_chance(chance, hints),
+    ) {
+        (Some(dice), Some(chance)) => format!("{text}: {dice}, {chance}"),
+        (Some(dice), None) => format!("{text}: {dice}"),
+        (None, Some(chance)) => format!("{text}: {chance}"),
+        (None, None) => text,
+    };
+    let mut lines: Vec<String> = odds
+        .risky_steps
+        .iter()
+        .map(|step| match step {
+            RiskyStep::Dodge {
+                from,
+                tackler,
+                dice,
+                success,
+            } => annotate(
+                format!("dodge out of [{}, {}] past {tackler}", from.x, from.y),
+                Some(describe_dice(dice)),
+                *success,
+            ),
+            RiskyStep::Pick { at, success } => {
+                annotate(format!("pick at [{}, {}]", at.x, at.y), None, *success)
+            }
+        })
+        .collect();
+    match &odds.action {
+        Some(ActionOdds::Assault {
+            target,
+            dice,
+            success,
+        }) => lines.push(annotate(
+            format!("assault {target}"),
+            dice.as_ref().map(describe_dice),
+            *success,
+        )),
+        Some(ActionOdds::Throw {
+            receiver,
+            throw,
+            interceptions,
+            catch,
+            success,
+        }) => {
+            lines.push(annotate(format!("throw to {receiver}"), None, *throw));
+            lines.extend(interceptions.iter().map(|(interceptor, chance)| {
+                annotate(format!("interception by {interceptor}"), None, *chance)
+            }));
+            lines.push(annotate(format!("catch by {receiver}"), None, *catch));
+            lines.push(annotate(format!("ball reaches {receiver}"), None, *success));
+        }
+        Some(ActionOdds::Stance) | None => {}
+    }
+    if odds.scores_on_the_way {
+        lines.push("scores on the way".to_string());
+    }
+    if let Some(chance) = describe_chance(odds.overall_success, hints) {
+        lines.push(format!("no knockdown nor fumble: {chance}"));
+    }
+    lines
+}
+
 fn describe_seat(arena: &Arena, seat: TeamId) -> String {
     let column = |team: TeamId| {
         arena
@@ -312,18 +396,9 @@ fn assault_options(
             AssaultOption {
                 attacker: attacker.id.to_string(),
                 target: defender.id.to_string(),
-                dice: dice.filter(|_| hints != OddsHints::None).map(|dice| {
-                    format!(
-                        "d{} vs d{}{}",
-                        dice.actor_faces,
-                        dice.opponent_faces,
-                        if dice.opponent_modifier == 0 {
-                            String::new()
-                        } else {
-                            format!("{:+}", dice.opponent_modifier)
-                        }
-                    )
-                }),
+                dice: dice
+                    .filter(|_| hints != OddsHints::None)
+                    .map(|dice| describe_dice(&dice)),
                 success_percent: (hints == OddsHints::Full)
                     .then(|| (chance.as_percentage() * 10.0).round() / 10.0),
             }
@@ -333,6 +408,67 @@ fn assault_options(
 
 #[cfg(test)]
 mod tests {
+    fn walk_with_a_dodge_then_an_assault() -> ActivationOdds {
+        let dice = ContestDice {
+            actor_faces: 4,
+            opponent_faces: 4,
+            opponent_modifier: 1,
+        };
+        ActivationOdds {
+            risky_steps: vec![RiskyStep::Dodge {
+                from: goblins_rules::square::Square::new(5, 7),
+                tackler: "A1".parse().unwrap(),
+                dice,
+                success: Probability::new(3, 8),
+            }],
+            path_success: Probability::new(3, 8),
+            scores_on_the_way: false,
+            action: Some(ActionOdds::Assault {
+                target: "A2".parse().unwrap(),
+                dice: Some(ContestDice {
+                    opponent_modifier: 0,
+                    ..dice
+                }),
+                success: Probability::new(5, 8),
+            }),
+            overall_success: Probability::new(15, 64),
+        }
+    }
+
+    #[test]
+    fn given_dice_hints_when_describing_odds_then_the_dice_without_chances() {
+        assert_eq!(
+            odds_lines(&walk_with_a_dodge_then_an_assault(), OddsHints::Dice),
+            [
+                "dodge out of [5, 7] past A1: d4 vs d4+1",
+                "assault A2: d4 vs d4"
+            ]
+        );
+    }
+
+    #[test]
+    fn given_full_hints_when_describing_odds_then_dice_and_chances() {
+        assert_eq!(
+            odds_lines(&walk_with_a_dodge_then_an_assault(), OddsHints::Full).first(),
+            Some(&"dodge out of [5, 7] past A1: d4 vs d4+1, 37.5 % (3/8)".to_string())
+        );
+    }
+
+    #[test]
+    fn given_no_hints_when_describing_odds_then_nothing() {
+        assert!(odds_lines(&walk_with_a_dodge_then_an_assault(), OddsHints::None).is_empty());
+    }
+
+    #[test]
+    fn given_a_downed_defender_when_describing_dice_then_the_malus_is_signed() {
+        let dice = ContestDice {
+            actor_faces: 3,
+            opponent_faces: 2,
+            opponent_modifier: -2,
+        };
+        assert_eq!(describe_dice(&dice), "d3 vs d2-2");
+    }
+
     use super::*;
     use goblins_rules::host::{MatchHost, MatchSetup, SeatKind};
     use goblins_rules::roster::Roster;

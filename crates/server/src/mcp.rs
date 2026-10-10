@@ -16,7 +16,7 @@ use goblins_rules::command::{Action, Activation, Command};
 use goblins_rules::event::{GameEvent, TurnEndReason};
 use goblins_rules::host::MatchSnapshot;
 use goblins_rules::paths::safest_path;
-use goblins_rules::preview::{ActionOdds, RiskyStep, activation_odds};
+use goblins_rules::preview::activation_odds;
 use goblins_rules::roster::GoblinId;
 use goblins_rules::square::Square;
 use goblins_rules::team::TeamId;
@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 use crate::call_log::{CallEntry, CallLog};
 use crate::match_server::MatchClient;
 use crate::view::drop_integer_formats;
-use crate::view::{CoachView, OddsHints, coach_view, describe_chance};
+use crate::view::{CoachView, OddsHints, coach_view, odds_lines};
 
 const LONGEST_WAIT_SECONDS: u64 = 50;
 const DEFAULT_WAIT_SECONDS: u64 = 45;
@@ -476,76 +476,15 @@ impl CoachServer {
         seat: TeamId,
         activation: &Activation,
     ) -> Vec<String> {
-        if self.hints != OddsHints::Full {
-            return Vec::new();
-        }
-        let Ok(odds) = activation_odds(
+        activation_odds(
             self.client.arena(),
             self.client.ruleset(),
             &snapshot.state,
             seat,
             activation,
-        ) else {
-            return Vec::new();
-        };
-        let chance = |probability| describe_chance(probability, self.hints).unwrap_or_default();
-        let mut lines: Vec<String> = odds
-            .risky_steps
-            .iter()
-            .map(|step| match step {
-                RiskyStep::Dodge {
-                    from,
-                    tackler,
-                    success,
-                    ..
-                } => format!(
-                    "dodge out of [{}, {}] past {tackler}: {}",
-                    from.x,
-                    from.y,
-                    chance(*success)
-                ),
-                RiskyStep::Pick { at, success } => {
-                    format!("pick at [{}, {}]: {}", at.x, at.y, chance(*success))
-                }
-            })
-            .collect();
-        match &odds.action {
-            Some(ActionOdds::Assault {
-                target, success, ..
-            }) => {
-                lines.push(format!("assault {target}: {}", chance(*success)));
-            }
-            Some(ActionOdds::Throw {
-                receiver,
-                throw,
-                interceptions,
-                catch,
-                success,
-            }) => {
-                lines.push(format!("throw to {receiver}: {}", chance(*throw)));
-                lines.extend(
-                    interceptions
-                        .iter()
-                        .map(|(interceptor, chance_to_intercept)| {
-                            format!(
-                                "interception by {interceptor}: {}",
-                                chance(*chance_to_intercept)
-                            )
-                        }),
-                );
-                lines.push(format!("catch by {receiver}: {}", chance(*catch)));
-                lines.push(format!("ball reaches {receiver}: {}", chance(*success)));
-            }
-            Some(ActionOdds::Stance) | None => {}
-        }
-        if odds.scores_on_the_way {
-            lines.push("scores on the way".to_string());
-        }
-        lines.push(format!(
-            "no knockdown nor fumble: {}",
-            chance(odds.overall_success)
-        ));
-        lines
+        )
+        .map(|odds| odds_lines(&odds, self.hints))
+        .unwrap_or_default()
     }
 }
 
