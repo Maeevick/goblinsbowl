@@ -24,6 +24,8 @@ pub(crate) mod scenario;
 mod scoring_tests;
 mod throwing;
 mod turns;
+#[cfg(test)]
+mod turns_tests;
 
 /// Why a match cannot start.
 #[derive(Debug, Error, PartialEq, Eq)]

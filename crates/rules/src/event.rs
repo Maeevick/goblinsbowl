@@ -207,4 +207,14 @@ pub enum GameEvent {
         /// Why it ended.
         reason: TurnEndReason,
     },
+    /// Both teams used all their turns of the half.
+    HalfEnded {
+        /// The half that just ended.
+        half: u8,
+    },
+    /// The final whistle went.
+    GameEnded {
+        /// Final points per team.
+        score: Vec<u8>,
+    },
 }

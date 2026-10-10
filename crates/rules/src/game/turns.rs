@@ -38,6 +38,9 @@ impl<D: DiceRoller> Game<D> {
                 .into_iter()
                 .map(|goblin| GameEvent::StoodUp { goblin }),
         );
+        if !self.has_goblin_able_to_act(team) {
+            self.finish_turn(TurnEndReason::NoGoblinCanAct, events);
+        }
     }
 
     pub(super) fn finish_turn(&mut self, reason: TurnEndReason, events: &mut Vec<GameEvent>) {
@@ -45,7 +48,37 @@ impl<D: DiceRoller> Game<D> {
             return;
         };
         events.push(GameEvent::TurnEnded { team, reason });
-        self.start_turn(team.duel_opponent(), events);
+        match self.next_team_to_play(team.duel_opponent(), team) {
+            Some(next) => self.start_turn(next, events),
+            None => self.end_half(events),
+        }
+    }
+
+    fn next_team_to_play(&self, preferred: TeamId, fallback: TeamId) -> Option<TeamId> {
+        [preferred, fallback].into_iter().find(|team| {
+            self.state
+                .turns_played
+                .get(team.index())
+                .is_some_and(|played| *played < self.ruleset.turns_per_half)
+        })
+    }
+
+    fn end_half(&mut self, events: &mut Vec<GameEvent>) {
+        events.push(GameEvent::HalfEnded {
+            half: self.state.half,
+        });
+        if self.state.half < self.ruleset.halves {
+            self.state.half += 1;
+            self.state.turns_played = vec![0; self.state.turns_played.len()];
+            let receiving_team = self.state.opening_team.duel_opponent();
+            self.kick_off(receiving_team, events);
+            self.start_turn(receiving_team, events);
+        } else {
+            self.state.phase = Phase::Finished;
+            events.push(GameEvent::GameEnded {
+                score: self.state.score.clone(),
+            });
+        }
     }
 
     pub(super) fn has_goblin_able_to_act(&self, team: TeamId) -> bool {
@@ -74,8 +107,12 @@ impl<D: DiceRoller> Game<D> {
                 reason: TurnEndReason::Score,
             });
         }
-        let receiving_team = team.duel_opponent();
-        self.kick_off(receiving_team, events);
-        self.start_turn(receiving_team, events);
+        match self.next_team_to_play(team.duel_opponent(), team) {
+            Some(receiving_team) => {
+                self.kick_off(receiving_team, events);
+                self.start_turn(receiving_team, events);
+            }
+            None => self.end_half(events),
+        }
     }
 }

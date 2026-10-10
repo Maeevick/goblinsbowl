@@ -75,4 +75,19 @@ impl Scenario {
         Game::resume(self.ruleset, self.state, ScriptedDice::new(scripted_rolls))
             .expect("scenario ruleset is valid")
     }
+
+    pub(crate) fn turns(mut self, home: u8, away: u8) -> Self {
+        self.state.turns_played = vec![home, away];
+        self
+    }
+
+    pub(crate) fn active(mut self, team: TeamId) -> Self {
+        self.state.phase = Phase::Playing { active_team: team };
+        self
+    }
+
+    pub(crate) fn half(mut self, half: u8) -> Self {
+        self.state.half = half;
+        self
+    }
 }
