@@ -11,6 +11,7 @@ use crate::roster::{GoblinId, Roster, RosterError};
 use crate::ruleset::{Ruleset, RulesetError};
 use crate::state::{Ball, GameState, Goblin, Phase, Presence};
 use crate::team::TeamId;
+use crate::validation::validate_activation;
 use crate::violation::RuleViolation;
 
 mod activation;
@@ -160,7 +161,7 @@ impl<D: DiceRoller> Game<D> {
         let mut events = Vec::new();
         match command {
             Command::Act(activation) => {
-                self.validate_activation(team, &activation)?;
+                validate_activation(&self.arena, &self.state, team, &activation)?;
                 self.resolve_activation(activation, &mut events);
             }
             Command::EndTurn => self.finish_turn(TurnEndReason::EndTurn, &mut events),

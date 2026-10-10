@@ -18,4 +18,5 @@ pub mod ruleset;
 pub mod square;
 pub mod state;
 pub mod team;
+pub mod validation;
 pub mod violation;

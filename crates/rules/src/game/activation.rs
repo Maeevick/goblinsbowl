@@ -7,109 +7,10 @@ use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::state::{Ball, Presence};
 use crate::team::TeamId;
-use crate::violation::RuleViolation;
 
 use super::Game;
 
 impl<D: DiceRoller> Game<D> {
-    pub(super) fn validate_activation(
-        &self,
-        team: TeamId,
-        activation: &Activation,
-    ) -> Result<(), RuleViolation> {
-        let id = activation.goblin;
-        let goblin = self
-            .state
-            .goblin(id)
-            .ok_or(RuleViolation::UnknownGoblin { goblin: id })?;
-        if goblin.team() != team {
-            return Err(RuleViolation::NotYourGoblin { goblin: id });
-        }
-        let Presence::Standing(start) = goblin.presence else {
-            return Err(RuleViolation::NotStanding { goblin: id });
-        };
-        if goblin.has_acted {
-            return Err(RuleViolation::AlreadyActed { goblin: id });
-        }
-        let movement = goblin.characteristics.movement;
-        if activation.path.len() > usize::from(movement) {
-            return Err(RuleViolation::PathTooLong {
-                goblin: id,
-                movement,
-                steps: activation.path.len(),
-            });
-        }
-        let mut visited = vec![start];
-        for (index, square) in activation.path.iter().copied().enumerate() {
-            let previous = visited.last().copied().unwrap_or(start);
-            if !previous.is_orthogonally_adjacent(square) {
-                return Err(RuleViolation::PathNotContiguous { index, square });
-            }
-            if !self.arena.is_in_bounds(square) {
-                return Err(RuleViolation::PathLeavesTheBowl { square });
-            }
-            if visited.contains(&square) {
-                return Err(RuleViolation::PathRevisitsSquare { square });
-            }
-            if self.state.goblin_at(square).is_some() {
-                return Err(RuleViolation::PathBlocked { square });
-            }
-            visited.push(square);
-        }
-        let final_square = visited.last().copied().unwrap_or(start);
-        match activation.action {
-            None | Some(Action::Stance) => Ok(()),
-            Some(Action::Assault { target }) => self.validate_assault(team, final_square, target),
-            Some(Action::Throw { receiver }) => {
-                self.validate_throw(team, id, &activation.path, receiver)
-            }
-        }
-    }
-
-    fn validate_assault(
-        &self,
-        team: TeamId,
-        attacker_square: Square,
-        target: GoblinId,
-    ) -> Result<(), RuleViolation> {
-        let defender = self
-            .state
-            .goblin(target)
-            .ok_or(RuleViolation::UnknownGoblin { goblin: target })?;
-        if defender.team() == team {
-            return Err(RuleViolation::TargetNotAnOpponent { target });
-        }
-        let Some(defender_square) = defender.square() else {
-            return Err(RuleViolation::TargetNotOnTheBowl { target });
-        };
-        if !attacker_square.is_orthogonally_adjacent(defender_square) {
-            return Err(RuleViolation::TargetNotAdjacent { target });
-        }
-        Ok(())
-    }
-
-    fn validate_throw(
-        &self,
-        team: TeamId,
-        thrower: GoblinId,
-        path: &[Square],
-        receiver: GoblinId,
-    ) -> Result<(), RuleViolation> {
-        let holds_the_ball = self.state.carrier() == Some(thrower);
-        let picks_it_on_the_way =
-            matches!(self.state.ball, Ball::Loose { at } if path.contains(&at));
-        if !holds_the_ball && !picks_it_on_the_way {
-            return Err(RuleViolation::ThrowWithoutBall { goblin: thrower });
-        }
-        let can_receive = self.state.goblin(receiver).is_some_and(|goblin| {
-            goblin.team() == team && goblin.id != thrower && goblin.is_standing()
-        });
-        if !can_receive {
-            return Err(RuleViolation::ReceiverUnavailable { receiver });
-        }
-        Ok(())
-    }
-
     pub(super) fn resolve_activation(
         &mut self,
         activation: Activation,
