@@ -70,4 +70,4 @@ An agent meeting all six manages risk well under these conditions; the report sa
 
 ## Changes to this protocol
 
-None yet.
+- **10 Oct 2026, before the first batch.** Coaches now start in their own folder outside this repository, with skills disabled, so no auto-memory, CLAUDE.md or skill text of the machine reaches them (the spike's coaches ran from the repository and could have seen its memory notes). The first batch plays seeds 1 to 5 from each seat (`scripts/assessment-batch.sh`), which is how "seats alternating" is applied. A coach that stops before the final whistle is resumed once with its context, never after hitting its budget.
