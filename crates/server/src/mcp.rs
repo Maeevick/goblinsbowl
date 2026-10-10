@@ -59,6 +59,33 @@ pub struct SeatTokens {
 #[derive(Clone, Copy, Debug)]
 struct Seat(TeamId);
 
+/// What the server remembers about a seat between calls: the events it already saw and the turn it last looked at.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SeatMemory {
+    event_cursor: usize,
+    turn_seen: Option<TurnMark>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct TurnMark {
+    half: u8,
+    turns_started: u16,
+    active_team: Option<TeamId>,
+}
+
+fn turn_mark(snapshot: &MatchSnapshot) -> TurnMark {
+    TurnMark {
+        half: snapshot.state.half,
+        turns_started: snapshot
+            .state
+            .turns_played
+            .iter()
+            .map(|turns| u16::from(*turns))
+            .sum(),
+        active_team: snapshot.state.active_team(),
+    }
+}
+
 /// Arguments of wait_for_my_turn.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct WaitArgs {
@@ -142,7 +169,7 @@ pub struct PlayReport {
 #[derive(Clone)]
 pub struct CoachServer {
     client: MatchClient,
-    cursors: Arc<Mutex<[usize; 2]>>,
+    memories: Arc<Mutex<[SeatMemory; 2]>>,
     hints: OddsHints,
     tool_router: ToolRouter<Self>,
 }
@@ -150,10 +177,14 @@ pub struct CoachServer {
 #[tool_router]
 impl CoachServer {
     /// A coach server answering for the seat found in each request.
-    pub fn new(client: MatchClient, cursors: Arc<Mutex<[usize; 2]>>, hints: OddsHints) -> Self {
+    pub fn new(
+        client: MatchClient,
+        memories: Arc<Mutex<[SeatMemory; 2]>>,
+        hints: OddsHints,
+    ) -> Self {
         Self {
             client,
-            cursors,
+            memories,
             hints,
             tool_router: Self::tool_router(),
         }
@@ -221,6 +252,12 @@ impl CoachServer {
                 snapshot.version
             ));
         }
+        if !arguments.dry_run && self.memory_of(seat).turn_seen != Some(turn_mark(&snapshot)) {
+            return Err(
+                "the turn changed since you last looked: call get_state (or wait_for_my_turn) and plan again"
+                    .to_string(),
+            );
+        }
         let mut reports = Vec::new();
         for (index, planned) in arguments.activations.iter().enumerate() {
             let snapshot = self.client.latest();
@@ -284,19 +321,26 @@ impl ServerHandler for CoachServer {
 }
 
 impl CoachServer {
-    async fn view_for(&self, seat: TeamId) -> Result<CoachView, String> {
-        let cursor = self
-            .cursors
+    fn memory_of(&self, seat: TeamId) -> SeatMemory {
+        self.memories
             .lock()
-            .map(|cursors| cursors[seat.index()])
-            .unwrap_or_default();
+            .map(|memories| memories[seat.index()])
+            .unwrap_or_default()
+    }
+
+    async fn view_for(&self, seat: TeamId) -> Result<CoachView, String> {
+        let cursor = self.memory_of(seat).event_cursor;
         let (events, next_cursor) = self
             .client
             .events_since(cursor)
             .await
             .map_err(|error| error.to_string())?;
-        if let Ok(mut cursors) = self.cursors.lock() {
-            cursors[seat.index()] = next_cursor;
+        let turn_seen = turn_mark(&self.client.latest());
+        if let Ok(mut memories) = self.memories.lock() {
+            memories[seat.index()] = SeatMemory {
+                event_cursor: next_cursor,
+                turn_seen: Some(turn_seen),
+            };
         }
         if self.client.latest().state.active_team() == Some(seat) {
             self.client
@@ -538,10 +582,10 @@ pub async fn serve_mcp(
     tokens: SeatTokens,
     hints: OddsHints,
 ) -> std::io::Result<()> {
-    let cursors = Arc::new(Mutex::new([0_usize; 2]));
+    let memories = Arc::new(Mutex::new([SeatMemory::default(); 2]));
     let service: StreamableHttpService<CoachServer, LocalSessionManager> =
         StreamableHttpService::new(
-            move || Ok(CoachServer::new(client.clone(), cursors.clone(), hints)),
+            move || Ok(CoachServer::new(client.clone(), memories.clone(), hints)),
             Default::default(),
             StreamableHttpServerConfig::default()
                 .with_allowed_origins(["http://localhost:*", "http://127.0.0.1:*"]),

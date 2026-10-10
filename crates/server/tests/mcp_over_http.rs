@@ -118,6 +118,7 @@ async fn given_the_playing_seat_when_it_ends_its_turn_then_its_view_says_waiting
     let server = start_server().await?;
     let team = server.client.latest().state.active_team().unwrap();
     let coach = coach(&server.url, token_of(team)).await?;
+    call(&coach, "get_state", json!({})).await?;
     let report =
         structured(&call(&coach, "play", json!({"activations": [], "end_turn": true})).await?);
     assert_eq!(report["view"]["status"], "waiting");
@@ -220,5 +221,37 @@ async fn given_an_agent_whose_turn_waits_when_it_reads_the_state_then_its_clock_
         server.client.latest().clock,
         goblins_rules::host::TurnClock::Running { .. }
     ));
+    Ok(())
+}
+
+#[tokio::test]
+async fn given_a_plan_made_on_an_earlier_turn_when_played_then_refused() -> Outcome<()> {
+    let server = start_server().await?;
+    let team = server.client.latest().state.active_team().unwrap();
+    let coach = coach(&server.url, token_of(team)).await?;
+    call(&coach, "get_state", json!({})).await?;
+    server
+        .client
+        .submit(team, goblins_rules::command::Command::EndTurn)
+        .await?;
+    server
+        .client
+        .submit(
+            team.duel_opponent(),
+            goblins_rules::command::Command::EndTurn,
+        )
+        .await?;
+    let result = call(&coach, "play", json!({"activations": [], "end_turn": true})).await?;
+    assert!(text_of(&result).contains("the turn changed since you last looked"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn given_a_coach_that_never_looked_when_it_plays_then_refused() -> Outcome<()> {
+    let server = start_server().await?;
+    let team = server.client.latest().state.active_team().unwrap();
+    let coach = coach(&server.url, token_of(team)).await?;
+    let result = call(&coach, "play", json!({"activations": [], "end_turn": true})).await?;
+    assert!(text_of(&result).contains("the turn changed since you last looked"));
     Ok(())
 }
