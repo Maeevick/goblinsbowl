@@ -326,6 +326,9 @@ struct OrderBar;
 struct DraftLine;
 
 #[derive(Component)]
+struct DiceLine;
+
+#[derive(Component)]
 struct ConfirmLine;
 
 #[derive(Component)]
@@ -348,10 +351,12 @@ type DraftLineText<'w, 's> = Single<
     'w,
     's,
     (&'static mut Text, &'static mut TextColor),
-    (With<DraftLine>, Without<ConfirmLine>),
+    (With<DraftLine>, Without<DiceLine>, Without<ConfirmLine>),
 >;
+type DiceLineText<'w, 's> =
+    Single<'w, 's, &'static mut Text, (With<DiceLine>, Without<DraftLine>, Without<ConfirmLine>)>;
 type ConfirmLineText<'w, 's> =
-    Single<'w, 's, &'static mut Text, (With<ConfirmLine>, Without<DraftLine>)>;
+    Single<'w, 's, &'static mut Text, (With<ConfirmLine>, Without<DraftLine>, Without<DiceLine>)>;
 
 /// Turns clicks on the board into orders for the human team in control, showing reach and risk.
 pub struct OrdersPlugin;
@@ -452,6 +457,10 @@ fn spawn_order_bar(mut commands: Commands, assets: Res<AssetServer>, texts: Res<
         OrderBar,
         children![
             (text_bundle("", &bold, 24.0, Color::WHITE), DraftLine),
+            (
+                text_bundle("", &reading, 18.0, Color::srgb(0.92, 0.92, 0.88)),
+                DiceLine
+            ),
             (
                 text_bundle("", &reading, 18.0, Color::srgb(1.0, 0.85, 0.45)),
                 ConfirmLine
@@ -629,6 +638,7 @@ fn refresh_order_bar(
     texts: Res<Texts>,
     mut bar: Single<&mut Visibility, With<OrderBar>>,
     mut draft_line: DraftLineText,
+    mut dice_line: DiceLineText,
     mut confirm_line: ConfirmLineText,
 ) {
     let (Some(draft), Some(team)) = (&prepared.0, coach_giving_orders(&view.snapshot)) else {
@@ -640,10 +650,11 @@ fn refresh_order_bar(
     let odds = draft.aim.and_then(|_| {
         activation_odds(&view.arena, &view.ruleset, state, team, &draft.activation).ok()
     });
-    let (line, colour, hint) = match odds {
+    let (line, colour, dice, hint) = match odds {
         Some(odds) => (
             texts.describe_draft(&draft.activation, &odds),
             risk_colour(risk_of(odds.overall_success)),
+            texts.dice_detail(&odds),
             texts.confirm_hint().to_string(),
         ),
         None => (
@@ -653,6 +664,7 @@ fn refresh_order_bar(
                 .unwrap_or_default(),
             Color::WHITE,
             String::new(),
+            String::new(),
         ),
     };
     let (text, text_colour) = &mut *draft_line;
@@ -660,6 +672,9 @@ fn refresh_order_bar(
         text.0 = line;
     }
     text_colour.set_if_neq(TextColor(colour));
+    if dice_line.0 != dice {
+        dice_line.0 = dice;
+    }
     if confirm_line.0 != hint {
         confirm_line.0 = hint;
     }

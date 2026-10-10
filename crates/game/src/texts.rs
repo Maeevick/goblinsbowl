@@ -4,8 +4,8 @@ use clap::ValueEnum;
 use goblins_rules::characteristics::Archetype;
 use goblins_rules::command::{Action, Activation};
 use goblins_rules::event::{GameEvent, TurnEndReason};
-use goblins_rules::odds::Probability;
-use goblins_rules::preview::ActivationOdds;
+use goblins_rules::odds::{ContestDice, Probability};
+use goblins_rules::preview::{ActionOdds, ActivationOdds, RiskyStep};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::team::TeamId;
 
@@ -132,6 +132,30 @@ impl Texts {
             (false, None, true) => format!("Aller ici : {chance}"),
             (false, None, false) => format!("Move here: {chance}"),
         }
+    }
+
+    /// The dice an aimed order rolls, for example "Esquive de A1 : d4 contre d4 · Assaut : d4 contre d4+1".
+    pub fn dice_detail(&self, odds: &ActivationOdds) -> String {
+        let versus = if self.french() { "contre" } else { "vs" };
+        let dodges = odds.risky_steps.iter().filter_map(|step| match step {
+            RiskyStep::Dodge { tackler, dice, .. } => Some(if self.french() {
+                format!("Esquive de {tackler} : {}", describe_dice(dice, versus))
+            } else {
+                format!("Dodge past {tackler}: {}", describe_dice(dice, versus))
+            }),
+            RiskyStep::Pick { .. } => None,
+        });
+        let assault = match &odds.action {
+            Some(ActionOdds::Assault {
+                dice: Some(dice), ..
+            }) => Some(if self.french() {
+                format!("Assaut : {}", describe_dice(dice, versus))
+            } else {
+                format!("Assault: {}", describe_dice(dice, versus))
+            }),
+            _ => None,
+        };
+        dodges.chain(assault).collect::<Vec<_>>().join(" · ")
     }
 
     /// Hint shown under an aimed order.
@@ -444,6 +468,18 @@ fn describe_ball_roll(roll: &goblins_rules::event::BallRoll, on: &str) -> String
     }
 }
 
+fn describe_dice(dice: &ContestDice, versus: &str) -> String {
+    let modifier = match dice.opponent_modifier {
+        0 => String::new(),
+        positive if positive > 0 => format!("+{positive}"),
+        negative => format!("−{}", negative.unsigned_abs()),
+    };
+    format!(
+        "d{} {versus} d{}{modifier}",
+        dice.actor_faces, dice.opponent_faces
+    )
+}
+
 fn describe_contest(contest: &goblins_rules::event::ContestRoll, versus: &str) -> String {
     let modifier = match contest.opponent_modifier {
         0 => String::new(),
@@ -537,6 +573,51 @@ mod tests {
             FRENCH.describe_draft(&order("H5", 3, None), &odds(Probability::new(3, 4), true)),
             "Marquer ! 75,0 %"
         );
+    }
+
+    fn dice(actor_faces: u8, opponent_faces: u8, opponent_modifier: i8) -> ContestDice {
+        ContestDice {
+            actor_faces,
+            opponent_faces,
+            opponent_modifier,
+        }
+    }
+
+    #[test]
+    fn given_french_when_detailing_an_assault_on_a_braced_defender_then_both_dice_and_the_bonus() {
+        let mut preview = odds(Probability::new(3, 8), false);
+        preview.action = Some(ActionOdds::Assault {
+            target: id("A1"),
+            dice: Some(dice(4, 4, 1)),
+            success: Probability::new(3, 8),
+        });
+        assert_eq!(FRENCH.dice_detail(&preview), "Assaut : d4 contre d4+1");
+    }
+
+    #[test]
+    fn given_english_when_detailing_a_dodge_then_an_assault_on_a_downed_goblin_then_both_in_order()
+    {
+        let mut preview = odds(Probability::new(1, 2), false);
+        preview.risky_steps = vec![RiskyStep::Dodge {
+            from: goblins_rules::square::Square::new(5, 7),
+            tackler: id("A1"),
+            dice: dice(4, 4, 0),
+            success: Probability::new(5, 8),
+        }];
+        preview.action = Some(ActionOdds::Assault {
+            target: id("A2"),
+            dice: Some(dice(3, 2, -2)),
+            success: Probability::CERTAIN,
+        });
+        assert_eq!(
+            ENGLISH.dice_detail(&preview),
+            "Dodge past A1: d4 vs d4 · Assault: d3 vs d2−2"
+        );
+    }
+
+    #[test]
+    fn given_a_walk_without_dice_when_detailing_it_then_nothing() {
+        assert_eq!(FRENCH.dice_detail(&odds(Probability::CERTAIN, false)), "");
     }
 
     #[test]
