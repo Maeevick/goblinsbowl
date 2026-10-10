@@ -435,6 +435,7 @@ impl CoachServer {
                     from,
                     tackler,
                     success,
+                    ..
                 } => format!(
                     "dodge out of [{}, {}] past {tackler}: {}",
                     from.x,
@@ -447,7 +448,9 @@ impl CoachServer {
             })
             .collect();
         match &odds.action {
-            Some(ActionOdds::Assault { target, success }) => {
+            Some(ActionOdds::Assault {
+                target, success, ..
+            }) => {
                 lines.push(format!("assault {target}: {}", chance(*success)));
             }
             Some(ActionOdds::Throw {

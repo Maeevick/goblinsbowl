@@ -24,6 +24,8 @@ pub enum RiskyStep {
         from: Square,
         /// The enemy most likely to stop the goblin.
         tackler: GoblinId,
+        /// The dice facing off.
+        dice: ContestDice,
         /// Chance to slip away.
         success: Probability,
     },
@@ -46,6 +48,8 @@ pub enum ActionOdds {
     Assault {
         /// The target.
         target: GoblinId,
+        /// The dice facing off, unless the target is gone.
+        dice: Option<ContestDice>,
         /// Chance to win the contest.
         success: Probability,
     },
@@ -154,10 +158,14 @@ pub fn activation_odds(
         let Some(from) = sketch.goblin(id).and_then(|goblin| goblin.square()) else {
             break;
         };
-        if let Some((tackler, escape)) = most_dangerous_tackler(&sketch, id, from) {
+        let dodge = most_dangerous_tackler(&sketch, id, from).and_then(|(tackler, escape)| {
+            dodge_dice(&sketch, id, tackler).map(|dice| (tackler, dice, escape))
+        });
+        if let Some((tackler, dice, escape)) = dodge {
             risky_steps.push(RiskyStep::Dodge {
                 from,
                 tackler,
+                dice,
                 success: escape,
             });
             path_success = path_success.and(escape);
@@ -208,22 +216,16 @@ fn action_odds(
 ) -> ActionOdds {
     match action {
         Action::Stance => ActionOdds::Stance,
-        Action::Assault { target } => ActionOdds::Assault {
-            target,
-            success: assault_success(ruleset, sketch, actor, target),
-        },
+        Action::Assault { target } => {
+            let dice = assault_dice(ruleset, sketch, actor, target);
+            ActionOdds::Assault {
+                target,
+                dice,
+                success: dice.map_or(Probability::IMPOSSIBLE, ContestDice::success),
+            }
+        }
         Action::Throw { receiver } => throw_odds(ruleset, sketch, actor, receiver),
     }
-}
-
-fn assault_success(
-    ruleset: &Ruleset,
-    sketch: &GameState,
-    attacker: GoblinId,
-    target: GoblinId,
-) -> Probability {
-    assault_dice(ruleset, sketch, attacker, target)
-        .map_or(Probability::IMPOSSIBLE, ContestDice::success)
 }
 
 fn throw_odds(
@@ -435,8 +437,34 @@ mod tests {
             vec![RiskyStep::Dodge {
                 from: Square::new(5, 7),
                 tackler: id("A1"),
+                dice: ContestDice {
+                    actor_faces: 4,
+                    opponent_faces: 4,
+                    opponent_modifier: 0
+                },
                 success: Probability::new(5, 8)
             }]
+        );
+    }
+
+    #[test]
+    fn given_an_assault_on_a_braced_defender_when_previewed_then_its_dice_are_listed() {
+        let scenario = Scenario::new()
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .edit("A1", |goblin| goblin.in_stance = true);
+        let assault = order("H1", &[], Some(Action::Assault { target: id("A1") }));
+        assert_eq!(
+            odds(scenario, &assault).unwrap().action,
+            Some(ActionOdds::Assault {
+                target: id("A1"),
+                dice: Some(ContestDice {
+                    actor_faces: 4,
+                    opponent_faces: 4,
+                    opponent_modifier: 1
+                }),
+                success: Probability::new(3, 8)
+            })
         );
     }
 
