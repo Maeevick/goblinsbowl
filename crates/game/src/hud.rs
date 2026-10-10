@@ -91,6 +91,8 @@ struct RefusalText;
 #[derive(Component)]
 struct EndTurnLabel;
 #[derive(Component)]
+struct EndTurnButton;
+#[derive(Component)]
 struct ReadyLabel;
 
 type ClockLabel<'w, 's> = Single<
@@ -132,6 +134,7 @@ impl Plugin for HudPlugin {
                         refresh_ready_overlay,
                         refresh_final_overlay,
                         refresh_end_turn_label,
+                        show_end_turn_to_humans,
                         restyle_buttons,
                     )
                         .in_set(MatchSystems::Present),
@@ -224,6 +227,7 @@ fn spawn_hud(mut commands: Commands, assets: Res<AssetServer>, texts: Res<Texts>
             ),
             (
                 button(texts.end_turn_button(), &bold, EndTurnLabel),
+                EndTurnButton,
                 observe(end_turn_pressed),
             ),
         ],
@@ -479,6 +483,17 @@ fn refresh_end_turn_label(
     for mut text in &mut labels {
         text.0 = label.to_string();
     }
+}
+
+fn show_end_turn_to_humans(
+    view: Res<MatchView>,
+    mut button: Single<&mut Visibility, With<EndTurnButton>>,
+) {
+    button.set_if_neq(if human_team_in_control(&view.snapshot).is_some() {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    });
 }
 
 fn restyle_buttons(
