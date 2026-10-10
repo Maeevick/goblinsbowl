@@ -35,7 +35,7 @@ Every condition is played on the same match seeds (1 to N), so dice luck is shar
 
 ## Metrics
 
-All of them are computed by replaying the record and joining the call log; the engine supplies the exact success probability of every activation before it was rolled.
+All of them are computed by replaying the record and joining the call log; the engine supplies the exact success probability of every activation before it was rolled. `make assess ARGS="runs/<run>/<start>-seed<seed>.jsonl"` prints metrics 1 to 6, 8 and 9 for both seats (the call log is found next to the record); results (7) come from the record's final score and the bots' balance runs on the same seeds.
 
 1. **Safe-first index.** In each turn, among the activations actually played, the share of pairs (certain, risky) where the certain one came first. 1.0 means every certain activation preceded every risky one.
 2. **Exposure at failure.** When a failed roll ends a turn, the number of the team's goblins that could still have acted. Reported per failure and per match.
