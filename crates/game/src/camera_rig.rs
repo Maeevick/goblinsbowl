@@ -4,6 +4,7 @@ use std::f32::consts::{FRAC_PI_2, TAU};
 
 use bevy::input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit};
 use bevy::prelude::*;
+use goblins_rules::team::TeamId;
 
 const YAW_KEY_SPEED: f32 = 1.6;
 const YAW_DRAG_SPEED: f32 = 0.006;
@@ -51,6 +52,20 @@ impl CameraRig {
             horizontal_reach * self.yaw.cos(),
         );
         Transform::from_translation(self.focus + offset).looking_at(self.focus, Vec3::Y)
+    }
+
+    /// The default rig moved behind `team`'s goblins, looking towards the den they attack.
+    pub fn behind(team: TeamId) -> Self {
+        let yaw = if team == TeamId::HOME {
+            3.0 * FRAC_PI_2
+        } else {
+            FRAC_PI_2
+        };
+        Self {
+            focus: Vec3::ZERO,
+            yaw,
+            ..Self::default()
+        }
     }
 
     /// The rig turned by `angle` radians around the vertical axis, yaw kept within one turn.
@@ -197,6 +212,18 @@ mod tests {
     #[test]
     fn given_rig_turned_a_quarter_when_placing_the_camera_then_it_stands_east_of_the_focus() {
         let rig = CameraRig::default().turned(FRAC_PI_2);
+        assert!(rig.camera_transform().translation.x > rig.focus.x);
+    }
+
+    #[test]
+    fn given_the_home_team_when_standing_behind_it_then_the_camera_is_west_of_the_focus() {
+        let rig = CameraRig::behind(TeamId::HOME);
+        assert!(rig.camera_transform().translation.x < rig.focus.x);
+    }
+
+    #[test]
+    fn given_the_away_team_when_standing_behind_it_then_the_camera_is_east_of_the_focus() {
+        let rig = CameraRig::behind(TeamId::AWAY);
         assert!(rig.camera_transform().translation.x > rig.focus.x);
     }
 }

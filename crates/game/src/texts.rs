@@ -1,0 +1,553 @@
+//! Every word the game shows, in French (default) or English.
+
+use clap::ValueEnum;
+use goblins_rules::characteristics::Archetype;
+use goblins_rules::event::{GameEvent, TurnEndReason};
+use goblins_rules::odds::Probability;
+use goblins_rules::team::TeamId;
+
+/// Language of the screens.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+pub enum Language {
+    /// Français.
+    #[default]
+    French,
+    /// English.
+    English,
+}
+
+/// Sentences of the game in one language.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Texts {
+    /// The language used.
+    pub language: Language,
+}
+
+impl Texts {
+    fn french(&self) -> bool {
+        self.language == Language::French
+    }
+
+    /// Name of a team.
+    pub fn team_name(&self, team: TeamId) -> &'static str {
+        match (team == TeamId::HOME, self.french()) {
+            (true, true) => "Dokkaebi de la Flamme bleue",
+            (true, false) => "Dokkaebi of the Blue Flame",
+            (false, _) => "Leprechauns",
+        }
+    }
+
+    /// Name of an archetype.
+    pub fn archetype_name(&self, archetype: Archetype) -> &'static str {
+        match (archetype, self.french()) {
+            (Archetype::Bruiser, true) => "Cogneur",
+            (Archetype::Sprinter, true) => "Sprinteur",
+            (Archetype::Thrower, true) => "Lanceur",
+            (Archetype::Bruiser, false) => "Bruiser",
+            (Archetype::Sprinter, false) => "Sprinter",
+            (Archetype::Thrower, false) => "Thrower",
+        }
+    }
+
+    /// Question asked before a human team's turn starts.
+    pub fn ready_question(&self, team: TeamId) -> String {
+        if self.french() {
+            format!("Au tour des {} ! Prêts ?", self.team_name(team))
+        } else {
+            format!("{}, your turn! Ready?", self.team_name(team))
+        }
+    }
+
+    /// Label of the ready button.
+    pub fn ready_button(&self) -> &'static str {
+        if self.french() { "Prêts !" } else { "Ready!" }
+    }
+
+    /// Label of the end-of-turn button.
+    pub fn end_turn_button(&self) -> &'static str {
+        if self.french() {
+            "Fin du tour"
+        } else {
+            "End turn"
+        }
+    }
+
+    /// Label of the end-of-turn button asking for a second click while goblins can still act.
+    pub fn end_turn_confirmation(&self) -> &'static str {
+        if self.french() { "Vraiment ?" } else { "Sure?" }
+    }
+
+    /// Label of the stance button.
+    pub fn stance_button(&self) -> &'static str {
+        if self.french() { "Garde" } else { "Stance" }
+    }
+
+    /// Label of the cancel button.
+    pub fn cancel_button(&self) -> &'static str {
+        if self.french() { "Annuler" } else { "Cancel" }
+    }
+
+    /// Line describing whose turn it is, for example "Mi-temps 1 · tour 3/10".
+    pub fn turn_line(&self, half: u8, turn: u8, turns_per_half: u8) -> String {
+        if self.french() {
+            format!("Mi-temps {half} · tour {turn}/{turns_per_half}")
+        } else {
+            format!("Half {half} · turn {turn}/{turns_per_half}")
+        }
+    }
+
+    /// A chance as a percentage with one decimal: "62,5 %" in French, "62.5 %" in English.
+    pub fn chance(&self, probability: Probability) -> String {
+        let text = format!("{:.1} %", probability.as_percentage());
+        if self.french() {
+            text.replace('.', ",")
+        } else {
+            text
+        }
+    }
+
+    /// Remaining time as minutes and seconds, rounded up: "0:42".
+    pub fn clock(&self, remaining_ms: u64) -> String {
+        let seconds = remaining_ms.div_ceil(1_000);
+        format!("{}:{:02}", seconds / 60, seconds % 60)
+    }
+
+    /// One readable sentence for an event, or None for events not worth a log line.
+    pub fn describe_event(&self, event: &GameEvent) -> Option<String> {
+        let french = self.french();
+        let line = match event {
+            GameEvent::CoinTossed { receiving_team } => pick(
+                french,
+                format!(
+                    "Pile ou face : les {} commencent",
+                    self.team_name(*receiving_team)
+                ),
+                format!("Coin toss: the {} start", self.team_name(*receiving_team)),
+            ),
+            GameEvent::KickedOff { receiving_team } => pick(
+                french,
+                format!(
+                    "Coup d'envoi ! Les {} à l'attaque",
+                    self.team_name(*receiving_team)
+                ),
+                format!("Kick-off! The {} attack", self.team_name(*receiving_team)),
+            ),
+            GameEvent::ReturnedFromKnockOut { goblin, health } => pick(
+                french,
+                format!("{goblin} revient avec {health} PV"),
+                format!("{goblin} is back with {health} health"),
+            ),
+            GameEvent::CatchAttempted { goblin, roll } => pick(
+                french,
+                if roll.success {
+                    format!(
+                        "{goblin} attrape la balle : {}",
+                        describe_ball_roll(roll, "sur")
+                    )
+                } else {
+                    format!(
+                        "{goblin} laisse échapper la balle : {}",
+                        describe_ball_roll(roll, "sur")
+                    )
+                },
+                if roll.success {
+                    format!(
+                        "{goblin} catches the ball: {}",
+                        describe_ball_roll(roll, "on")
+                    )
+                } else {
+                    format!(
+                        "{goblin} drops the ball: {}",
+                        describe_ball_roll(roll, "on")
+                    )
+                },
+            ),
+            GameEvent::TurnStarted { team, turn, .. } => pick(
+                french,
+                format!("Tour {turn} des {}", self.team_name(*team)),
+                format!("Turn {turn} of the {}", self.team_name(*team)),
+            ),
+            GameEvent::StoodUp { goblin } => pick(
+                french,
+                format!("{goblin} se relève"),
+                format!("{goblin} gets up"),
+            ),
+            GameEvent::DodgeAttempted {
+                goblin,
+                tackler,
+                contest,
+            } => pick(
+                french,
+                if contest.actor_won() {
+                    format!(
+                        "{goblin} esquive {tackler} : {}",
+                        describe_contest(contest, "contre")
+                    )
+                } else {
+                    format!(
+                        "{goblin} trébuche face à {tackler} : {}",
+                        describe_contest(contest, "contre")
+                    )
+                },
+                if contest.actor_won() {
+                    format!(
+                        "{goblin} slips past {tackler}: {}",
+                        describe_contest(contest, "vs")
+                    )
+                } else {
+                    format!(
+                        "{goblin} trips on {tackler}: {}",
+                        describe_contest(contest, "vs")
+                    )
+                },
+            ),
+            GameEvent::PickAttempted { goblin, roll } => pick(
+                french,
+                if roll.success {
+                    format!(
+                        "{goblin} ramasse la balle : {}",
+                        describe_ball_roll(roll, "sur")
+                    )
+                } else {
+                    format!(
+                        "{goblin} rate la balle : {}, il fallait {}",
+                        describe_ball_roll(roll, "sur"),
+                        roll.target
+                    )
+                },
+                if roll.success {
+                    format!(
+                        "{goblin} picks up the ball: {}",
+                        describe_ball_roll(roll, "on")
+                    )
+                } else {
+                    format!(
+                        "{goblin} misses the ball: {}, needed {}",
+                        describe_ball_roll(roll, "on"),
+                        roll.target
+                    )
+                },
+            ),
+            GameEvent::ThrowAttempted {
+                thrower,
+                receiver,
+                roll,
+            } => pick(
+                french,
+                if roll.success {
+                    format!(
+                        "{thrower} lance vers {receiver} : {}",
+                        describe_ball_roll(roll, "sur")
+                    )
+                } else {
+                    format!(
+                        "{thrower} rate son lancer : {}",
+                        describe_ball_roll(roll, "sur")
+                    )
+                },
+                if roll.success {
+                    format!(
+                        "{thrower} throws to {receiver}: {}",
+                        describe_ball_roll(roll, "on")
+                    )
+                } else {
+                    format!(
+                        "{thrower} fumbles the throw: {}",
+                        describe_ball_roll(roll, "on")
+                    )
+                },
+            ),
+            GameEvent::InterceptAttempted { goblin, roll } => pick(
+                french,
+                if roll.success {
+                    format!("{goblin} intercepte ! {}", describe_ball_roll(roll, "sur"))
+                } else {
+                    format!(
+                        "{goblin} rate l'interception : {}",
+                        describe_ball_roll(roll, "sur")
+                    )
+                },
+                if roll.success {
+                    format!("{goblin} intercepts! {}", describe_ball_roll(roll, "on"))
+                } else {
+                    format!(
+                        "{goblin} misses the interception: {}",
+                        describe_ball_roll(roll, "on")
+                    )
+                },
+            ),
+            GameEvent::AssaultResolved {
+                attacker,
+                defender,
+                contest,
+            } => {
+                let winner = if contest.actor_won() {
+                    attacker
+                } else {
+                    defender
+                };
+                pick(
+                    french,
+                    format!(
+                        "{attacker} attaque {defender} : {}, {winner} gagne",
+                        describe_contest(contest, "contre")
+                    ),
+                    format!(
+                        "{attacker} assaults {defender}: {}, {winner} wins",
+                        describe_contest(contest, "vs")
+                    ),
+                )
+            }
+            GameEvent::StanceTaken { goblin } => pick(
+                french,
+                format!("{goblin} se met en garde"),
+                format!("{goblin} braces in stance"),
+            ),
+            GameEvent::KnockedDown { goblin, .. } => {
+                pick(french, format!("{goblin} tombe"), format!("{goblin} falls"))
+            }
+            GameEvent::HealthLost {
+                goblin,
+                amount,
+                remaining,
+            } => pick(
+                french,
+                format!("{goblin} perd {amount} PV ({remaining} restants)"),
+                format!("{goblin} loses {amount} health ({remaining} left)"),
+            ),
+            GameEvent::KnockedOut { goblin } => pick(
+                french,
+                format!("{goblin} est KO !"),
+                format!("{goblin} is knocked out!"),
+            ),
+            GameEvent::Scored { team, scorer } => pick(
+                french,
+                format!(
+                    "Point pour les {} ! Marqué par {scorer}",
+                    self.team_name(*team)
+                ),
+                format!(
+                    "Point for the {}! Scored by {scorer}",
+                    self.team_name(*team)
+                ),
+            ),
+            GameEvent::TurnEnded { team, reason } => {
+                let (french_cause, english_cause) = match reason {
+                    TurnEndReason::Knockdown => ("Chute !", "Knockdown!"),
+                    TurnEndReason::Fumble => ("Fumble !", "Fumble!"),
+                    TurnEndReason::TimeUp => ("Temps écoulé !", "Time is up!"),
+                    TurnEndReason::EndTurn
+                    | TurnEndReason::Score
+                    | TurnEndReason::NoGoblinCanAct => {
+                        return None;
+                    }
+                };
+                pick(
+                    french,
+                    format!("{french_cause} Fin du tour des {}", self.team_name(*team)),
+                    format!("{english_cause} End of the {} turn", self.team_name(*team)),
+                )
+            }
+            GameEvent::HalfEnded { half } => pick(
+                french,
+                format!("Fin de la mi-temps {half}"),
+                format!("End of half {half}"),
+            ),
+            GameEvent::GameEnded { score } => self.final_whistle(
+                score.first().copied().unwrap_or_default(),
+                score.get(1).copied().unwrap_or_default(),
+            ),
+            GameEvent::BallDropped { .. }
+            | GameEvent::BallBounced { .. }
+            | GameEvent::Moved { .. } => {
+                return None;
+            }
+        };
+        Some(line)
+    }
+
+    /// Final line once the match is over.
+    pub fn final_whistle(&self, home_score: u8, away_score: u8) -> String {
+        if self.french() {
+            format!("Coup de sifflet final : {home_score} à {away_score}")
+        } else {
+            format!("Final whistle: {home_score} to {away_score}")
+        }
+    }
+}
+
+fn pick(french: bool, in_french: String, in_english: String) -> String {
+    if french { in_french } else { in_english }
+}
+
+fn describe_ball_roll(roll: &goblins_rules::event::BallRoll, on: &str) -> String {
+    if roll.malus == 0 {
+        format!("{} {on} d{}", roll.rolled, roll.faces)
+    } else {
+        format!("{}−{} {on} d{}", roll.rolled, roll.malus, roll.faces)
+    }
+}
+
+fn describe_contest(contest: &goblins_rules::event::ContestRoll, versus: &str) -> String {
+    let modifier = match contest.opponent_modifier {
+        0 => String::new(),
+        positive if positive > 0 => format!("+{positive}"),
+        negative => format!("−{}", negative.unsigned_abs()),
+    };
+    format!(
+        "{} {versus} {}{modifier}",
+        contest.actor_rolled, contest.opponent_rolled
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use goblins_rules::event::{BallRoll, ContestRoll};
+    use goblins_rules::roster::GoblinId;
+
+    const FRENCH: Texts = Texts {
+        language: Language::French,
+    };
+    const ENGLISH: Texts = Texts {
+        language: Language::English,
+    };
+
+    fn id(text: &str) -> GoblinId {
+        text.parse().unwrap()
+    }
+
+    #[test]
+    fn given_french_when_naming_the_home_team_then_dokkaebi_de_la_flamme_bleue() {
+        assert_eq!(
+            FRENCH.team_name(TeamId::HOME),
+            "Dokkaebi de la Flamme bleue"
+        );
+    }
+
+    #[test]
+    fn given_english_when_naming_the_away_team_then_leprechauns() {
+        assert_eq!(ENGLISH.team_name(TeamId::AWAY), "Leprechauns");
+    }
+
+    #[test]
+    fn given_french_when_naming_a_sprinter_then_sprinteur() {
+        assert_eq!(FRENCH.archetype_name(Archetype::Sprinter), "Sprinteur");
+    }
+
+    #[test]
+    fn given_french_when_asking_if_the_leprechauns_are_ready_then_a_friendly_question() {
+        assert_eq!(
+            FRENCH.ready_question(TeamId::AWAY),
+            "Au tour des Leprechauns ! Prêts ?"
+        );
+    }
+
+    #[test]
+    fn given_french_when_showing_five_eighths_then_a_decimal_comma() {
+        assert_eq!(FRENCH.chance(Probability::new(5, 8)), "62,5 %");
+    }
+
+    #[test]
+    fn given_english_when_showing_five_eighths_then_a_decimal_point() {
+        assert_eq!(ENGLISH.chance(Probability::new(5, 8)), "62.5 %");
+    }
+
+    #[test]
+    fn given_41_point_2_seconds_left_when_shown_then_the_clock_says_0_42() {
+        assert_eq!(FRENCH.clock(41_200), "0:42");
+    }
+
+    #[test]
+    fn given_a_turn_when_described_in_french_then_half_and_turn_out_of_ten() {
+        assert_eq!(FRENCH.turn_line(1, 3, 10), "Mi-temps 1 · tour 3/10");
+    }
+
+    #[test]
+    fn given_a_won_assault_when_described_in_french_then_both_dice_and_the_winner() {
+        let event = GameEvent::AssaultResolved {
+            attacker: id("H3"),
+            defender: id("A8"),
+            contest: ContestRoll {
+                actor_faces: 4,
+                actor_rolled: 4,
+                opponent_faces: 2,
+                opponent_rolled: 1,
+                opponent_modifier: 1,
+                margin: 2,
+            },
+        };
+        assert_eq!(
+            FRENCH.describe_event(&event),
+            Some("H3 attaque A8 : 4 contre 1+1, H3 gagne".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_failed_pick_when_described_in_french_then_the_roll_and_the_target() {
+        let event = GameEvent::PickAttempted {
+            goblin: id("A5"),
+            roll: BallRoll {
+                faces: 4,
+                rolled: 2,
+                malus: 1,
+                target: 2,
+                success: false,
+            },
+        };
+        assert_eq!(
+            FRENCH.describe_event(&event),
+            Some("A5 rate la balle : 2−1 sur d4, il fallait 2".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_fumble_ending_the_turn_when_described_in_french_then_it_says_fumble() {
+        let event = GameEvent::TurnEnded {
+            team: TeamId::HOME,
+            reason: TurnEndReason::Fumble,
+        };
+        assert_eq!(
+            FRENCH.describe_event(&event),
+            Some("Fumble ! Fin du tour des Dokkaebi de la Flamme bleue".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_goblin_moving_when_described_then_nothing_worth_logging() {
+        let event = GameEvent::Moved {
+            goblin: id("H1"),
+            from: [1, 1].into(),
+            to: [1, 2].into(),
+        };
+        assert_eq!(FRENCH.describe_event(&event), None);
+    }
+
+    #[test]
+    fn given_a_two_one_final_score_when_described_in_french_then_the_score() {
+        assert_eq!(FRENCH.final_whistle(2, 1), "Coup de sifflet final : 2 à 1");
+    }
+
+    #[test]
+    fn given_english_when_describing_a_catch_then_the_roll_reads_on_the_die() {
+        let event = GameEvent::CatchAttempted {
+            goblin: id("H2"),
+            roll: BallRoll {
+                faces: 4,
+                rolled: 3,
+                malus: 0,
+                target: 2,
+                success: true,
+            },
+        };
+        assert_eq!(
+            ENGLISH.describe_event(&event),
+            Some("H2 catches the ball: 3 on d4".to_string())
+        );
+    }
+
+    #[test]
+    fn given_french_when_asking_to_confirm_the_end_of_turn_then_sur() {
+        assert_eq!(FRENCH.end_turn_confirmation(), "Vraiment ?");
+    }
+}

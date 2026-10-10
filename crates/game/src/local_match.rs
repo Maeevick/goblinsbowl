@@ -1,0 +1,279 @@
+//! The match running inside the app for hot-seat play: the host as a resource, its clock fed by Bevy time.
+//!
+//! Screens only read [`MatchView`] and send [`MatchOrder`] messages, so the source of the match can
+//! later be swapped for an embedded server without touching them.
+
+use std::time::Duration;
+
+use bevy::prelude::*;
+use goblins_rules::arena::Arena;
+use goblins_rules::command::Command;
+use goblins_rules::event::GameEvent;
+use goblins_rules::host::{MatchHost, MatchSnapshot};
+use goblins_rules::ruleset::Ruleset;
+use goblins_rules::team::TeamId;
+
+/// What screens read: the latest snapshot and what happened during this frame.
+#[derive(Resource, Clone, Debug)]
+pub struct MatchView {
+    /// The latest snapshot of the match.
+    pub snapshot: MatchSnapshot,
+    /// The arena of the match.
+    pub arena: Arena,
+    /// The rules of the match.
+    pub ruleset: Ruleset,
+    /// Events produced during this frame, in order.
+    pub fresh_events: Vec<GameEvent>,
+    /// Why the last order of this frame was refused, if it was.
+    pub refusal: Option<String>,
+}
+
+/// A request from a screen or a bot to the match.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub enum MatchOrder {
+    /// Apply a command for a team.
+    Command {
+        /// The team acting.
+        team: TeamId,
+        /// What it does.
+        command: Command,
+    },
+    /// A human team pressed Ready.
+    Ready {
+        /// The team.
+        team: TeamId,
+    },
+    /// Freeze or unfreeze the clock (matches between humans only).
+    TogglePause,
+}
+
+/// Ordering of the match systems within a frame: orders are applied before screens present them.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum MatchSystems {
+    /// Orders, bots and the clock change the match.
+    Apply,
+    /// Screens read the result.
+    Present,
+}
+
+#[derive(Resource)]
+struct LocalMatch {
+    host: MatchHost,
+    unspent_time: Duration,
+    clock_ran_before_orders: bool,
+}
+
+/// Runs a match hosted inside the app.
+pub struct LocalMatchPlugin {
+    /// The started match.
+    pub host: MatchHost,
+    /// Events of its opening (coin toss, kick-off), shown on the first frame.
+    pub opening_events: Vec<GameEvent>,
+}
+
+impl Plugin for LocalMatchPlugin {
+    fn build(&self, app: &mut App) {
+        let host = self.host.clone();
+        let view = MatchView {
+            snapshot: host.snapshot(),
+            arena: host.game().arena().clone(),
+            ruleset: host.game().ruleset().clone(),
+            fresh_events: Vec::new(),
+            refusal: None,
+        };
+        app.add_message::<MatchOrder>()
+            .insert_resource(view)
+            .insert_resource(LocalMatch {
+                host,
+                unspent_time: Duration::ZERO,
+                clock_ran_before_orders: false,
+            })
+            .insert_resource(OpeningEvents(self.opening_events.clone()))
+            .configure_sets(Update, (MatchSystems::Apply, MatchSystems::Present).chain())
+            .add_systems(
+                Update,
+                (apply_orders, run_clock, refresh_view)
+                    .chain()
+                    .in_set(MatchSystems::Apply),
+            );
+    }
+}
+
+#[derive(Resource)]
+struct OpeningEvents(Vec<GameEvent>);
+
+fn apply_orders(
+    mut orders: MessageReader<MatchOrder>,
+    mut local: ResMut<LocalMatch>,
+    mut view: ResMut<MatchView>,
+    opening: Option<ResMut<OpeningEvents>>,
+) {
+    view.fresh_events.clear();
+    view.refusal = None;
+    local.clock_ran_before_orders = matches!(
+        local.host.snapshot().clock,
+        goblins_rules::host::TurnClock::Running { .. }
+    );
+    if let Some(mut opening) = opening {
+        view.fresh_events.append(&mut opening.0);
+    }
+    for order in orders.read() {
+        let outcome = match order {
+            MatchOrder::Command { team, command } => local
+                .host
+                .submit(*team, command.clone())
+                .map(|events| view.fresh_events.extend(events)),
+            MatchOrder::Ready { team } => local.host.ready(*team),
+            MatchOrder::TogglePause => {
+                if matches!(
+                    local.host.snapshot().clock,
+                    goblins_rules::host::TurnClock::Paused { .. }
+                ) {
+                    local.host.resume();
+                    Ok(())
+                } else {
+                    local.host.pause()
+                }
+            }
+        };
+        if let Err(refusal) = outcome {
+            view.refusal = Some(refusal.to_string());
+        }
+    }
+}
+
+fn run_clock(time: Res<Time>, mut local: ResMut<LocalMatch>, mut view: ResMut<MatchView>) {
+    if !local.clock_ran_before_orders {
+        local.unspent_time = Duration::ZERO;
+        return;
+    }
+    local.unspent_time += time.delta();
+    let whole_milliseconds = local.unspent_time.as_millis();
+    local.unspent_time -=
+        Duration::from_millis(u64::try_from(whole_milliseconds).unwrap_or(u64::MAX));
+    let events = local
+        .host
+        .advance_clock(u64::try_from(whole_milliseconds).unwrap_or(u64::MAX));
+    view.fresh_events.extend(events);
+}
+
+fn refresh_view(local: Res<LocalMatch>, mut view: ResMut<MatchView>) {
+    view.snapshot = local.host.snapshot();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::time::TimeUpdateStrategy;
+    use goblins_rules::host::{MatchSetup, SeatKind, TurnClock};
+    use goblins_rules::roster::Roster;
+
+    fn app_with(seats: [SeatKind; 2]) -> App {
+        let (host, opening_events) = MatchHost::start(MatchSetup {
+            ruleset: Ruleset::default(),
+            rosters: [Roster::DEFAULT, Roster::DEFAULT],
+            seed: 42,
+            seats,
+            turn_seconds: [60, 60],
+            agent_ready_grace_seconds: 15,
+        })
+        .unwrap();
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            LocalMatchPlugin {
+                host,
+                opening_events,
+            },
+        ))
+        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(
+            250,
+        )));
+        app.update();
+        app
+    }
+
+    fn view(app: &App) -> &MatchView {
+        app.world().resource::<MatchView>()
+    }
+
+    fn active_team(app: &App) -> TeamId {
+        view(app).snapshot.state.active_team().unwrap()
+    }
+
+    #[test]
+    fn given_a_new_match_when_the_first_frame_runs_then_the_opening_events_are_fresh() {
+        let app = app_with([SeatKind::Human, SeatKind::Human]);
+        assert!(matches!(
+            view(&app).fresh_events.first(),
+            Some(GameEvent::CoinTossed { .. })
+        ));
+    }
+
+    #[test]
+    fn given_an_end_turn_order_when_the_frame_runs_then_the_other_team_plays() {
+        let mut app = app_with([SeatKind::Human, SeatKind::Human]);
+        let team = active_team(&app);
+        app.world_mut().write_message(MatchOrder::Command {
+            team,
+            command: Command::EndTurn,
+        });
+        app.update();
+        assert_eq!(
+            view(&app).snapshot.state.active_team(),
+            Some(team.duel_opponent())
+        );
+    }
+
+    #[test]
+    fn given_an_order_from_the_idle_team_when_the_frame_runs_then_the_refusal_is_shown() {
+        let mut app = app_with([SeatKind::Human, SeatKind::Human]);
+        let idle = active_team(&app).duel_opponent();
+        app.world_mut().write_message(MatchOrder::Command {
+            team: idle,
+            command: Command::EndTurn,
+        });
+        app.update();
+        assert!(view(&app).refusal.is_some());
+    }
+
+    #[test]
+    fn given_humans_when_frames_pass_before_ready_then_the_clock_still_waits() {
+        let mut app = app_with([SeatKind::Human, SeatKind::Human]);
+        app.update();
+        app.update();
+        assert_eq!(
+            view(&app).snapshot.clock,
+            TurnClock::WaitingForReady {
+                remaining_ms: 60_000
+            }
+        );
+    }
+
+    #[test]
+    fn given_a_ready_human_when_four_quarter_seconds_pass_then_the_clock_lost_a_second() {
+        let mut app = app_with([SeatKind::Human, SeatKind::Human]);
+        let team = active_team(&app);
+        app.world_mut().write_message(MatchOrder::Ready { team });
+        app.update();
+        for _ in 0..4 {
+            app.update();
+        }
+        assert_eq!(
+            view(&app).snapshot.clock,
+            TurnClock::Running {
+                remaining_ms: 59_000
+            }
+        );
+    }
+
+    #[test]
+    fn given_bots_when_frames_pass_then_their_clock_runs() {
+        let mut app = app_with([SeatKind::Bot, SeatKind::Bot]);
+        app.update();
+        assert!(matches!(
+            view(&app).snapshot.clock,
+            TurnClock::Running { .. }
+        ));
+    }
+}
