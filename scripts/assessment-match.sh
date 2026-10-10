@@ -3,6 +3,8 @@
 # Plays one assessment match: a Claude Code coach (<model>) on <seat> against the built-in bot, on its
 # own server, until the final whistle. A coach that stops early is resumed once with its context,
 # unless it ran out of budget. Everything lands in <batch-dir>/<model>/seed<seed>-<seat>/.
+# When a coach hits the account's session or usage limit, the match is abandoned without a
+# match.json (a later run replays it) and <batch-dir>/LIMIT_HIT tells the other jobs to stand down.
 # Settings: GB_BOT (cautious), GB_TURN_SECONDS (60), GB_HINTS (full), GB_RULES (rules.toml),
 # GB_BUDGET (6 USD per coach run), GB_RESUMES (1), GB_MATCH_TIMEOUT (3600 s after the coach ends).
 set -uo pipefail
@@ -11,6 +13,7 @@ batch_dir="$1"; model="$2"; seed="$3"; seat="$4"; port="$5"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 dir="$batch_dir/$model/seed$seed-$seat"
 [ -f "$dir/match.json" ] && exit 0
+[ -f "$batch_dir/LIMIT_HIT" ] && exit 0
 rm -rf "$dir"
 mkdir -p "$dir"
 agent_token="$seat-$RANDOM$RANDOM$RANDOM"
@@ -29,8 +32,19 @@ for _ in $(seq 1 100); do nc -z 127.0.0.1 "$port" 2>/dev/null && break; sleep 0.
 
 url="http://127.0.0.1:$port/mcp"
 started=$(date +%s)
+limit_pattern='"result":"[^"]*(hit your [a-z]* ?limit|usage limit)[^"]*"'
+abandon_if_limited() {
+  grep -q "Final whistle" "$dir/server.log" && return 0
+  if grep -q -i -E "$limit_pattern" "$dir/$seat-transcript.jsonl"; then
+    grep -o -i -E '"result":"[^"]*limit[^"]*"' "$dir/$seat-transcript.jsonl" | tail -1 > "$batch_dir/LIMIT_HIT"
+    [ -s "$batch_dir/LIMIT_HIT" ] || echo "limit hit in $dir" > "$batch_dir/LIMIT_HIT"
+    kill "$server" 2>/dev/null; wait "$server" 2>/dev/null
+    exit 0
+  fi
+}
 coach_runs=1
 "$root/scripts/coach.sh" "$seat" "$url" "$agent_token" "$dir" --model "$model" --max-budget-usd "${GB_BUDGET:-6}"
+abandon_if_limited
 while ! grep -q "Final whistle" "$dir/server.log" && [ "$coach_runs" -le "${GB_RESUMES:-1}" ]; do
   grep -q '"subtype":"error_max_budget_usd"' "$dir/$seat-transcript.jsonl" && break
   session=$(grep -o '"session_id":"[^"]*"' "$dir/$seat-transcript.jsonl" | tail -1 | cut -d'"' -f4)
@@ -38,6 +52,7 @@ while ! grep -q "Final whistle" "$dir/server.log" && [ "$coach_runs" -le "${GB_R
   coach_runs=$((coach_runs + 1))
   GB_RESUME_SESSION="$session" "$root/scripts/coach.sh" "$seat" "$url" "$agent_token" "$dir" \
     --model "$model" --max-budget-usd "${GB_BUDGET:-6}"
+  abandon_if_limited
 done
 coach_seconds=$(( $(date +%s) - started ))
 deadline=$(( $(date +%s) + ${GB_MATCH_TIMEOUT:-3600} ))
