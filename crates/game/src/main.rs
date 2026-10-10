@@ -16,7 +16,7 @@ use goblinsbowl::local_match::LocalMatchPlugin;
 use goblinsbowl::options::GameOptions;
 use goblinsbowl::orders::OrdersPlugin;
 use goblinsbowl::texts::Texts;
-use goblinsbowl::{bowl_view, camera_rig, dev_capture, goblin_view, hud};
+use goblinsbowl::{bowl_view, camera_rig, dev_capture, dice_view, goblin_view, hud};
 
 fn main() -> AppExit {
     let options = GameOptions::parse();
@@ -60,6 +60,7 @@ fn main() -> AppExit {
             },
             bowl_view::BowlViewPlugin,
             goblin_view::GoblinViewPlugin,
+            dice_view::DiceViewPlugin,
             OrdersPlugin,
             camera_rig::CameraRigPlugin,
             hud::HudPlugin,

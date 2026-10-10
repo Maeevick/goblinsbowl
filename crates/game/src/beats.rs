@@ -1,6 +1,7 @@
 //! What the bowl shows of the match, beat by beat: steps, falls, ball flights, played in order.
 
-use goblins_rules::event::GameEvent;
+use bevy::prelude::Message;
+use goblins_rules::event::{BallRoll, ContestRoll, GameEvent};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::square::Square;
 
@@ -29,6 +30,13 @@ pub enum Beat {
         /// The goblin leaving.
         goblin: GoblinId,
     },
+    /// Dice are rolled for a goblin.
+    Roll {
+        /// The goblin rolling.
+        goblin: GoblinId,
+        /// What was rolled.
+        roll: ShownRoll,
+    },
     /// Every goblin walks back to its kick-off square.
     LineUp,
     /// The ball comes to rest on a square.
@@ -43,28 +51,102 @@ pub enum Beat {
     },
 }
 
+/// A roll worth showing, by kind of action.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShownRoll {
+    /// Slipping away from a tackler.
+    Dodge(ContestRoll),
+    /// Hitting an opponent.
+    Assault(ContestRoll),
+    /// Picking up the loose ball.
+    Pick(BallRoll),
+    /// Throwing the ball.
+    Throw(BallRoll),
+    /// Catching the ball.
+    Catch(BallRoll),
+    /// Snatching a ball thrown by the other team.
+    Intercept(BallRoll),
+}
+
+impl ShownRoll {
+    /// Whether the goblin rolling got what it wanted.
+    pub fn succeeded(&self) -> bool {
+        match self {
+            ShownRoll::Dodge(contest) | ShownRoll::Assault(contest) => contest.actor_won(),
+            ShownRoll::Pick(roll)
+            | ShownRoll::Throw(roll)
+            | ShownRoll::Catch(roll)
+            | ShownRoll::Intercept(roll) => roll.success,
+        }
+    }
+}
+
+/// A roll the bowl starts showing, in the order of the match.
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RollShown {
+    /// The goblin rolling.
+    pub goblin: GoblinId,
+    /// What was rolled.
+    pub roll: ShownRoll,
+}
+
 /// What the bowl shows of `events`, in order.
 pub fn beats_from_events(events: &[GameEvent]) -> Vec<Beat> {
-    events
-        .iter()
-        .filter_map(|event| match *event {
-            GameEvent::Moved { goblin, to, .. } => Some(Beat::Step { goblin, to }),
-            GameEvent::KnockedDown { goblin, .. } => Some(Beat::Fall { goblin }),
-            GameEvent::StoodUp { goblin } => Some(Beat::Rise { goblin }),
-            GameEvent::KnockedOut { goblin } => Some(Beat::Vanish { goblin }),
-            GameEvent::KickedOff { .. } => Some(Beat::LineUp),
-            GameEvent::BallDropped { at } => Some(Beat::BallTo { square: at }),
-            GameEvent::BallBounced { to, .. } => Some(Beat::BallTo { square: to }),
-            GameEvent::PickAttempted { goblin, roll }
-            | GameEvent::InterceptAttempted { goblin, roll }
-                if roll.success =>
-            {
-                Some(Beat::BallToGoblin { goblin })
+    let mut beats = Vec::new();
+    for event in events {
+        match *event {
+            GameEvent::Moved { goblin, to, .. } => beats.push(Beat::Step { goblin, to }),
+            GameEvent::KnockedDown { goblin, .. } => beats.push(Beat::Fall { goblin }),
+            GameEvent::StoodUp { goblin } => beats.push(Beat::Rise { goblin }),
+            GameEvent::KnockedOut { goblin } => beats.push(Beat::Vanish { goblin }),
+            GameEvent::KickedOff { .. } => beats.push(Beat::LineUp),
+            GameEvent::BallDropped { at } => beats.push(Beat::BallTo { square: at }),
+            GameEvent::BallBounced { to, .. } => beats.push(Beat::BallTo { square: to }),
+            GameEvent::DodgeAttempted {
+                goblin, contest, ..
+            } => beats.push(Beat::Roll {
+                goblin,
+                roll: ShownRoll::Dodge(contest),
+            }),
+            GameEvent::AssaultResolved {
+                attacker, contest, ..
+            } => beats.push(Beat::Roll {
+                goblin: attacker,
+                roll: ShownRoll::Assault(contest),
+            }),
+            GameEvent::PickAttempted { goblin, roll } => {
+                beats.push(Beat::Roll {
+                    goblin,
+                    roll: ShownRoll::Pick(roll),
+                });
+                if roll.success {
+                    beats.push(Beat::BallToGoblin { goblin });
+                }
             }
-            GameEvent::CatchAttempted { goblin, .. } => Some(Beat::BallToGoblin { goblin }),
-            _ => None,
-        })
-        .collect()
+            GameEvent::ThrowAttempted { thrower, roll, .. } => beats.push(Beat::Roll {
+                goblin: thrower,
+                roll: ShownRoll::Throw(roll),
+            }),
+            GameEvent::InterceptAttempted { goblin, roll } => {
+                beats.push(Beat::Roll {
+                    goblin,
+                    roll: ShownRoll::Intercept(roll),
+                });
+                if roll.success {
+                    beats.push(Beat::BallToGoblin { goblin });
+                }
+            }
+            GameEvent::CatchAttempted { goblin, roll } => {
+                beats.push(Beat::BallToGoblin { goblin });
+                beats.push(Beat::Roll {
+                    goblin,
+                    roll: ShownRoll::Catch(roll),
+                });
+            }
+            _ => {}
+        }
+    }
+    beats
 }
 
 #[cfg(test)]
@@ -156,26 +238,39 @@ mod tests {
     }
 
     #[test]
-    fn given_a_successful_pick_when_turning_events_into_beats_then_the_ball_reaches_the_picker() {
+    fn given_a_successful_pick_when_turning_events_into_beats_then_the_roll_shows_before_the_ball_reaches_the_picker()
+     {
         let events = [GameEvent::PickAttempted {
             goblin: goblin("A6"),
             roll: roll(true),
         }];
         assert_eq!(
             beats_from_events(&events),
-            vec![Beat::BallToGoblin {
-                goblin: goblin("A6")
-            }]
+            vec![
+                Beat::Roll {
+                    goblin: goblin("A6"),
+                    roll: ShownRoll::Pick(roll(true))
+                },
+                Beat::BallToGoblin {
+                    goblin: goblin("A6")
+                }
+            ]
         );
     }
 
     #[test]
-    fn given_a_failed_pick_when_turning_events_into_beats_then_the_ball_stays_put() {
+    fn given_a_failed_pick_when_turning_events_into_beats_then_only_the_roll_shows() {
         let events = [GameEvent::PickAttempted {
             goblin: goblin("A6"),
             roll: roll(false),
         }];
-        assert_eq!(beats_from_events(&events), Vec::new());
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::Roll {
+                goblin: goblin("A6"),
+                roll: ShownRoll::Pick(roll(false))
+            }]
+        );
     }
 
     #[test]
@@ -215,7 +310,8 @@ mod tests {
     }
 
     #[test]
-    fn given_a_caught_throw_when_turning_events_into_beats_then_the_ball_reaches_the_receiver() {
+    fn given_a_caught_throw_when_turning_events_into_beats_then_the_ball_flies_before_the_catch_shows()
+     {
         let events = [
             GameEvent::ThrowAttempted {
                 thrower: goblin("H9"),
@@ -229,15 +325,25 @@ mod tests {
         ];
         assert_eq!(
             beats_from_events(&events),
-            vec![Beat::BallToGoblin {
-                goblin: goblin("H5")
-            }]
+            vec![
+                Beat::Roll {
+                    goblin: goblin("H9"),
+                    roll: ShownRoll::Throw(roll(true))
+                },
+                Beat::BallToGoblin {
+                    goblin: goblin("H5")
+                },
+                Beat::Roll {
+                    goblin: goblin("H5"),
+                    roll: ShownRoll::Catch(roll(true))
+                },
+            ]
         );
     }
 
     #[test]
-    fn given_an_interception_when_turning_events_into_beats_then_the_ball_reaches_the_interceptor()
-    {
+    fn given_an_interception_when_turning_events_into_beats_then_the_roll_shows_before_the_ball_reaches_the_interceptor()
+     {
         let events = [
             GameEvent::ThrowAttempted {
                 thrower: goblin("H9"),
@@ -251,9 +357,77 @@ mod tests {
         ];
         assert_eq!(
             beats_from_events(&events),
-            vec![Beat::BallToGoblin {
-                goblin: goblin("A2")
+            vec![
+                Beat::Roll {
+                    goblin: goblin("H9"),
+                    roll: ShownRoll::Throw(roll(true))
+                },
+                Beat::Roll {
+                    goblin: goblin("A2"),
+                    roll: ShownRoll::Intercept(roll(true))
+                },
+                Beat::BallToGoblin {
+                    goblin: goblin("A2")
+                },
+            ]
+        );
+    }
+
+    fn contest(margin: i8) -> ContestRoll {
+        ContestRoll {
+            actor_faces: 4,
+            actor_rolled: 2,
+            opponent_faces: 4,
+            opponent_rolled: u8::try_from(2 - margin).unwrap(),
+            opponent_modifier: 0,
+            margin,
+        }
+    }
+
+    #[test]
+    fn given_a_dodge_when_turning_events_into_beats_then_its_roll_shows_on_the_dodger() {
+        let events = [GameEvent::DodgeAttempted {
+            goblin: goblin("H5"),
+            tackler: goblin("A1"),
+            contest: contest(1),
+        }];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::Roll {
+                goblin: goblin("H5"),
+                roll: ShownRoll::Dodge(contest(1))
             }]
         );
+    }
+
+    #[test]
+    fn given_an_assault_when_turning_events_into_beats_then_its_roll_shows_on_the_attacker() {
+        let events = [GameEvent::AssaultResolved {
+            attacker: goblin("H1"),
+            defender: goblin("A1"),
+            contest: contest(-2),
+        }];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::Roll {
+                goblin: goblin("H1"),
+                roll: ShownRoll::Assault(contest(-2))
+            }]
+        );
+    }
+
+    #[test]
+    fn given_a_lost_contest_when_asking_if_the_roll_succeeded_then_no() {
+        assert!(!ShownRoll::Assault(contest(-1)).succeeded());
+    }
+
+    #[test]
+    fn given_a_tied_contest_when_asking_if_the_roll_succeeded_then_yes_for_the_actor() {
+        assert!(ShownRoll::Dodge(contest(0)).succeeded());
+    }
+
+    #[test]
+    fn given_a_failed_catch_when_asking_if_the_roll_succeeded_then_no() {
+        assert!(!ShownRoll::Catch(roll(false)).succeeded());
     }
 }

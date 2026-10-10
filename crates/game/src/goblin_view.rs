@@ -14,7 +14,7 @@ use goblins_rules::square::Square;
 use goblins_rules::state::{Ball, GameState, Goblin, Presence};
 use goblins_rules::team::TeamId;
 
-use crate::beats::{Beat, beats_from_events};
+use crate::beats::{Beat, RollShown, beats_from_events};
 use crate::bowl_view::{BoardClick, square_centre};
 use crate::local_match::{MatchSystems, MatchView};
 
@@ -37,6 +37,7 @@ const PIP_FULL: Color = Color::srgb(0.95, 0.2, 0.25);
 const PIP_LOST: Color = Color::srgba(0.15, 0.12, 0.12, 0.8);
 const CATCH_UP_BEATS: usize = 12;
 const CATCH_UP_PACE: f32 = 3.0;
+const ROLL_HOLD_SECONDS: f32 = 0.9;
 
 /// Where a figure should be and whether it lies on the ground.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -59,6 +60,8 @@ pub struct GoblinFigure {
 struct Choreography {
     beats: VecDeque<Beat>,
     ball_rests_on: Option<BallAnchor>,
+    front_held_for: f32,
+    front_announced: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -206,6 +209,7 @@ pub struct GoblinViewPlugin;
 impl Plugin for GoblinViewPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<BoardClick>()
+            .add_message::<RollShown>()
             .init_resource::<Choreography>()
             .add_systems(Startup, (spawn_figures, spawn_ball))
             .add_systems(
@@ -719,6 +723,7 @@ fn play_beats(
     mut figures: FigureParts,
     mut bodies: BodyParts,
     mut ball: BallPlacement,
+    mut rolls: MessageWriter<RollShown>,
 ) {
     let speed_up = pace(choreography.beats.len());
     let walk = WALK_SPEED * speed_up * time.delta_secs();
@@ -746,6 +751,14 @@ fn play_beats(
             }
             true
         }
+        Beat::Roll { goblin, roll } => {
+            if !choreography.front_announced {
+                choreography.front_announced = true;
+                rolls.write(RollShown { goblin, roll });
+            }
+            choreography.front_held_for += speed_up * time.delta_secs();
+            choreography.front_held_for >= ROLL_HOLD_SECONDS
+        }
         Beat::LineUp => settle_figures(&view, &mut figures, &mut bodies, walk, fall),
         Beat::BallTo { square } => {
             let resting = square_centre(&view.arena, square) + Vec3::Y * BALL_RADIUS;
@@ -769,6 +782,8 @@ fn play_beats(
     };
     if finished {
         choreography.beats.pop_front();
+        choreography.front_held_for = 0.0;
+        choreography.front_announced = false;
     }
 }
 

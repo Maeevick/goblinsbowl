@@ -9,6 +9,8 @@ use goblins_rules::preview::{ActionOdds, ActivationOdds, RiskyStep};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::team::TeamId;
 
+use crate::beats::ShownRoll;
+
 /// Language of the screens.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub enum Language {
@@ -156,6 +158,59 @@ impl Texts {
             _ => None,
         };
         dodges.chain(assault).collect::<Vec<_>>().join(" · ")
+    }
+
+    /// Exclamation shown over a goblin when its dice are rolled, for example "Esquivé !".
+    pub fn roll_headline(&self, roll: &ShownRoll) -> &'static str {
+        match (roll, roll.succeeded(), self.french()) {
+            (ShownRoll::Dodge(_), true, true) => "Esquivé !",
+            (ShownRoll::Dodge(_), true, false) => "Dodged!",
+            (ShownRoll::Dodge(_), false, true) => "Plaqué !",
+            (ShownRoll::Dodge(_), false, false) => "Tackled!",
+            (ShownRoll::Assault(_), true, true) => "Touché !",
+            (ShownRoll::Assault(_), true, false) => "Hit!",
+            (ShownRoll::Assault(_), false, true) => "Contré !",
+            (ShownRoll::Assault(_), false, false) => "Countered!",
+            (ShownRoll::Pick(_), true, true) => "Ramassée !",
+            (ShownRoll::Pick(_), true, false) => "Picked up!",
+            (ShownRoll::Pick(_), false, true) => "Ratée !",
+            (ShownRoll::Pick(_), false, false) => "Fumbled!",
+            (ShownRoll::Throw(_), true, true) => "Lancée !",
+            (ShownRoll::Throw(_), true, false) => "Thrown!",
+            (ShownRoll::Throw(_), false, true) => "Passe ratée !",
+            (ShownRoll::Throw(_), false, false) => "Bad throw!",
+            (ShownRoll::Catch(_), true, true) => "Attrapée !",
+            (ShownRoll::Catch(_), true, false) => "Caught!",
+            (ShownRoll::Catch(_), false, true) => "Lâchée !",
+            (ShownRoll::Catch(_), false, false) => "Dropped!",
+            (ShownRoll::Intercept(_), true, true) => "Interceptée !",
+            (ShownRoll::Intercept(_), true, false) => "Intercepted!",
+            (ShownRoll::Intercept(_), false, true) => "Manquée !",
+            (ShownRoll::Intercept(_), false, false) => "Missed!",
+        }
+    }
+
+    /// The dice behind a roll, for example "4−1 sur d4, il faut 2" or "3 contre 2+1".
+    pub fn roll_detail(&self, roll: &ShownRoll) -> String {
+        match roll {
+            ShownRoll::Dodge(contest) | ShownRoll::Assault(contest) => {
+                describe_contest(contest, if self.french() { "contre" } else { "vs" })
+            }
+            ShownRoll::Pick(ball)
+            | ShownRoll::Throw(ball)
+            | ShownRoll::Catch(ball)
+            | ShownRoll::Intercept(ball) => {
+                if self.french() {
+                    format!(
+                        "{}, il faut {}",
+                        describe_ball_roll(ball, "sur"),
+                        ball.target
+                    )
+                } else {
+                    format!("{}, needs {}", describe_ball_roll(ball, "on"), ball.target)
+                }
+            }
+        }
     }
 
     /// Hint shown under an aimed order.
@@ -618,6 +673,58 @@ mod tests {
     #[test]
     fn given_a_walk_without_dice_when_detailing_it_then_nothing() {
         assert_eq!(FRENCH.dice_detail(&odds(Probability::CERTAIN, false)), "");
+    }
+
+    fn contest_roll(actor_rolled: u8, opponent_rolled: u8, opponent_modifier: i8) -> ContestRoll {
+        ContestRoll {
+            actor_faces: 4,
+            actor_rolled,
+            opponent_faces: 4,
+            opponent_rolled,
+            opponent_modifier,
+            margin: i8::try_from(actor_rolled).unwrap()
+                - i8::try_from(opponent_rolled).unwrap()
+                - opponent_modifier,
+        }
+    }
+
+    #[test]
+    fn given_french_when_a_dodge_fails_then_the_goblin_is_tackled() {
+        assert_eq!(
+            FRENCH.roll_headline(&ShownRoll::Dodge(contest_roll(1, 3, 0))),
+            "Plaqué !"
+        );
+    }
+
+    #[test]
+    fn given_english_when_an_assault_wins_then_a_hit() {
+        assert_eq!(
+            ENGLISH.roll_headline(&ShownRoll::Assault(contest_roll(4, 2, 1))),
+            "Hit!"
+        );
+    }
+
+    #[test]
+    fn given_french_when_detailing_a_pick_with_a_malus_then_the_face_the_malus_and_the_target() {
+        let roll = BallRoll {
+            faces: 4,
+            rolled: 4,
+            malus: 1,
+            target: 2,
+            success: true,
+        };
+        assert_eq!(
+            FRENCH.roll_detail(&ShownRoll::Pick(roll)),
+            "4−1 sur d4, il faut 2"
+        );
+    }
+
+    #[test]
+    fn given_english_when_detailing_a_contest_then_both_faces_and_the_bonus() {
+        assert_eq!(
+            ENGLISH.roll_detail(&ShownRoll::Assault(contest_roll(3, 2, 1))),
+            "3 vs 2+1"
+        );
     }
 
     #[test]
