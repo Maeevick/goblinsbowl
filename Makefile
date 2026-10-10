@@ -1,4 +1,4 @@
-.PHONY: test-unit test-integrated test-system test-all lint fmt run serve check golden balance
+.PHONY: test-unit test-integrated test-system test-all lint fmt run serve check golden balance assess
 
 test-unit:
 	cargo test --workspace --lib --bins
@@ -31,3 +31,6 @@ golden:
 
 balance:
 	cargo run --release -q -p goblins_rules --example balance -- $(ARGS)
+
+assess:
+	cargo run -q -p goblins_server --bin goblinsbowl-assess -- $(ARGS)

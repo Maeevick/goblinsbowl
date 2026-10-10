@@ -10,6 +10,10 @@ publish.workspace = true
 name = "goblinsbowl-server"
 path = "src/main.rs"
 
+[[bin]]
+name = "goblinsbowl-assess"
+path = "src/bin/assess.rs"
+
 [dependencies]
 goblins_rules.workspace = true
 tokio = { workspace = true, features = ["signal"] }

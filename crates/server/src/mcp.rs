@@ -384,7 +384,7 @@ impl CoachServer {
             arguments,
             latency_ms: self.log.elapsed_ms().saturating_sub(started_ms),
             error: result.as_ref().err().cloned(),
-            version_before,
+            version_before: Some(version_before),
             version: self.client.latest().version,
         });
         result

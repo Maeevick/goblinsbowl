@@ -171,7 +171,10 @@ async fn given_a_coach_ending_its_turn_when_the_call_log_is_read_then_the_call_s
         .into_iter()
         .find(|entry| entry.tool == "play")
         .ok_or("no play call logged")?;
-    assert_eq!(play.version, play.version_before + 1);
+    assert_eq!(
+        Some(play.version),
+        play.version_before.map(|before| before + 1)
+    );
     Ok(())
 }
 
