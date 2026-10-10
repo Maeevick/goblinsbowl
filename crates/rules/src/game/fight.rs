@@ -2,7 +2,7 @@
 
 use crate::dice::DiceRoller;
 use crate::event::{ContestRoll, GameEvent, TurnEndReason};
-use crate::odds::contest_success;
+use crate::preview::most_dangerous_tackler;
 use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::state::{Ball, Presence};
@@ -35,17 +35,7 @@ impl<D: DiceRoller> Game<D> {
         dodger: GoblinId,
         from: Square,
     ) -> Option<GoblinId> {
-        let dodger = self.state.goblin(dodger)?;
-        let agility = dodger.characteristics.agility;
-        self.state
-            .standing_opponents_next_to(from, dodger.team())
-            .map(|tackler| {
-                let bonus = i8::try_from(self.state.stance_bonus(tackler.id)).unwrap_or(i8::MAX);
-                let escape = contest_success(agility, tackler.characteristics.defense, bonus);
-                (escape, tackler.id)
-            })
-            .min()
-            .map(|(_, tackler)| tackler)
+        most_dangerous_tackler(&self.state, dodger, from).map(|(tackler, _)| tackler)
     }
 
     pub(super) fn knock_down(
