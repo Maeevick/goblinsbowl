@@ -2,4 +2,5 @@
 
 pub mod match_server;
 pub mod mcp;
+pub mod options;
 pub mod view;
