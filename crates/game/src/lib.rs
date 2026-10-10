@@ -1,5 +1,6 @@
 //! Goblins Bowl desktop game: the Bevy plugins behind the window, wired together by the binary.
 
+pub mod beats;
 pub mod bot_seat;
 pub mod bowl_view;
 pub mod camera_rig;
