@@ -8,6 +8,7 @@ pub mod characteristics;
 pub mod command;
 pub mod dice;
 pub mod event;
+pub mod flight;
 pub mod formation;
 pub mod game;
 pub mod odds;
