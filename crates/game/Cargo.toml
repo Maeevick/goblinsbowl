@@ -12,7 +12,7 @@ bevy.workspace = true
 goblins_rules.workspace = true
 goblins_server.workspace = true
 clap.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["signal"] }
 
 [lints]
 workspace = true

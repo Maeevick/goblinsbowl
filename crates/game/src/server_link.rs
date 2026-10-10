@@ -68,6 +68,10 @@ impl ServerLink {
                 client.clone(),
                 files.record.clone(),
             ));
+            tokio::spawn(save_record_when_interrupted(
+                client.clone(),
+                files.record.clone(),
+            ));
             anyhow::Ok((client, url))
         })?;
         Ok(Self {
@@ -87,6 +91,31 @@ impl ServerLink {
     pub fn files(&self) -> &RunFiles {
         &self.files
     }
+}
+
+async fn save_record_when_interrupted(client: MatchClient, record: PathBuf) {
+    let interrupted = tokio::signal::ctrl_c();
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        match signal(SignalKind::terminate()) {
+            Ok(mut terminated) => {
+                tokio::select! {
+                    _ = interrupted => {}
+                    _ = terminated.recv() => {}
+                }
+            }
+            Err(_) => {
+                let _ = interrupted.await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = interrupted.await;
+    }
+    save_record(&client, &record, "Stopped").await;
+    std::process::exit(0);
 }
 
 /// Shows a match hosted by an embedded server and forwards the humans' orders to it.
