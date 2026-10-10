@@ -13,7 +13,7 @@ use goblins_rules::ruleset::{Ruleset, RulesetError};
 use goblinsbowl::local_match::LocalMatchPlugin;
 use goblinsbowl::options::GameOptions;
 use goblinsbowl::texts::Texts;
-use goblinsbowl::{bowl_view, camera_rig, dev_capture, hud};
+use goblinsbowl::{bowl_view, camera_rig, dev_capture, goblin_view, hud};
 
 fn main() -> AppExit {
     let options = GameOptions::parse();
@@ -52,6 +52,7 @@ fn main() -> AppExit {
                 opening_events,
             },
             bowl_view::BowlViewPlugin,
+            goblin_view::GoblinViewPlugin,
             camera_rig::CameraRigPlugin,
             hud::HudPlugin,
             dev_capture::DevCapturePlugin,
