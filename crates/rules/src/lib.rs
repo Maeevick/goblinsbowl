@@ -12,6 +12,7 @@ pub mod event;
 pub mod flight;
 pub mod formation;
 pub mod game;
+pub mod host;
 pub mod odds;
 pub mod paths;
 pub mod preview;
