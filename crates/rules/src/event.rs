@@ -126,6 +126,36 @@ pub enum GameEvent {
         /// Square it entered.
         to: Square,
     },
+    /// A goblin tried to slip out of an enemy's reach.
+    DodgeAttempted {
+        /// The dodging goblin.
+        goblin: GoblinId,
+        /// The adjacent enemy most likely to stop it.
+        tackler: GoblinId,
+        /// Agility die against the tackler's defense die and Stance bonus.
+        contest: ContestRoll,
+    },
+    /// A goblin fell or was knocked over on a square.
+    KnockedDown {
+        /// The goblin.
+        goblin: GoblinId,
+        /// Square where it lies.
+        at: Square,
+    },
+    /// A goblin lost health.
+    HealthLost {
+        /// The goblin.
+        goblin: GoblinId,
+        /// Points lost.
+        amount: u8,
+        /// Points left.
+        remaining: u8,
+    },
+    /// A goblin reached 0 health and left the bowl until the next kick-off.
+    KnockedOut {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// A team's turn is over.
     TurnEnded {
         /// The team whose turn ended.

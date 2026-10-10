@@ -3,6 +3,8 @@
 use crate::command::Activation;
 use crate::dice::DiceRoller;
 use crate::event::{GameEvent, TurnEndReason};
+use crate::roster::GoblinId;
+use crate::square::Square;
 use crate::state::Presence;
 use crate::team::TeamId;
 use crate::violation::RuleViolation;
@@ -67,10 +69,16 @@ impl<D: DiceRoller> Game<D> {
             return;
         };
         for to in activation.path {
-            let Some(goblin) = self.state.goblin_mut(id) else {
+            let Some(Presence::Standing(from)) =
+                self.state.goblin(id).map(|goblin| goblin.presence)
+            else {
                 return;
             };
-            let Presence::Standing(from) = goblin.presence else {
+            if !self.dodge_succeeds(id, from, events) {
+                self.finish_turn(TurnEndReason::Knockdown, events);
+                return;
+            }
+            let Some(goblin) = self.state.goblin_mut(id) else {
                 return;
             };
             goblin.presence = Presence::Standing(to);
@@ -87,13 +95,43 @@ impl<D: DiceRoller> Game<D> {
             self.finish_turn(TurnEndReason::NoGoblinCanAct, events);
         }
     }
+
+    fn dodge_succeeds(&mut self, id: GoblinId, from: Square, events: &mut Vec<GameEvent>) -> bool {
+        let Some(tackler) = self.most_dangerous_tackler(id, from) else {
+            return true;
+        };
+        let agility = self
+            .state
+            .goblin(id)
+            .map_or(1, |dodger| dodger.characteristics.agility);
+        let defense = self
+            .state
+            .goblin(tackler)
+            .map_or(1, |tackler| tackler.characteristics.defense);
+        let bonus = i8::try_from(self.state.stance_bonus(tackler)).unwrap_or(i8::MAX);
+        let contest = self.roll_contest(agility, defense, bonus);
+        events.push(GameEvent::DodgeAttempted {
+            goblin: id,
+            tackler,
+            contest,
+        });
+        if contest.actor_won() {
+            return true;
+        }
+        let damage = contest.margin.unsigned_abs().saturating_sub(1);
+        if let Some(dodger) = self.state.goblin_mut(id) {
+            dodger.has_acted = true;
+        }
+        self.knock_down(id, damage, events);
+        false
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::characteristics::Archetype::{Bruiser, Sprinter};
     use crate::command::{Activation, Command};
-    use crate::event::{GameEvent, TurnEndReason};
+    use crate::event::{ContestRoll, GameEvent, TurnEndReason};
     use crate::game::scenario::Scenario;
     use crate::roster::GoblinId;
     use crate::square::Square;
@@ -399,6 +437,179 @@ mod tests {
             Ball::Loose {
                 at: Square::new(9, 9)
             }
+        );
+    }
+
+    fn sprinter_slipping_past_a_bruiser() -> Scenario {
+        Scenario::new()
+            .goblin("H1", Sprinter, 5, 7)
+            .goblin("H2", Sprinter, 3, 3)
+            .goblin("A1", Bruiser, 6, 7)
+    }
+
+    #[test]
+    fn given_sprinter_next_to_a_bruiser_when_it_wins_the_dodge_then_it_moves_on() {
+        let mut game = sprinter_slipping_past_a_bruiser().game([3, 2]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7), (3, 7)]))
+            .unwrap();
+        assert_eq!(
+            game.state().goblin(id("H1")).unwrap().presence,
+            Presence::Standing(Square::new(3, 7))
+        );
+    }
+
+    #[test]
+    fn given_sprinter_next_to_a_bruiser_when_the_dodge_ties_then_the_dodger_wins() {
+        let mut game = sprinter_slipping_past_a_bruiser().game([2, 2]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert_eq!(
+            game.state().goblin(id("H1")).unwrap().presence,
+            Presence::Standing(Square::new(4, 7))
+        );
+    }
+
+    #[test]
+    fn given_sprinter_next_to_a_bruiser_when_dodging_then_the_contest_is_reported() {
+        let mut game = sprinter_slipping_past_a_bruiser().game([3, 2]);
+        let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert_eq!(
+            events.first(),
+            Some(&GameEvent::DodgeAttempted {
+                goblin: id("H1"),
+                tackler: id("A1"),
+                contest: ContestRoll {
+                    actor_faces: 4,
+                    actor_rolled: 3,
+                    opponent_faces: 4,
+                    opponent_rolled: 2,
+                    opponent_modifier: 0,
+                    margin: 1
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn given_sprinter_loses_the_dodge_by_two_when_resolved_then_it_lies_where_it_stood() {
+        let mut game = sprinter_slipping_past_a_bruiser().game([1, 3]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7), (3, 7)]))
+            .unwrap();
+        assert_eq!(
+            game.state().goblin(id("H1")).unwrap().presence,
+            Presence::Down(Square::new(5, 7))
+        );
+    }
+
+    #[test]
+    fn given_sprinter_loses_the_dodge_by_two_when_resolved_then_it_loses_one_health() {
+        let mut game = sprinter_slipping_past_a_bruiser().game([1, 3]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert_eq!(game.state().goblin(id("H1")).unwrap().health, 2);
+    }
+
+    #[test]
+    fn given_sprinter_loses_the_dodge_by_one_when_resolved_then_it_only_falls() {
+        let mut game = sprinter_slipping_past_a_bruiser().game([2, 3]);
+        let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, GameEvent::HealthLost { .. }))
+        );
+    }
+
+    #[test]
+    fn given_sprinter_loses_the_dodge_when_resolved_then_the_turn_ends_on_a_knockdown() {
+        let mut game = sprinter_slipping_past_a_bruiser().game([1, 3]);
+        let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert!(events.contains(&GameEvent::TurnEnded {
+            team: TeamId::HOME,
+            reason: TurnEndReason::Knockdown
+        }));
+    }
+
+    #[test]
+    fn given_sprinter_crushed_by_a_braced_bruiser_when_resolved_then_it_is_knocked_out() {
+        let mut game = sprinter_slipping_past_a_bruiser()
+            .edit("A1", |goblin| goblin.in_stance = true)
+            .game([1, 4]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert_eq!(
+            game.state().goblin(id("H1")).unwrap().presence,
+            Presence::KnockedOut
+        );
+    }
+
+    #[test]
+    fn given_carrier_loses_the_dodge_when_resolved_then_the_ball_bounces_away() {
+        let mut game = sprinter_slipping_past_a_bruiser()
+            .ball_carried_by("H1")
+            .game([1, 3, 1]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert_eq!(
+            game.state().ball,
+            Ball::Loose {
+                at: Square::new(5, 6)
+            }
+        );
+    }
+
+    #[test]
+    fn given_a_sprinter_and_a_bruiser_around_when_dodging_then_the_bruiser_tackles() {
+        let mut game = Scenario::new()
+            .goblin("H1", Sprinter, 5, 7)
+            .goblin("A1", Sprinter, 6, 7)
+            .goblin("A2", Bruiser, 5, 6)
+            .game([4, 1]);
+        let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert!(matches!(
+            events.first(),
+            Some(GameEvent::DodgeAttempted { tackler, .. }) if *tackler == id("A2")
+        ));
+    }
+
+    #[test]
+    fn given_a_sprinter_inside_a_stance_wall_and_a_plain_bruiser_when_dodging_then_the_wall_tackles()
+     {
+        let mut game = Scenario::new()
+            .goblin("H1", Sprinter, 5, 7)
+            .goblin("A1", Sprinter, 6, 7)
+            .goblin("A2", Bruiser, 5, 6)
+            .goblin("A3", Bruiser, 7, 7)
+            .goblin("A4", Bruiser, 6, 8)
+            .edit("A1", |goblin| goblin.in_stance = true)
+            .edit("A3", |goblin| goblin.in_stance = true)
+            .edit("A4", |goblin| goblin.in_stance = true)
+            .game([4, 1]);
+        let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert!(matches!(
+            events.first(),
+            Some(GameEvent::DodgeAttempted { tackler, .. }) if *tackler == id("A1")
+        ));
+    }
+
+    #[test]
+    fn given_only_a_downed_enemy_next_to_the_goblin_when_stepping_away_then_no_dodge() {
+        let mut game = sprinter_slipping_past_a_bruiser()
+            .edit("A1", |goblin| {
+                goblin.presence = Presence::Down(Square::new(6, 7))
+            })
+            .game([]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert_eq!(game.dice().remaining(), 0);
+    }
+
+    #[test]
+    fn given_a_free_square_when_stepping_next_to_an_enemy_then_no_dodge() {
+        let mut game = Scenario::new()
+            .goblin("H1", Sprinter, 4, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .game([]);
+        let events = game.apply(TeamId::HOME, act("H1", &[(5, 7)])).unwrap();
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, GameEvent::DodgeAttempted { .. }))
         );
     }
 }

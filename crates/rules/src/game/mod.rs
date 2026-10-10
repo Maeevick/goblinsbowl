@@ -14,6 +14,7 @@ use crate::team::TeamId;
 use crate::violation::RuleViolation;
 
 mod activation;
+mod fight;
 mod kickoff;
 #[cfg(test)]
 pub(crate) mod scenario;
