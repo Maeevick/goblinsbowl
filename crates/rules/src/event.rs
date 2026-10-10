@@ -135,6 +135,13 @@ pub enum GameEvent {
         /// Agility die against the tackler's defense die and Stance bonus.
         contest: ContestRoll,
     },
+    /// A goblin tried to pick up the loose ball it stepped onto.
+    PickAttempted {
+        /// The goblin.
+        goblin: GoblinId,
+        /// Its roll.
+        roll: BallRoll,
+    },
     /// A goblin fell or was knocked over on a square.
     KnockedDown {
         /// The goblin.

@@ -5,7 +5,7 @@ use crate::dice::DiceRoller;
 use crate::event::{GameEvent, TurnEndReason};
 use crate::roster::GoblinId;
 use crate::square::Square;
-use crate::state::Presence;
+use crate::state::{Ball, Presence};
 use crate::team::TeamId;
 use crate::violation::RuleViolation;
 
@@ -87,6 +87,10 @@ impl<D: DiceRoller> Game<D> {
                 from,
                 to,
             });
+            if self.state.ball == (Ball::Loose { at: to }) && !self.pick_succeeds(id, to, events) {
+                self.finish_turn(TurnEndReason::Fumble, events);
+                return;
+            }
         }
         if let Some(goblin) = self.state.goblin_mut(id) {
             goblin.has_acted = true;
@@ -94,6 +98,20 @@ impl<D: DiceRoller> Game<D> {
         if !self.has_goblin_able_to_act(team) {
             self.finish_turn(TurnEndReason::NoGoblinCanAct, events);
         }
+    }
+
+    fn pick_succeeds(&mut self, id: GoblinId, at: Square, events: &mut Vec<GameEvent>) -> bool {
+        let roll = self.ball_roll(id, 0);
+        events.push(GameEvent::PickAttempted { goblin: id, roll });
+        if roll.success {
+            self.state.ball = Ball::Carried { by: id };
+            return true;
+        }
+        if let Some(picker) = self.state.goblin_mut(id) {
+            picker.has_acted = true;
+        }
+        self.bounce_ball(at, events);
+        false
     }
 
     fn dodge_succeeds(&mut self, id: GoblinId, from: Square, events: &mut Vec<GameEvent>) -> bool {
@@ -131,7 +149,7 @@ impl<D: DiceRoller> Game<D> {
 mod tests {
     use crate::characteristics::Archetype::{Bruiser, Sprinter};
     use crate::command::{Activation, Command};
-    use crate::event::{ContestRoll, GameEvent, TurnEndReason};
+    use crate::event::{BallRoll, ContestRoll, GameEvent, TurnEndReason};
     use crate::game::scenario::Scenario;
     use crate::roster::GoblinId;
     use crate::square::Square;
@@ -611,5 +629,96 @@ mod tests {
                 .iter()
                 .any(|event| matches!(event, GameEvent::DodgeAttempted { .. }))
         );
+    }
+
+    #[test]
+    fn given_loose_ball_on_the_path_when_the_pick_succeeds_then_the_goblin_carries_it_on() {
+        let mut game = two_sprinters_apart().ball_loose_at(4, 7).game([3]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7), (5, 7)]))
+            .unwrap();
+        assert_eq!(game.state().ball, Ball::Carried { by: id("H1") });
+    }
+
+    #[test]
+    fn given_loose_ball_on_the_path_when_picking_then_the_roll_is_reported() {
+        let mut game = two_sprinters_apart().ball_loose_at(4, 7).game([3]);
+        let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert_eq!(
+            events.get(1),
+            Some(&GameEvent::PickAttempted {
+                goblin: id("H1"),
+                roll: BallRoll {
+                    faces: 4,
+                    rolled: 3,
+                    malus: 0,
+                    target: 2,
+                    success: true
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn given_an_enemy_next_to_the_ball_when_picking_with_a_two_then_the_malus_makes_it_fail() {
+        let mut game = two_sprinters_apart()
+            .goblin("A2", Bruiser, 4, 6)
+            .ball_loose_at(4, 7)
+            .game([2, 3]);
+        let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert!(events.contains(&GameEvent::PickAttempted {
+            goblin: id("H1"),
+            roll: BallRoll {
+                faces: 4,
+                rolled: 2,
+                malus: 1,
+                target: 2,
+                success: false
+            }
+        }));
+    }
+
+    #[test]
+    fn given_the_pick_fails_when_resolved_then_the_turn_ends_on_a_fumble() {
+        let mut game = two_sprinters_apart().ball_loose_at(4, 7).game([1, 3]);
+        let events = game
+            .apply(TeamId::HOME, act("H1", &[(4, 7), (5, 7)]))
+            .unwrap();
+        assert!(events.contains(&GameEvent::TurnEnded {
+            team: TeamId::HOME,
+            reason: TurnEndReason::Fumble
+        }));
+    }
+
+    #[test]
+    fn given_the_pick_fails_when_resolved_then_the_goblin_stays_on_the_ball_square() {
+        let mut game = two_sprinters_apart().ball_loose_at(4, 7).game([1, 3]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7), (5, 7)]))
+            .unwrap();
+        assert_eq!(
+            game.state().goblin(id("H1")).unwrap().presence,
+            Presence::Standing(Square::new(4, 7))
+        );
+    }
+
+    #[test]
+    fn given_the_pick_fails_when_resolved_then_the_ball_bounces_off() {
+        let mut game = two_sprinters_apart().ball_loose_at(4, 7).game([1, 3]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert_eq!(
+            game.state().ball,
+            Ball::Loose {
+                at: Square::new(4, 8)
+            }
+        );
+    }
+
+    #[test]
+    fn given_the_pick_fails_when_the_ball_bounces_onto_a_teammate_then_it_may_catch_it() {
+        let mut game = two_sprinters_apart()
+            .goblin("H3", Sprinter, 4, 8)
+            .ball_loose_at(4, 7)
+            .game([1, 3, 4]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert_eq!(game.state().ball, Ball::Carried { by: id("H3") });
     }
 }
