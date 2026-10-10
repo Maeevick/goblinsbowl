@@ -2,6 +2,7 @@
 
 mod bowl_view;
 mod camera_rig;
+mod dev_capture;
 mod hud;
 
 use bevy::prelude::*;
@@ -21,6 +22,7 @@ fn main() {
             bowl_view::BowlViewPlugin,
             camera_rig::CameraRigPlugin,
             hud::HudPlugin,
+            dev_capture::DevCapturePlugin,
         ))
         .run();
 }
