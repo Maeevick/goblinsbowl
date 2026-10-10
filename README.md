@@ -9,12 +9,13 @@ Goblin football in a bowl: a minimalist, turn-based tactics game played with dic
 
 ```bash
 make run                              # two humans on this machine (Bevy window)
-make run ARGS="--away bot"            # play against the computer
+make run ARGS="--away bot"            # play against the computer (--bot cautious, bold or random)
 make run ARGS="--home-turn-seconds 90 --lang en"
 make check                            # lint + unit + integrated tests
+make balance ARGS="--games 1000 --home cautious --away bold"
 ```
 
-Rules 0.1 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`.
+Rules 0.1 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`; how they play out between bots: [`docs/balance.md`](docs/balance.md).
 
 ## How to play
 
@@ -28,7 +29,7 @@ Rules 0.1 (French and English, printable for a paper playtest): [`docs/rules.md`
 ## Agents
 
 ```bash
-make serve                            # MCP server on http://127.0.0.1:7878/mcp: an agent coaches home against the bot
+make serve                            # MCP server on http://127.0.0.1:7878/mcp: an agent coaches home against the cautious bot
 scripts/agent-vs-agent.sh 3           # two Claude Code coaches, at most $3 each; everything lands in runs/<timestamp>/
 ```
 
