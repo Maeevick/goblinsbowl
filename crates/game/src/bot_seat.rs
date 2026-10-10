@@ -1,17 +1,19 @@
-//! Bot seats of the local match: the random policy plays one command per pause, so people can follow.
+//! Bot seats of the local match: a built-in bot plays one command per pause, so people can follow.
 
 use std::time::Duration;
 
 use bevy::prelude::*;
 use goblins_rules::dice::SeededDice;
 use goblins_rules::host::SeatKind;
-use goblins_rules::policies::random::random_command;
+use goblins_rules::policies::Bot;
 
 use crate::local_match::{MatchOrder, MatchSystems, MatchView};
 
 /// Plays every bot seat of the local match.
 pub struct BotSeatPlugin {
-    /// Seed of the bots' decisions.
+    /// How the bots play.
+    pub bot: Bot,
+    /// Seed of the bots' decisions, for the random bot.
     pub seed: u64,
     /// Pause before each bot command.
     pub pause: Duration,
@@ -19,6 +21,7 @@ pub struct BotSeatPlugin {
 
 #[derive(Resource)]
 struct BotCoach {
+    bot: Bot,
     dice: SeededDice,
     pause: Timer,
 }
@@ -26,6 +29,7 @@ struct BotCoach {
 impl Plugin for BotSeatPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(BotCoach {
+            bot: self.bot,
             dice: SeededDice::from_seed(self.seed),
             pause: Timer::new(self.pause, TimerMode::Repeating),
         })
@@ -51,7 +55,8 @@ fn play_bot_seats(
     if !coach.pause.tick(time.delta()).just_finished() {
         return;
     }
-    let command = random_command(
+    let bot = coach.bot;
+    let command = bot.command(
         &view.arena,
         &view.ruleset,
         &snapshot.state,
@@ -88,6 +93,7 @@ mod tests {
                 opening_events,
             },
             BotSeatPlugin {
+                bot: Bot::Cautious,
                 seed: 7,
                 pause: Duration::from_millis(500),
             },

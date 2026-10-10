@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use bevy::prelude::Resource;
 use clap::{Parser, ValueEnum};
 use goblins_rules::host::{MatchSetup, SeatKind};
+use goblins_rules::policies::Bot;
 use goblins_rules::ruleset::Ruleset;
 
 use crate::texts::Language;
@@ -37,6 +38,9 @@ pub struct GameOptions {
     /// Who plays the away team (gold, east den).
     #[arg(long, value_enum, default_value_t = LocalSeat::Human)]
     pub away: LocalSeat,
+    /// How the bot seats play: random, cautious or bold.
+    #[arg(long, default_value_t = Bot::Cautious)]
+    pub bot: Bot,
     /// Dice seed; random when left out.
     #[arg(long)]
     pub seed: Option<u64>,
@@ -90,6 +94,22 @@ mod tests {
             (options.home, options.away, options.lang),
             (LocalSeat::Human, LocalSeat::Human, Language::French)
         );
+    }
+
+    #[test]
+    fn given_no_bot_style_when_parsed_then_the_cautious_bot() {
+        assert_eq!(parse(&[]).bot, Bot::Cautious);
+    }
+
+    #[test]
+    fn given_a_bold_bot_when_parsed_then_the_bold_bot() {
+        assert_eq!(parse(&["--bot", "bold"]).bot, Bot::Bold);
+    }
+
+    #[test]
+    fn given_an_unknown_bot_when_parsed_then_refused() {
+        let parsed = GameOptions::try_parse_from(["goblinsbowl", "--bot", "clever"]);
+        assert!(parsed.is_err());
     }
 
     #[test]

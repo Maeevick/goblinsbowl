@@ -28,6 +28,7 @@ fn main() -> AppExit {
         }
     };
     let seed = options.seed.unwrap_or_else(seed_from_clock);
+    let bot = options.bot;
     let (host, opening_events) = match MatchHost::start(options.match_setup(ruleset, seed)) {
         Ok(started) => started,
         Err(problem) => {
@@ -55,6 +56,7 @@ fn main() -> AppExit {
                 opening_events,
             },
             BotSeatPlugin {
+                bot,
                 seed: seed.wrapping_add(1),
                 pause: Duration::from_millis(800),
             },
