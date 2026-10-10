@@ -1,7 +1,7 @@
 //! Turn sequencing: starting and ending turns.
 
 use crate::dice::DiceRoller;
-use crate::event::GameEvent;
+use crate::event::{GameEvent, TurnEndReason};
 use crate::state::{Phase, Presence};
 use crate::team::TeamId;
 
@@ -37,5 +37,17 @@ impl<D: DiceRoller> Game<D> {
                 .into_iter()
                 .map(|goblin| GameEvent::StoodUp { goblin }),
         );
+    }
+
+    pub(super) fn finish_turn(&mut self, reason: TurnEndReason, events: &mut Vec<GameEvent>) {
+        let Some(team) = self.state.active_team() else {
+            return;
+        };
+        events.push(GameEvent::TurnEnded { team, reason });
+        self.start_turn(team.duel_opponent(), events);
+    }
+
+    pub(super) fn has_goblin_able_to_act(&self, team: TeamId) -> bool {
+        self.state.goblins_of(team).any(|goblin| goblin.can_act())
     }
 }

@@ -3,15 +3,20 @@
 use thiserror::Error;
 
 use crate::arena::Arena;
+use crate::command::Command;
 use crate::dice::DiceRoller;
-use crate::event::GameEvent;
+use crate::event::{GameEvent, TurnEndReason};
 use crate::formation::kickoff_squares;
 use crate::roster::{GoblinId, Roster, RosterError};
 use crate::ruleset::{Ruleset, RulesetError};
 use crate::state::{Ball, GameState, Goblin, Phase, Presence};
 use crate::team::TeamId;
+use crate::violation::RuleViolation;
 
+mod activation;
 mod kickoff;
+#[cfg(test)]
+pub(crate) mod scenario;
 mod turns;
 
 /// Why a match cannot start.
@@ -126,6 +131,34 @@ impl<D: DiceRoller> Game<D> {
             state,
             dice,
         })
+    }
+
+    /// Applies a command sent on behalf of `team` and reports what happened, in order.
+    ///
+    /// # Errors
+    /// A [`RuleViolation`] when the command breaks the rules; the match is then left untouched.
+    pub fn apply(
+        &mut self,
+        team: TeamId,
+        command: Command,
+    ) -> Result<Vec<GameEvent>, RuleViolation> {
+        let active_team = self
+            .state
+            .active_team()
+            .ok_or(RuleViolation::MatchFinished)?;
+        if team != active_team {
+            return Err(RuleViolation::NotYourTurn { active_team });
+        }
+        let mut events = Vec::new();
+        match command {
+            Command::Act(activation) => {
+                self.validate_activation(team, &activation)?;
+                self.resolve_activation(activation, &mut events);
+            }
+            Command::EndTurn => self.finish_turn(TurnEndReason::EndTurn, &mut events),
+            Command::TimeUp => self.finish_turn(TurnEndReason::TimeUp, &mut events),
+        }
+        Ok(events)
     }
 
     /// The current state.

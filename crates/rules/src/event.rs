@@ -117,4 +117,20 @@ pub enum GameEvent {
         /// The goblin.
         goblin: GoblinId,
     },
+    /// A goblin stepped from one square to the next.
+    Moved {
+        /// The goblin.
+        goblin: GoblinId,
+        /// Square it left.
+        from: Square,
+        /// Square it entered.
+        to: Square,
+    },
+    /// A team's turn is over.
+    TurnEnded {
+        /// The team whose turn ended.
+        team: TeamId,
+        /// Why it ended.
+        reason: TurnEndReason,
+    },
 }

@@ -5,6 +5,7 @@
 
 pub mod arena;
 pub mod characteristics;
+pub mod command;
 pub mod dice;
 pub mod event;
 pub mod formation;
@@ -14,3 +15,4 @@ pub mod ruleset;
 pub mod square;
 pub mod state;
 pub mod team;
+pub mod violation;
