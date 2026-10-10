@@ -7,6 +7,7 @@ seat="$1"; url="$2"; token="$3"; run_dir="$4"; shift 4
 mkdir -p "$run_dir"
 team_name=$([ "$seat" = home ] && echo "home (H, west den)" || echo "away (A, east den)")
 prompt=$(sed "s/TEAM_NAME/$team_name/" "$(dirname "$0")/../prompts/coach.md")
+printf '%s  prompts/coach.md\n%s\n' "$(shasum -a 256 "$(dirname "$0")/../prompts/coach.md" | cut -d' ' -f1)" "claude $*" > "$run_dir/$seat-setup.txt"
 mcp_config=$(printf '{"mcpServers":{"goblinsbowl":{"type":"http","url":"%s","headers":{"Authorization":"Bearer %s"}}}}' "$url" "$token")
 
 claude -p "$prompt" \
