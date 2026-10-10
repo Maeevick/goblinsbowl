@@ -3,6 +3,8 @@
 use crate::command::{Action, Activation};
 use crate::dice::DiceRoller;
 use crate::event::{GameEvent, TurnEndReason};
+use crate::odds::ContestDice;
+use crate::preview::dodge_dice;
 use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::state::{Ball, Presence};
@@ -98,16 +100,16 @@ impl<D: DiceRoller> Game<D> {
         let Some(tackler) = self.most_dangerous_tackler(id, from) else {
             return true;
         };
-        let agility = self
-            .state
-            .goblin(id)
-            .map_or(1, |dodger| dodger.characteristics.agility);
-        let defense = self
-            .state
-            .goblin(tackler)
-            .map_or(1, |tackler| tackler.characteristics.defense);
-        let bonus = i8::try_from(self.state.stance_bonus(tackler)).unwrap_or(i8::MAX);
-        let contest = self.roll_contest(agility, defense, bonus);
+        let dice = dodge_dice(&self.state, id, tackler).unwrap_or(ContestDice {
+            actor_faces: 1,
+            opponent_faces: 1,
+            opponent_modifier: 0,
+        });
+        let contest = self.roll_contest(
+            dice.actor_faces,
+            dice.opponent_faces,
+            dice.opponent_modifier,
+        );
         events.push(GameEvent::DodgeAttempted {
             goblin: id,
             tackler,

@@ -9,7 +9,7 @@ use goblins_rules::command::{Action, Activation};
 use goblins_rules::event::GameEvent;
 use goblins_rules::host::{MatchSnapshot, TurnClock};
 use goblins_rules::odds::Probability;
-use goblins_rules::preview::activation_odds;
+use goblins_rules::preview::{activation_odds, assault_dice};
 use goblins_rules::ruleset::Ruleset;
 use goblins_rules::state::{Ball, Goblin, Phase, Presence};
 use goblins_rules::team::TeamId;
@@ -308,24 +308,19 @@ fn assault_options(
             let chance = activation_odds(arena, ruleset, state, seat, &order)
                 .map(|odds| odds.overall_success)
                 .unwrap_or(Probability::IMPOSSIBLE);
-            let downed_malus = if matches!(defender.presence, Presence::Down(_)) {
-                i16::from(ruleset.downed_defense_malus)
-            } else {
-                0
-            };
-            let modifier = i16::from(state.stance_bonus(defender.id)) - downed_malus;
+            let dice = assault_dice(ruleset, state, attacker.id, defender.id);
             AssaultOption {
                 attacker: attacker.id.to_string(),
                 target: defender.id.to_string(),
-                dice: (hints != OddsHints::None).then(|| {
+                dice: dice.filter(|_| hints != OddsHints::None).map(|dice| {
                     format!(
                         "d{} vs d{}{}",
-                        attacker.characteristics.attack,
-                        defender.characteristics.defense,
-                        if modifier == 0 {
+                        dice.actor_faces,
+                        dice.opponent_faces,
+                        if dice.opponent_modifier == 0 {
                             String::new()
                         } else {
-                            format!("{modifier:+}")
+                            format!("{:+}", dice.opponent_modifier)
                         }
                     )
                 }),

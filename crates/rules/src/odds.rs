@@ -4,6 +4,28 @@ use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
+/// Which dice face off in a contest: the actor's die against the opponent's die plus a modifier.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ContestDice {
+    /// Faces of the actor's die.
+    pub actor_faces: u8,
+    /// Faces of the opponent's die.
+    pub opponent_faces: u8,
+    /// Added to the opponent's face.
+    pub opponent_modifier: i8,
+}
+
+impl ContestDice {
+    /// Chance that the actor wins (ties go to the actor).
+    pub fn success(self) -> Probability {
+        contest_success(
+            self.actor_faces,
+            self.opponent_faces,
+            self.opponent_modifier,
+        )
+    }
+}
+
 /// A probability kept as a reduced fraction; comparisons never go through floating point.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Probability {
@@ -133,6 +155,16 @@ fn greatest_common_divisor_wide(first: u128, second: u128) -> u128 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn given_d4_against_d4_plus_one_when_contested_then_three_chances_in_eight() {
+        let dice = ContestDice {
+            actor_faces: 4,
+            opponent_faces: 4,
+            opponent_modifier: 1,
+        };
+        assert_eq!(dice.success(), Probability::new(3, 8));
+    }
+
     use super::*;
 
     #[test]

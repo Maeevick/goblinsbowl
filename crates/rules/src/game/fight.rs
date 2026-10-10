@@ -2,7 +2,8 @@
 
 use crate::dice::DiceRoller;
 use crate::event::{ContestRoll, GameEvent, TurnEndReason};
-use crate::preview::most_dangerous_tackler;
+use crate::odds::ContestDice;
+use crate::preview::{assault_dice, most_dangerous_tackler};
 use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::state::{Ball, Presence};
@@ -99,25 +100,21 @@ impl<D: DiceRoller> Game<D> {
         defender: GoblinId,
         events: &mut Vec<GameEvent>,
     ) -> Option<TurnEndReason> {
-        let attack = self
+        let defender_is_down = self
             .state
-            .goblin(attacker)
-            .map_or(1, |goblin| goblin.characteristics.attack);
-        let (defense, defender_is_down) =
-            self.state.goblin(defender).map_or((1, false), |goblin| {
-                (
-                    goblin.characteristics.defense,
-                    matches!(goblin.presence, Presence::Down(_)),
-                )
+            .goblin(defender)
+            .is_some_and(|goblin| matches!(goblin.presence, Presence::Down(_)));
+        let dice =
+            assault_dice(&self.ruleset, &self.state, attacker, defender).unwrap_or(ContestDice {
+                actor_faces: 1,
+                opponent_faces: 1,
+                opponent_modifier: 0,
             });
-        let stance_bonus = i16::from(self.state.stance_bonus(defender));
-        let downed_malus = if defender_is_down {
-            i16::from(self.ruleset.downed_defense_malus)
-        } else {
-            0
-        };
-        let modifier = i8::try_from(stance_bonus - downed_malus).unwrap_or(i8::MIN);
-        let contest = self.roll_contest(attack, defense, modifier);
+        let contest = self.roll_contest(
+            dice.actor_faces,
+            dice.opponent_faces,
+            dice.opponent_modifier,
+        );
         events.push(GameEvent::AssaultResolved {
             attacker,
             defender,

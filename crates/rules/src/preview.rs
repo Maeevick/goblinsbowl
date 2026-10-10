@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::arena::Arena;
 use crate::command::{Action, Activation};
 use crate::flight::squares_crossed;
-use crate::odds::{Probability, ball_roll_success, contest_success};
+use crate::odds::{ContestDice, Probability, ball_roll_success};
 use crate::roster::GoblinId;
 use crate::ruleset::Ruleset;
 use crate::square::Square;
@@ -80,22 +80,51 @@ pub struct ActivationOdds {
     pub overall_success: Probability,
 }
 
+/// The dice of `attacker` assaulting `defender`: Attack against Defense plus the defender's Stance
+/// bonus, minus the downed malus when the defender lies on the ground.
+pub fn assault_dice(
+    ruleset: &Ruleset,
+    state: &GameState,
+    attacker: GoblinId,
+    defender: GoblinId,
+) -> Option<ContestDice> {
+    let actor_faces = state.goblin(attacker)?.characteristics.attack;
+    let target = state.goblin(defender)?;
+    let downed_malus = if matches!(target.presence, Presence::Down(_)) {
+        i16::from(ruleset.downed_defense_malus)
+    } else {
+        0
+    };
+    let modifier = i16::from(state.stance_bonus(defender)) - downed_malus;
+    Some(ContestDice {
+        actor_faces,
+        opponent_faces: target.characteristics.defense,
+        opponent_modifier: i8::try_from(modifier).unwrap_or(i8::MIN),
+    })
+}
+
+/// The dice of `mover` slipping away from `tackler`: Agility against Defense plus the tackler's Stance bonus.
+pub fn dodge_dice(state: &GameState, mover: GoblinId, tackler: GoblinId) -> Option<ContestDice> {
+    let actor_faces = state.goblin(mover)?.characteristics.agility;
+    let opponent = state.goblin(tackler)?;
+    Some(ContestDice {
+        actor_faces,
+        opponent_faces: opponent.characteristics.defense,
+        opponent_modifier: i8::try_from(state.stance_bonus(tackler)).unwrap_or(i8::MAX),
+    })
+}
+
 /// The adjacent standing enemy most likely to stop `mover` leaving `from`, with the mover's chance to escape.
 pub fn most_dangerous_tackler(
     state: &GameState,
     mover: GoblinId,
     from: Square,
 ) -> Option<(GoblinId, Probability)> {
-    let mover = state.goblin(mover)?;
-    let agility = mover.characteristics.agility;
+    let team = state.goblin(mover)?.team();
     state
-        .standing_opponents_next_to(from, mover.team())
-        .map(|tackler| {
-            let bonus = i8::try_from(state.stance_bonus(tackler.id)).unwrap_or(i8::MAX);
-            (
-                contest_success(agility, tackler.characteristics.defense, bonus),
-                tackler.id,
-            )
+        .standing_opponents_next_to(from, team)
+        .filter_map(|tackler| {
+            dodge_dice(state, mover, tackler.id).map(|dice| (dice.success(), tackler.id))
         })
         .min()
         .map(|(escape, tackler)| (tackler, escape))
@@ -193,23 +222,8 @@ fn assault_success(
     attacker: GoblinId,
     target: GoblinId,
 ) -> Probability {
-    let attack = sketch
-        .goblin(attacker)
-        .map_or(1, |goblin| goblin.characteristics.attack);
-    let Some(defender) = sketch.goblin(target) else {
-        return Probability::IMPOSSIBLE;
-    };
-    let downed_malus = if matches!(defender.presence, Presence::Down(_)) {
-        i16::from(ruleset.downed_defense_malus)
-    } else {
-        0
-    };
-    let modifier = i16::from(sketch.stance_bonus(target)) - downed_malus;
-    contest_success(
-        attack,
-        defender.characteristics.defense,
-        i8::try_from(modifier).unwrap_or(i8::MIN),
-    )
+    assault_dice(ruleset, sketch, attacker, target)
+        .map_or(Probability::IMPOSSIBLE, ContestDice::success)
 }
 
 fn throw_odds(
@@ -311,6 +325,85 @@ mod tests {
             TeamId::HOME,
             activation,
         )
+    }
+
+    fn dice_of(
+        scenario: Scenario,
+        read: impl FnOnce(&Ruleset, &GameState) -> Option<ContestDice>,
+    ) -> Option<ContestDice> {
+        let game = scenario.game([]);
+        read(game.ruleset(), game.state())
+    }
+
+    #[test]
+    fn given_a_defender_braced_beside_a_braced_teammate_when_reading_assault_dice_then_its_die_gets_two()
+     {
+        let scenario = Scenario::new()
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Sprinter, 6, 7)
+            .goblin("A2", Bruiser, 6, 8)
+            .edit("A1", |goblin| goblin.in_stance = true)
+            .edit("A2", |goblin| goblin.in_stance = true);
+        assert_eq!(
+            dice_of(scenario, |ruleset, state| assault_dice(
+                ruleset,
+                state,
+                id("H1"),
+                id("A1")
+            )),
+            Some(ContestDice {
+                actor_faces: 4,
+                opponent_faces: 2,
+                opponent_modifier: 2
+            })
+        );
+    }
+
+    #[test]
+    fn given_a_downed_defender_when_reading_assault_dice_then_its_die_loses_the_downed_malus() {
+        let scenario = Scenario::new()
+            .goblin("H1", Sprinter, 5, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .edit("A1", |goblin| {
+                goblin.presence = Presence::Down(Square::new(6, 7))
+            });
+        assert_eq!(
+            dice_of(scenario, |ruleset, state| assault_dice(
+                ruleset,
+                state,
+                id("H1"),
+                id("A1")
+            ))
+            .map(|dice| dice.opponent_modifier),
+            Some(-2)
+        );
+    }
+
+    #[test]
+    fn given_an_unknown_defender_when_reading_assault_dice_then_none() {
+        let scenario = Scenario::new().goblin("H1", Bruiser, 5, 7);
+        assert_eq!(
+            dice_of(scenario, |ruleset, state| assault_dice(
+                ruleset,
+                state,
+                id("H1"),
+                id("A9")
+            )),
+            None
+        );
+    }
+
+    #[test]
+    fn given_a_braced_tackler_when_reading_dodge_dice_then_agility_against_its_defense_plus_one() {
+        let scenario = sprinter_next_to_a_bruiser().edit("A1", |goblin| goblin.in_stance = true);
+        assert_eq!(
+            dice_of(scenario, |_, state| dodge_dice(state, id("H1"), id("A1"))),
+            Some(ContestDice {
+                actor_faces: 4,
+                opponent_faces: 4,
+                opponent_modifier: 1
+            })
+        );
     }
 
     fn sprinter_next_to_a_bruiser() -> Scenario {
