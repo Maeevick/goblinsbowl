@@ -13,6 +13,7 @@ pub mod flight;
 pub mod formation;
 pub mod game;
 pub mod odds;
+pub mod paths;
 pub mod preview;
 pub mod roster;
 pub mod ruleset;
