@@ -3,6 +3,7 @@
 use std::collections::VecDeque;
 use std::f32::consts::FRAC_PI_2;
 
+use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::transform::TransformSystems;
 use bevy::ui::UiSystems;
@@ -19,7 +20,9 @@ use crate::local_match::{MatchSystems, MatchView};
 const WALK_SPEED: f32 = 7.0;
 const FALL_SPEED: f32 = 6.0;
 const BALL_SPEED: f32 = 12.0;
-const BALL_RADIUS: f32 = 0.13;
+const BALL_RADIUS: f32 = 0.16;
+const BALL_MARKER_LIFT: f32 = 0.025;
+const BALL_BEAM_HEIGHT: f32 = 2.8;
 const BALL_ABOVE_CARRIER: f32 = 1.55;
 const HEAD_RADIUS: f32 = 0.24;
 const LYING_LIFT: f32 = 0.24;
@@ -63,6 +66,9 @@ struct StanceRing;
 
 #[derive(Component)]
 struct BallFigure;
+
+#[derive(Component)]
+struct BallMarker;
 
 #[derive(Component)]
 struct FigureLabel(Entity);
@@ -161,6 +167,7 @@ impl Plugin for GoblinViewPlugin {
                     refresh_rings,
                     refresh_health_pips,
                     move_ball,
+                    mark_loose_ball,
                 )
                     .chain()
                     .in_set(MatchSystems::Present),
@@ -358,6 +365,7 @@ fn spawn_figure(
                 Transform::from_xyz(0.0, 0.02, 0.0),
                 Visibility::Hidden,
                 Pickable::IGNORE,
+                NotShadowCaster,
                 ReadyRing,
             ));
             figure.spawn((
@@ -366,6 +374,7 @@ fn spawn_figure(
                 Transform::from_xyz(0.0, 0.03, 0.0),
                 Visibility::Hidden,
                 Pickable::IGNORE,
+                NotShadowCaster,
                 StanceRing,
             ));
         })
@@ -549,6 +558,29 @@ fn spawn_ball(
         Pickable::IGNORE,
         BallFigure,
     ));
+    let beam_colour = Color::srgba(1.0, 0.9, 0.5, 0.5);
+    commands
+        .spawn((
+            Mesh3d(meshes.add(Torus::new(0.22, 0.3))),
+            MeshMaterial3d(materials.add(glowing(Color::srgb(1.0, 0.95, 0.7)))),
+            Transform::default(),
+            Visibility::Hidden,
+            Pickable::IGNORE,
+            NotShadowCaster,
+            BallMarker,
+        ))
+        .with_child((
+            Mesh3d(meshes.add(Cylinder::new(0.1, BALL_BEAM_HEIGHT))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: beam_colour,
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            })),
+            Transform::from_xyz(0.0, BALL_BEAM_HEIGHT / 2.0, 0.0),
+            Pickable::IGNORE,
+            NotShadowCaster,
+        ));
 }
 
 fn queue_walks(view: Res<MatchView>, mut figures: Query<&mut GoblinFigure>) {
@@ -677,6 +709,25 @@ fn move_ball(
             .move_towards(target, BALL_SPEED * time.delta_secs());
         if stepped != ball.translation {
             ball.translation = stepped;
+        }
+    }
+}
+
+fn mark_loose_ball(
+    view: Res<MatchView>,
+    mut marker: Single<(&mut Transform, &mut Visibility), With<BallMarker>>,
+) {
+    let (transform, visibility) = &mut *marker;
+    match view.snapshot.state.ball {
+        Ball::Loose { at } => {
+            let floor = square_centre(&view.arena, at) + Vec3::Y * BALL_MARKER_LIFT;
+            if transform.translation != floor {
+                transform.translation = floor;
+            }
+            visibility.set_if_neq(Visibility::Inherited);
+        }
+        Ball::Carried { .. } => {
+            visibility.set_if_neq(Visibility::Hidden);
         }
     }
 }

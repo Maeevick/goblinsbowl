@@ -1,5 +1,6 @@
 //! The bowl drawn as low-poly floor tiles inside a ring of stands, with hover and click picking.
 
+use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use goblins_rules::arena::Arena;
 use goblins_rules::roster::GoblinId;
@@ -153,6 +154,7 @@ fn spawn_bowl(
         Transform::default(),
         Visibility::Hidden,
         Pickable::IGNORE,
+        NotShadowCaster,
         HoverHighlight,
     ));
 }

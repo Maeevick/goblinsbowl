@@ -3,6 +3,7 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
 
+use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::ui_widgets::{Activate, observe};
 use goblins_rules::arena::Arena;
@@ -407,6 +408,7 @@ fn spawn_marks(
             Transform::from_translation(square_centre(&view.arena, square) + Vec3::Y * MARK_LIFT),
             Visibility::Hidden,
             Pickable::IGNORE,
+            NotShadowCaster,
             MarkTile { square },
         ));
     }
@@ -428,6 +430,7 @@ fn spawn_selection_ring(
         Transform::default(),
         Visibility::Hidden,
         Pickable::IGNORE,
+        NotShadowCaster,
         SelectionRing,
     ));
 }
