@@ -31,6 +31,7 @@ use rmcp::{Json, RoleServer, ServerHandler, tool, tool_handler, tool_router};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::call_log::{CallEntry, CallLog};
 use crate::match_server::MatchClient;
 use crate::view::drop_integer_formats;
 use crate::view::{CoachView, OddsHints, coach_view, describe_chance};
@@ -88,7 +89,7 @@ fn turn_mark(snapshot: &MatchSnapshot) -> TurnMark {
 }
 
 /// Arguments of wait_for_my_turn.
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(transform = drop_integer_formats)]
 pub struct WaitArgs {
     /// Longest wait in seconds (at most 50, default 45). Call again if the status is still waiting.
@@ -96,7 +97,7 @@ pub struct WaitArgs {
 }
 
 /// An action that ends an activation.
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(transform = drop_integer_formats)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PlannedAction {
@@ -115,7 +116,7 @@ pub enum PlannedAction {
 }
 
 /// One goblin's order.
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(transform = drop_integer_formats)]
 pub struct PlannedActivation {
     /// Goblin id such as H3.
@@ -131,7 +132,7 @@ pub struct PlannedActivation {
 }
 
 /// Arguments of play.
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(transform = drop_integer_formats)]
 pub struct PlayArgs {
     /// Activations resolved in this order; resolution stops at the first that ends your turn.
@@ -178,21 +179,24 @@ pub struct CoachServer {
     client: MatchClient,
     memories: Arc<Mutex<[SeatMemory; 2]>>,
     hints: OddsHints,
+    log: CallLog,
     tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
 impl CoachServer {
-    /// A coach server answering for the seat found in each request.
+    /// A coach server answering for the seat found in each request, logging every call to `log`.
     pub fn new(
         client: MatchClient,
         memories: Arc<Mutex<[SeatMemory; 2]>>,
         hints: OddsHints,
+        log: CallLog,
     ) -> Self {
         Self {
             client,
             memories,
             hints,
+            log,
             tool_router: Self::tool_router(),
         }
     }
@@ -205,17 +209,20 @@ impl CoachServer {
         context: RequestContext<RoleServer>,
         Parameters(arguments): Parameters<WaitArgs>,
     ) -> Result<Json<CoachView>, String> {
-        let seat = seat_of(&context)?;
-        let seconds = arguments
-            .max_wait_seconds
-            .unwrap_or(DEFAULT_WAIT_SECONDS)
-            .min(LONGEST_WAIT_SECONDS);
-        self.client
-            .wait_until(Duration::from_secs(seconds), |snapshot| {
-                snapshot.state.active_team().is_none_or(|team| team == seat)
-            })
-            .await;
-        Ok(Json(self.view_for(seat).await?))
+        let logged = serde_json::to_value(&arguments).unwrap_or_default();
+        self.logged(&context, "wait_for_my_turn", logged, async |seat| {
+            let seconds = arguments
+                .max_wait_seconds
+                .unwrap_or(DEFAULT_WAIT_SECONDS)
+                .min(LONGEST_WAIT_SECONDS);
+            self.client
+                .wait_until(Duration::from_secs(seconds), |snapshot| {
+                    snapshot.state.active_team().is_none_or(|team| team == seat)
+                })
+                .await;
+            Ok(Json(self.view_for(seat).await?))
+        })
+        .await
     }
 
     #[tool(
@@ -225,17 +232,22 @@ impl CoachServer {
         &self,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<CoachView>, String> {
-        let seat = seat_of(&context)?;
-        Ok(Json(self.view_for(seat).await?))
+        self.logged(&context, "get_state", serde_json::json!({}), async |seat| {
+            Ok(Json(self.view_for(seat).await?))
+        })
+        .await
     }
 
     #[tool(description = "The full rules of Goblins Bowl 0.1 (read once).")]
-    async fn get_rules(&self) -> String {
-        RULES
-            .split_once(ENGLISH_RULES_HEADING)
-            .map_or(RULES.to_string(), |(_, english)| {
-                format!("{ENGLISH_RULES_HEADING}{english}")
-            })
+    async fn get_rules(&self, context: RequestContext<RoleServer>) -> Result<String, String> {
+        self.logged(&context, "get_rules", serde_json::json!({}), async |_| {
+            Ok(RULES
+                .split_once(ENGLISH_RULES_HEADING)
+                .map_or(RULES.to_string(), |(_, english)| {
+                    format!("{ENGLISH_RULES_HEADING}{english}")
+                }))
+        })
+        .await
     }
 
     #[tool(
@@ -246,72 +258,75 @@ impl CoachServer {
         context: RequestContext<RoleServer>,
         Parameters(arguments): Parameters<PlayArgs>,
     ) -> Result<Json<PlayReport>, String> {
-        let seat = seat_of(&context)?;
-        let snapshot = self.client.latest();
-        if !arguments.dry_run && snapshot.state.active_team() != Some(seat) {
-            return Err("it is not your turn: call wait_for_my_turn".to_string());
-        }
-        if let Some(expected) = arguments.expected_version
-            && expected != snapshot.version
-        {
-            return Err(format!(
-                "stale plan: the match is at version {}, you planned on {expected}; call get_state",
-                snapshot.version
-            ));
-        }
-        if !arguments.dry_run && self.memory_of(seat).turn_seen != Some(turn_mark(&snapshot)) {
-            return Err(
-                "the turn changed since you last looked: call get_state (or wait_for_my_turn) and plan again"
-                    .to_string(),
-            );
-        }
-        let mut reports = Vec::new();
-        for (index, planned) in arguments.activations.iter().enumerate() {
+        let logged = serde_json::to_value(&arguments).unwrap_or_default();
+        self.logged(&context, "play", logged, async |seat| {
             let snapshot = self.client.latest();
-            let activation = match self.to_activation(planned, &snapshot) {
-                Ok(activation) => activation,
-                Err(reason) if index == 0 => return Err(reason),
-                Err(reason) => {
-                    reports.push(refused(planned, reason));
-                    break;
-                }
-            };
-            let odds = self.describe_odds(&snapshot, seat, &activation);
-            if arguments.dry_run {
-                reports.push(report(&activation, odds, "dry run".to_string(), Vec::new()));
-                continue;
+            if !arguments.dry_run && snapshot.state.active_team() != Some(seat) {
+                return Err("it is not your turn: call wait_for_my_turn".to_string());
             }
-            match self
-                .client
-                .submit(seat, Command::Act(activation.clone()))
-                .await
+            if let Some(expected) = arguments.expected_version
+                && expected != snapshot.version
             {
-                Ok(events) => {
-                    let outcome = outcome_of(&events, seat);
-                    let turn_over = outcome != "done";
-                    reports.push(report(&activation, odds, outcome, events));
-                    if turn_over {
+                return Err(format!(
+                    "stale plan: the match is at version {}, you planned on {expected}; call get_state",
+                    snapshot.version
+                ));
+            }
+            if !arguments.dry_run && self.memory_of(seat).turn_seen != Some(turn_mark(&snapshot)) {
+                return Err(
+                    "the turn changed since you last looked: call get_state (or wait_for_my_turn) and plan again"
+                        .to_string(),
+                );
+            }
+            let mut reports = Vec::new();
+            for (index, planned) in arguments.activations.iter().enumerate() {
+                let snapshot = self.client.latest();
+                let activation = match self.to_activation(planned, &snapshot) {
+                    Ok(activation) => activation,
+                    Err(reason) if index == 0 => return Err(reason),
+                    Err(reason) => {
+                        reports.push(refused(planned, reason));
+                        break;
+                    }
+                };
+                let odds = self.describe_odds(&snapshot, seat, &activation);
+                if arguments.dry_run {
+                    reports.push(report(&activation, odds, "dry run".to_string(), Vec::new()));
+                    continue;
+                }
+                match self
+                    .client
+                    .submit(seat, Command::Act(activation.clone()))
+                    .await
+                {
+                    Ok(events) => {
+                        let outcome = outcome_of(&events, seat);
+                        let turn_over = outcome != "done";
+                        reports.push(report(&activation, odds, outcome, events));
+                        if turn_over {
+                            break;
+                        }
+                    }
+                    Err(refusal) if index == 0 => return Err(refusal.to_string()),
+                    Err(refusal) => {
+                        reports.push(refused(planned, refusal.to_string()));
                         break;
                     }
                 }
-                Err(refusal) if index == 0 => return Err(refusal.to_string()),
-                Err(refusal) => {
-                    reports.push(refused(planned, refusal.to_string()));
-                    break;
-                }
             }
-        }
-        let still_my_turn = self.client.latest().state.active_team() == Some(seat);
-        if arguments.end_turn && !arguments.dry_run && still_my_turn {
-            self.client
-                .submit(seat, Command::EndTurn)
-                .await
-                .map_err(|refusal| refusal.to_string())?;
-        }
-        Ok(Json(PlayReport {
-            activations: reports,
-            view: self.view_for(seat).await?,
-        }))
+            let still_my_turn = self.client.latest().state.active_team() == Some(seat);
+            if arguments.end_turn && !arguments.dry_run && still_my_turn {
+                self.client
+                    .submit(seat, Command::EndTurn)
+                    .await
+                    .map_err(|refusal| refusal.to_string())?;
+            }
+            Ok(Json(PlayReport {
+                activations: reports,
+                view: self.view_for(seat).await?,
+            }))
+        })
+        .await
     }
 }
 
@@ -328,6 +343,34 @@ impl ServerHandler for CoachServer {
 }
 
 impl CoachServer {
+    async fn logged<T>(
+        &self,
+        context: &RequestContext<RoleServer>,
+        tool: &str,
+        arguments: serde_json::Value,
+        body: impl AsyncFnOnce(TeamId) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let started_ms = self.log.elapsed_ms();
+        let seat = seat_of(context);
+        let seat_label = seat
+            .as_ref()
+            .map_or_else(|_| "unknown".to_string(), |seat| seat_name(*seat));
+        let result = match seat {
+            Ok(seat) => body(seat).await,
+            Err(refusal) => Err(refusal),
+        };
+        self.log.record(&CallEntry {
+            at_ms: started_ms,
+            seat: seat_label,
+            tool: tool.to_string(),
+            arguments,
+            latency_ms: self.log.elapsed_ms().saturating_sub(started_ms),
+            error: result.as_ref().err().cloned(),
+            version: self.client.latest().version,
+        });
+        result
+    }
+
     fn memory_of(&self, seat: TeamId) -> SeatMemory {
         self.memories
             .lock()
@@ -500,6 +543,10 @@ fn parse_action(planned: &PlannedAction) -> Result<Action, String> {
     })
 }
 
+fn seat_name(seat: TeamId) -> String {
+    if seat == TeamId::HOME { "home" } else { "away" }.to_string()
+}
+
 fn seat_of(context: &RequestContext<RoleServer>) -> Result<TeamId, String> {
     context
         .extensions
@@ -582,7 +629,7 @@ async fn authorize(
     Ok(next.run(request).await)
 }
 
-/// Serves the coach tools on `listener` at `/mcp` until the process stops.
+/// Serves the coach tools on `listener` at `/mcp` until the process stops, logging every call to `log`.
 ///
 /// # Errors
 /// The IO error that stopped the HTTP server.
@@ -591,11 +638,19 @@ pub async fn serve_mcp(
     client: MatchClient,
     tokens: SeatTokens,
     hints: OddsHints,
+    log: CallLog,
 ) -> std::io::Result<()> {
     let memories = Arc::new(Mutex::new([SeatMemory::default(); 2]));
     let service: StreamableHttpService<CoachServer, LocalSessionManager> =
         StreamableHttpService::new(
-            move || Ok(CoachServer::new(client.clone(), memories.clone(), hints)),
+            move || {
+                Ok(CoachServer::new(
+                    client.clone(),
+                    memories.clone(),
+                    hints,
+                    log.clone(),
+                ))
+            },
             Default::default(),
             StreamableHttpServerConfig::default()
                 .with_allowed_origins(["http://localhost:*", "http://127.0.0.1:*"]),

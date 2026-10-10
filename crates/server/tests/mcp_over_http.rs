@@ -1,11 +1,14 @@
 //! Integrated checks: an MCP client coaching over Streamable HTTP on a local port.
 
 use std::collections::HashMap;
+use std::io::Write;
+use std::sync::{Arc, Mutex};
 
 use goblins_rules::host::{MatchHost, MatchSetup, SeatKind};
 use goblins_rules::roster::Roster;
 use goblins_rules::ruleset::Ruleset;
 use goblins_rules::team::TeamId;
+use goblins_server::call_log::{CallEntry, CallLog};
 use goblins_server::match_server::{MatchClient, ServerPacing, spawn_match};
 use goblins_server::mcp::{SeatTokens, serve_mcp};
 use goblins_server::view::OddsHints;
@@ -21,9 +24,42 @@ type Outcome<T> = Result<T, Box<dyn std::error::Error>>;
 const HOME_TOKEN: &str = "home-secret";
 const AWAY_TOKEN: &str = "away-secret";
 
+#[derive(Clone, Default)]
+struct SharedBuffer(Arc<Mutex<Vec<u8>>>);
+
+impl Write for SharedBuffer {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0
+            .lock()
+            .map_err(|_| std::io::Error::other("poisoned"))?
+            .extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl SharedBuffer {
+    fn entries(&self) -> Outcome<Vec<CallEntry>> {
+        let bytes = self
+            .0
+            .lock()
+            .map_err(|_| std::io::Error::other("poisoned"))?
+            .clone();
+        let text = String::from_utf8(bytes)?;
+        Ok(text
+            .lines()
+            .map(serde_json::from_str)
+            .collect::<Result<_, _>>()?)
+    }
+}
+
 struct Running {
     url: String,
     client: MatchClient,
+    calls: SharedBuffer,
 }
 
 async fn start_server() -> Outcome<Running> {
@@ -42,8 +78,15 @@ async fn start_server() -> Outcome<Running> {
         home: HOME_TOKEN.to_string(),
         away: AWAY_TOKEN.to_string(),
     };
-    tokio::spawn(serve_mcp(listener, client.clone(), tokens, OddsHints::Full));
-    Ok(Running { url, client })
+    let calls = SharedBuffer::default();
+    tokio::spawn(serve_mcp(
+        listener,
+        client.clone(),
+        tokens,
+        OddsHints::Full,
+        CallLog::to_writer(calls.clone()),
+    ));
+    Ok(Running { url, client, calls })
 }
 
 async fn coach(url: &str, token: &str) -> Outcome<RunningService<RoleClient, ClientConfig>> {
@@ -95,6 +138,22 @@ async fn given_a_coach_when_listing_tools_then_wait_state_rules_and_play() -> Ou
         names,
         ["get_rules", "get_state", "play", "wait_for_my_turn"]
     );
+    Ok(())
+}
+
+#[tokio::test]
+async fn given_a_coach_reading_the_state_when_the_call_log_is_read_then_it_holds_that_call_for_its_seat()
+-> Outcome<()> {
+    let server = start_server().await?;
+    let coach = coach(&server.url, HOME_TOKEN).await?;
+    call(&coach, "get_state", json!({})).await?;
+    let logged: Vec<(String, String)> = server
+        .calls
+        .entries()?
+        .into_iter()
+        .map(|entry| (entry.seat, entry.tool))
+        .collect();
+    assert_eq!(logged, [("home".to_string(), "get_state".to_string())]);
     Ok(())
 }
 

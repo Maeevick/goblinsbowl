@@ -10,6 +10,7 @@ use clap::Parser;
 use goblins_rules::host::{MatchHost, MatchSetup};
 use goblins_rules::ruleset::Ruleset;
 use goblins_rules::state::Phase;
+use goblins_server::call_log::CallLog;
 use goblins_server::match_server::{MatchClient, ServerPacing, spawn_match};
 use goblins_server::mcp::{SeatTokens, serve_mcp};
 use goblins_server::options::{RemoteSeat, ServerOptions};
@@ -35,6 +36,17 @@ async fn main() -> anyhow::Result<()> {
         agent_ready_grace_seconds: options.agent_grace_seconds,
     };
     let (host, _) = MatchHost::start(setup).context("the match cannot start")?;
+    std::fs::create_dir_all(&options.record_dir)
+        .with_context(|| format!("cannot create {}", options.record_dir.display()))?;
+    let run_name = format!("{}-seed{seed}", seconds_since_epoch());
+    let record_file = options.record_dir.join(format!("{run_name}.jsonl"));
+    let calls_file = options.record_dir.join(format!("{run_name}-calls.jsonl"));
+    let calls = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&calls_file)
+        .with_context(|| format!("cannot open {}", calls_file.display()))?;
+    let log = CallLog::to_writer(std::io::LineWriter::new(calls));
     let client = spawn_match(
         host,
         ServerPacing {
@@ -48,12 +60,16 @@ async fn main() -> anyhow::Result<()> {
         .await
         .with_context(|| format!("cannot listen on 127.0.0.1:{}", options.port))?;
     print_connection_help(&options, seed, &tokens);
+    println!(
+        "  record: {}\n  tool calls: {}",
+        record_file.display(),
+        calls_file.display()
+    );
     tokio::spawn(save_record_at_final_whistle(
         client.clone(),
-        options.record_dir.clone(),
-        seed,
+        record_file.clone(),
     ));
-    serve_mcp(listener, client, tokens, options.odds_hints)
+    serve_mcp(listener, client, tokens, options.odds_hints, log)
         .await
         .context("the MCP server stopped")
 }
@@ -86,7 +102,7 @@ fn print_connection_help(options: &ServerOptions, seed: u64, tokens: &SeatTokens
     }
 }
 
-async fn save_record_at_final_whistle(client: MatchClient, folder: PathBuf, seed: u64) {
+async fn save_record_at_final_whistle(client: MatchClient, file: PathBuf) {
     loop {
         let snapshot = client
             .wait_until(FINAL_WHISTLE_POLL, |snapshot| {
@@ -97,17 +113,19 @@ async fn save_record_at_final_whistle(client: MatchClient, folder: PathBuf, seed
             break;
         }
     }
+    save_record(&client, &file, "Final whistle").await;
+}
+
+async fn save_record(client: &MatchClient, file: &Path, moment: &str) {
     let saved = async {
         let record = client.record().await?;
-        std::fs::create_dir_all(&folder)?;
-        let file = folder.join(format!("{}-seed{seed}.jsonl", seconds_since_epoch()));
-        std::fs::write(&file, record.to_json_lines() + "\n")?;
-        anyhow::Ok(file)
+        std::fs::write(file, record.to_json_lines() + "\n")?;
+        anyhow::Ok(())
     }
     .await;
     match saved {
-        Ok(file) => println!("Final whistle: record saved to {}", file.display()),
-        Err(error) => eprintln!("Final whistle: the record could not be saved: {error}"),
+        Ok(()) => println!("{moment}: record saved to {}", file.display()),
+        Err(error) => eprintln!("{moment}: the record could not be saved: {error}"),
     }
 }
 
