@@ -2,21 +2,21 @@
 
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hasher};
-use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::path::Path;
+use std::time::Duration;
 
 use anyhow::Context;
 use clap::Parser;
 use goblins_rules::host::{MatchHost, MatchSetup};
 use goblins_rules::ruleset::Ruleset;
-use goblins_rules::state::Phase;
-use goblins_server::call_log::CallLog;
-use goblins_server::match_server::{MatchClient, ServerPacing, spawn_match};
+use goblins_server::match_server::{ServerPacing, spawn_match};
 use goblins_server::mcp::{SeatTokens, serve_mcp};
 use goblins_server::options::{RemoteSeat, ServerOptions};
+use goblins_server::runs::{
+    RunFiles, save_record, save_record_at_final_whistle, seconds_since_epoch,
+};
 
 const SERVER_TICK: Duration = Duration::from_millis(100);
-const FINAL_WHISTLE_POLL: Duration = Duration::from_secs(3_600);
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -36,17 +36,7 @@ async fn main() -> anyhow::Result<()> {
         agent_ready_grace_seconds: options.agent_grace_seconds,
     };
     let (host, _) = MatchHost::start(setup).context("the match cannot start")?;
-    std::fs::create_dir_all(&options.record_dir)
-        .with_context(|| format!("cannot create {}", options.record_dir.display()))?;
-    let run_name = format!("{}-seed{seed}", seconds_since_epoch());
-    let record_file = options.record_dir.join(format!("{run_name}.jsonl"));
-    let calls_file = options.record_dir.join(format!("{run_name}-calls.jsonl"));
-    let calls = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&calls_file)
-        .with_context(|| format!("cannot open {}", calls_file.display()))?;
-    let log = CallLog::to_writer(std::io::LineWriter::new(calls));
+    let (files, log) = RunFiles::open(&options.record_dir, seed)?;
     let client = spawn_match(
         host,
         ServerPacing {
@@ -62,19 +52,19 @@ async fn main() -> anyhow::Result<()> {
     print_connection_help(&options, seed, &tokens);
     println!(
         "  record: {}\n  tool calls: {}",
-        record_file.display(),
-        calls_file.display()
+        files.record.display(),
+        files.calls.display()
     );
     tokio::spawn(save_record_at_final_whistle(
         client.clone(),
-        record_file.clone(),
+        files.record.clone(),
     ));
     tokio::select! {
         served = serve_mcp(listener, client.clone(), tokens, options.odds_hints, log) => {
             served.context("the MCP server stopped")
         }
         () = shutdown_signal() => {
-            save_record(&client, &record_file, "Stopped").await;
+            save_record(&client, &files.record, "Stopped").await;
             Ok(())
         }
     }
@@ -131,33 +121,6 @@ fn print_connection_help(options: &ServerOptions, seed: u64, tokens: &SeatTokens
     }
 }
 
-async fn save_record_at_final_whistle(client: MatchClient, file: PathBuf) {
-    loop {
-        let snapshot = client
-            .wait_until(FINAL_WHISTLE_POLL, |snapshot| {
-                snapshot.state.phase == Phase::Finished
-            })
-            .await;
-        if snapshot.state.phase == Phase::Finished {
-            break;
-        }
-    }
-    save_record(&client, &file, "Final whistle").await;
-}
-
-async fn save_record(client: &MatchClient, file: &Path, moment: &str) {
-    let saved = async {
-        let record = client.record().await?;
-        std::fs::write(file, record.to_json_lines() + "\n")?;
-        anyhow::Ok(())
-    }
-    .await;
-    match saved {
-        Ok(()) => println!("{moment}: record saved to {}", file.display()),
-        Err(error) => eprintln!("{moment}: the record could not be saved: {error}"),
-    }
-}
-
 fn seed_from_clock() -> u64 {
     let mut hasher = RandomState::new().build_hasher();
     hasher.write_u64(seconds_since_epoch());
@@ -173,11 +136,4 @@ fn random_token() -> String {
         hasher.finish()
     };
     format!("{:016x}{:016x}", half(1), half(2))
-}
-
-fn seconds_since_epoch() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_secs())
-        .unwrap_or_default()
 }
