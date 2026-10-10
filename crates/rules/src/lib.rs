@@ -4,6 +4,7 @@
 //! and receive events and snapshots out, so every match can be replayed exactly.
 
 pub mod arena;
+pub mod board;
 pub mod characteristics;
 pub mod command;
 pub mod dice;
