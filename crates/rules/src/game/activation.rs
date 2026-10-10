@@ -1,6 +1,6 @@
 //! Activations: validating a goblin's order in full, then resolving it step by step.
 
-use crate::command::Activation;
+use crate::command::{Action, Activation};
 use crate::dice::DiceRoller;
 use crate::event::{GameEvent, TurnEndReason};
 use crate::roster::GoblinId;
@@ -56,6 +56,33 @@ impl<D: DiceRoller> Game<D> {
             }
             visited.push(square);
         }
+        match activation.action {
+            None => Ok(()),
+            Some(Action::Throw { receiver }) => {
+                self.validate_throw(team, id, &activation.path, receiver)
+            }
+        }
+    }
+
+    fn validate_throw(
+        &self,
+        team: TeamId,
+        thrower: GoblinId,
+        path: &[Square],
+        receiver: GoblinId,
+    ) -> Result<(), RuleViolation> {
+        let holds_the_ball = self.state.carrier() == Some(thrower);
+        let picks_it_on_the_way =
+            matches!(self.state.ball, Ball::Loose { at } if path.contains(&at));
+        if !holds_the_ball && !picks_it_on_the_way {
+            return Err(RuleViolation::ThrowWithoutBall { goblin: thrower });
+        }
+        let can_receive = self.state.goblin(receiver).is_some_and(|goblin| {
+            goblin.team() == team && goblin.id != thrower && goblin.is_standing()
+        });
+        if !can_receive {
+            return Err(RuleViolation::ReceiverUnavailable { receiver });
+        }
         Ok(())
     }
 
@@ -94,6 +121,14 @@ impl<D: DiceRoller> Game<D> {
         }
         if let Some(goblin) = self.state.goblin_mut(id) {
             goblin.has_acted = true;
+        }
+        let action_failed = match activation.action {
+            None => false,
+            Some(Action::Throw { receiver }) => !self.throw_completes(id, receiver, events),
+        };
+        if action_failed {
+            self.finish_turn(TurnEndReason::Fumble, events);
+            return;
         }
         if !self.has_goblin_able_to_act(team) {
             self.finish_turn(TurnEndReason::NoGoblinCanAct, events);
@@ -147,8 +182,8 @@ impl<D: DiceRoller> Game<D> {
 
 #[cfg(test)]
 mod tests {
-    use crate::characteristics::Archetype::{Bruiser, Sprinter};
-    use crate::command::{Activation, Command};
+    use crate::characteristics::Archetype::{Bruiser, Sprinter, Thrower};
+    use crate::command::{Action, Activation, Command};
     use crate::event::{BallRoll, ContestRoll, GameEvent, TurnEndReason};
     use crate::game::scenario::Scenario;
     use crate::roster::GoblinId;
@@ -165,6 +200,17 @@ mod tests {
         Command::Act(Activation {
             goblin: id(goblin),
             path: path.iter().map(|(x, y)| Square::new(*x, *y)).collect(),
+            action: None,
+        })
+    }
+
+    fn throw(goblin: &str, path: &[(u8, u8)], receiver: &str) -> Command {
+        Command::Act(Activation {
+            goblin: id(goblin),
+            path: path.iter().map(|(x, y)| Square::new(*x, *y)).collect(),
+            action: Some(Action::Throw {
+                receiver: id(receiver),
+            }),
         })
     }
 
@@ -720,5 +766,221 @@ mod tests {
             .game([1, 3, 4]);
         game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
         assert_eq!(game.state().ball, Ball::Carried { by: id("H3") });
+    }
+
+    fn thrower_with_the_ball() -> Scenario {
+        Scenario::new()
+            .goblin("H1", Thrower, 4, 7)
+            .goblin("H2", Sprinter, 8, 7)
+            .goblin("H3", Sprinter, 4, 11)
+            .goblin("A1", Sprinter, 12, 3)
+            .ball_carried_by("H1")
+    }
+
+    #[test]
+    fn given_a_clear_line_when_throw_and_catch_succeed_then_the_receiver_holds_the_ball() {
+        let mut game = thrower_with_the_ball().game([3, 3]);
+        game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert_eq!(game.state().ball, Ball::Carried { by: id("H2") });
+    }
+
+    #[test]
+    fn given_a_clear_line_when_throwing_then_the_throw_roll_is_reported() {
+        let mut game = thrower_with_the_ball().game([3, 3]);
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert_eq!(
+            events.first(),
+            Some(&GameEvent::ThrowAttempted {
+                thrower: id("H1"),
+                receiver: id("H2"),
+                roll: BallRoll {
+                    faces: 4,
+                    rolled: 3,
+                    malus: 0,
+                    target: 2,
+                    success: true
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn given_the_throw_roll_fails_when_resolved_then_the_ball_bounces_from_the_thrower() {
+        let mut game = thrower_with_the_ball().game([1, 1]);
+        game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert_eq!(
+            game.state().ball,
+            Ball::Loose {
+                at: Square::new(4, 6)
+            }
+        );
+    }
+
+    #[test]
+    fn given_the_throw_roll_fails_when_resolved_then_the_turn_ends_on_a_fumble() {
+        let mut game = thrower_with_the_ball().game([1, 1]);
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert!(events.contains(&GameEvent::TurnEnded {
+            team: TeamId::HOME,
+            reason: TurnEndReason::Fumble
+        }));
+    }
+
+    #[test]
+    fn given_the_catch_fails_when_resolved_then_the_ball_bounces_from_the_receiver() {
+        let mut game = thrower_with_the_ball().game([3, 1, 2]);
+        game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert_eq!(
+            game.state().ball,
+            Ball::Loose {
+                at: Square::new(9, 7)
+            }
+        );
+    }
+
+    #[test]
+    fn given_the_catch_fails_when_resolved_then_the_turn_ends_on_a_fumble() {
+        let mut game = thrower_with_the_ball().game([3, 1, 2]);
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert!(events.contains(&GameEvent::TurnEnded {
+            team: TeamId::HOME,
+            reason: TurnEndReason::Fumble
+        }));
+    }
+
+    #[test]
+    fn given_a_receiver_nine_squares_away_when_throwing_then_three_malus_points() {
+        let mut game = thrower_with_the_ball()
+            .goblin("H4", Sprinter, 13, 7)
+            .game([4, 1]);
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H4")).unwrap();
+        assert!(matches!(
+            events.first(),
+            Some(GameEvent::ThrowAttempted { roll, .. }) if roll.malus == 3 && !roll.success
+        ));
+    }
+
+    #[test]
+    fn given_an_opponent_on_the_line_when_it_intercepts_then_it_holds_the_ball() {
+        let mut game = thrower_with_the_ball()
+            .goblin("A2", Sprinter, 6, 7)
+            .game([3, 4]);
+        game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert_eq!(game.state().ball, Ball::Carried { by: id("A2") });
+    }
+
+    #[test]
+    fn given_an_opponent_on_the_line_when_intercepting_then_the_surprise_malus_applies() {
+        let mut game = thrower_with_the_ball()
+            .goblin("A2", Sprinter, 6, 7)
+            .game([3, 4]);
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert_eq!(
+            events.get(1),
+            Some(&GameEvent::InterceptAttempted {
+                goblin: id("A2"),
+                roll: BallRoll {
+                    faces: 4,
+                    rolled: 4,
+                    malus: 1,
+                    target: 2,
+                    success: true
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn given_an_interception_when_resolved_then_the_turn_ends_on_a_fumble() {
+        let mut game = thrower_with_the_ball()
+            .goblin("A2", Sprinter, 6, 7)
+            .game([3, 4]);
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert!(events.contains(&GameEvent::TurnEnded {
+            team: TeamId::HOME,
+            reason: TurnEndReason::Fumble
+        }));
+    }
+
+    #[test]
+    fn given_an_opponent_on_the_line_when_its_interception_fails_then_the_receiver_catches() {
+        let mut game = thrower_with_the_ball()
+            .goblin("A2", Sprinter, 6, 7)
+            .game([3, 2, 3]);
+        game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert_eq!(game.state().ball, Ball::Carried { by: id("H2") });
+    }
+
+    #[test]
+    fn given_a_downed_opponent_on_the_line_when_throwing_then_nobody_intercepts() {
+        let mut game = thrower_with_the_ball()
+            .goblin("A2", Sprinter, 6, 7)
+            .edit("A2", |goblin| {
+                goblin.presence = Presence::Down(Square::new(6, 7))
+            })
+            .game([3, 3]);
+        game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert_eq!(game.state().ball, Ball::Carried { by: id("H2") });
+    }
+
+    #[test]
+    fn given_the_ball_on_its_path_when_the_thrower_picks_it_up_then_it_can_throw() {
+        let mut game = thrower_with_the_ball().ball_loose_at(5, 7).game([3, 3, 3]);
+        game.apply(TeamId::HOME, throw("H1", &[(5, 7)], "H2"))
+            .unwrap();
+        assert_eq!(game.state().ball, Ball::Carried { by: id("H2") });
+    }
+
+    #[test]
+    fn given_the_pick_on_the_path_fails_when_resolved_then_no_throw_happens() {
+        let mut game = thrower_with_the_ball().ball_loose_at(5, 7).game([1, 3]);
+        let events = game
+            .apply(TeamId::HOME, throw("H1", &[(5, 7)], "H2"))
+            .unwrap();
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, GameEvent::ThrowAttempted { .. }))
+        );
+    }
+
+    #[test]
+    fn given_a_thrower_without_the_ball_when_throwing_then_throw_without_ball() {
+        let mut game = thrower_with_the_ball().ball_loose_at(10, 10).game([]);
+        assert_eq!(
+            game.apply(TeamId::HOME, throw("H1", &[], "H2")),
+            Err(RuleViolation::ThrowWithoutBall { goblin: id("H1") })
+        );
+    }
+
+    #[test]
+    fn given_an_opponent_as_receiver_when_throwing_then_receiver_unavailable() {
+        let mut game = thrower_with_the_ball().game([]);
+        assert_eq!(
+            game.apply(TeamId::HOME, throw("H1", &[], "A1")),
+            Err(RuleViolation::ReceiverUnavailable { receiver: id("A1") })
+        );
+    }
+
+    #[test]
+    fn given_a_downed_teammate_as_receiver_when_throwing_then_receiver_unavailable() {
+        let mut game = thrower_with_the_ball()
+            .edit("H2", |goblin| {
+                goblin.presence = Presence::Down(Square::new(8, 7))
+            })
+            .game([]);
+        assert_eq!(
+            game.apply(TeamId::HOME, throw("H1", &[], "H2")),
+            Err(RuleViolation::ReceiverUnavailable { receiver: id("H2") })
+        );
+    }
+
+    #[test]
+    fn given_the_thrower_as_its_own_receiver_when_throwing_then_receiver_unavailable() {
+        let mut game = thrower_with_the_ball().game([]);
+        assert_eq!(
+            game.apply(TeamId::HOME, throw("H1", &[], "H1")),
+            Err(RuleViolation::ReceiverUnavailable { receiver: id("H1") })
+        );
     }
 }

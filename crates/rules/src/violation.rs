@@ -80,4 +80,16 @@ pub enum RuleViolation {
         /// The occupied square.
         square: Square,
     },
+    /// The thrower would not hold the ball at the end of its path.
+    #[error("{goblin} does not hold the ball when it would throw")]
+    ThrowWithoutBall {
+        /// The would-be thrower.
+        goblin: GoblinId,
+    },
+    /// The receiver is not a standing teammate of the thrower.
+    #[error("{receiver} cannot receive: it must be a standing teammate of the thrower")]
+    ReceiverUnavailable {
+        /// The refused receiver.
+        receiver: GoblinId,
+    },
 }

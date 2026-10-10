@@ -18,6 +18,7 @@ mod fight;
 mod kickoff;
 #[cfg(test)]
 pub(crate) mod scenario;
+mod throwing;
 mod turns;
 
 /// Why a match cannot start.

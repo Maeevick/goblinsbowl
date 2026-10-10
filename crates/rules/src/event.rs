@@ -142,6 +142,22 @@ pub enum GameEvent {
         /// Its roll.
         roll: BallRoll,
     },
+    /// A goblin threw the ball to a teammate.
+    ThrowAttempted {
+        /// The thrower.
+        thrower: GoblinId,
+        /// The intended receiver.
+        receiver: GoblinId,
+        /// The throw roll (adjacent enemies and distance beyond the free range as malus).
+        roll: BallRoll,
+    },
+    /// An opponent standing on the flight line tried to snatch the ball.
+    InterceptAttempted {
+        /// The would-be interceptor.
+        goblin: GoblinId,
+        /// Its catch roll, with the surprise malus.
+        roll: BallRoll,
+    },
     /// A goblin fell or was knocked over on a square.
     KnockedDown {
         /// The goblin.
