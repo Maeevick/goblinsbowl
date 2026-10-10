@@ -7,6 +7,7 @@ use clap::{Parser, ValueEnum};
 use goblins_rules::host::{MatchSetup, SeatKind};
 use goblins_rules::policies::Bot;
 use goblins_rules::ruleset::Ruleset;
+use goblins_server::view::OddsHints;
 
 use crate::texts::Language;
 
@@ -17,6 +18,8 @@ pub enum LocalSeat {
     Human,
     /// The built-in bot.
     Bot,
+    /// An AI agent coaching through the MCP endpoint the window opens.
+    Agent,
 }
 
 impl From<LocalSeat> for SeatKind {
@@ -24,6 +27,7 @@ impl From<LocalSeat> for SeatKind {
         match seat {
             LocalSeat::Human => SeatKind::Human,
             LocalSeat::Bot => SeatKind::Bot,
+            LocalSeat::Agent => SeatKind::Agent,
         }
     }
 }
@@ -59,9 +63,29 @@ pub struct GameOptions {
     /// Language of the screens.
     #[arg(long, value_enum, default_value_t = Language::French)]
     pub lang: Language,
+    /// Local port of the MCP endpoint opened when a seat is an agent.
+    #[arg(long, default_value_t = 7878)]
+    pub port: u16,
+    /// How much odds information agents receive.
+    #[arg(long, value_enum, default_value_t = OddsHints::Full)]
+    pub odds_hints: OddsHints,
+    /// Bearer token of a home agent; random when left out.
+    #[arg(long, env = "GB_HOME_TOKEN", hide_env_values = true)]
+    pub home_token: Option<String>,
+    /// Bearer token of an away agent; random when left out.
+    #[arg(long, env = "GB_AWAY_TOKEN", hide_env_values = true)]
+    pub away_token: Option<String>,
+    /// Folder where the record and the tool calls of a match against an agent are saved.
+    #[arg(long, default_value = "runs")]
+    pub record_dir: PathBuf,
 }
 
 impl GameOptions {
+    /// Whether an agent coaches a seat, so the match runs on an embedded server.
+    pub fn has_agent(&self) -> bool {
+        self.home == LocalSeat::Agent || self.away == LocalSeat::Agent
+    }
+
     /// The match these options describe, with `ruleset` and dice `seed`.
     pub fn match_setup(&self, ruleset: Ruleset, seed: u64) -> MatchSetup {
         MatchSetup {
@@ -94,6 +118,22 @@ mod tests {
             (options.home, options.away, options.lang),
             (LocalSeat::Human, LocalSeat::Human, Language::French)
         );
+    }
+
+    #[test]
+    fn given_an_agent_away_when_building_the_match_then_human_versus_agent() {
+        let setup = parse(&["--away", "agent"]).match_setup(Ruleset::default(), 3);
+        assert_eq!(setup.seats, [SeatKind::Human, SeatKind::Agent]);
+    }
+
+    #[test]
+    fn given_an_agent_away_when_asked_then_the_match_needs_the_server() {
+        assert!(parse(&["--away", "agent"]).has_agent());
+    }
+
+    #[test]
+    fn given_a_bot_away_when_asked_then_the_match_stays_local() {
+        assert!(!parse(&["--away", "bot"]).has_agent());
     }
 
     #[test]

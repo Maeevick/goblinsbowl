@@ -11,6 +11,7 @@ pub mod hud;
 pub mod local_match;
 pub mod options;
 pub mod orders;
+pub mod server_link;
 #[cfg(test)]
 mod test_support;
 pub mod texts;

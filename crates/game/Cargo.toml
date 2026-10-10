@@ -7,9 +7,12 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+anyhow.workspace = true
 bevy.workspace = true
 goblins_rules.workspace = true
+goblins_server.workspace = true
 clap.workspace = true
+tokio.workspace = true
 
 [lints]
 workspace = true

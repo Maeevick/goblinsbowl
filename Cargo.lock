@@ -3234,9 +3234,12 @@ dependencies = [
 name = "goblinsbowl"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bevy",
  "clap",
  "goblins_rules",
+ "goblins_server",
+ "tokio",
 ]
 
 [[package]]
