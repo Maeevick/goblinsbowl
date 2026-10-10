@@ -29,11 +29,12 @@ Rules 0.1 (French and English, printable for a paper playtest): [`docs/rules.md`
 ## Agents
 
 ```bash
-make serve                            # MCP server on http://127.0.0.1:7878/mcp: an agent coaches home against the cautious bot
+make run ARGS="--away agent"          # you against Claude in the window: it prints how to connect the agent
+make serve                            # headless MCP server on http://127.0.0.1:7878/mcp: an agent against the cautious bot
 scripts/agent-vs-agent.sh 3           # two Claude Code coaches, at most $3 each; everything lands in runs/<timestamp>/
 ```
 
-The server prints the `claude mcp add` line for each agent seat. Findings of the first spike: [`docs/agent-spike.md`](docs/agent-spike.md).
+With an agent seat, the window and the headless server both open an MCP endpoint and print the `claude mcp add` line (or the `scripts/coach.sh` line) for each agent seat. The match record and every tool call are saved in `runs/` at the final whistle and when the match is stopped. How agents are assessed: [`docs/assessment.md`](docs/assessment.md); findings of the first spike: [`docs/agent-spike.md`](docs/agent-spike.md).
 
 ## Development
 
