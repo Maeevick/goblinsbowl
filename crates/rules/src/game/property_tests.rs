@@ -7,8 +7,7 @@ use proptest::prelude::*;
 use crate::dice::SeededDice;
 use crate::game::Game;
 use crate::host::{MatchHost, MatchSetup, SeatKind};
-use crate::policies::random::random_command;
-use crate::policies::scripted::{bold_command, cautious_command};
+use crate::policies::Bot;
 use crate::roster::Roster;
 use crate::ruleset::Ruleset;
 use crate::state::{Ball, GameState, Phase, Presence};
@@ -66,18 +65,11 @@ fn broken_invariant(game: &Game<SeededDice>) -> Option<String> {
     None
 }
 
-#[derive(Clone, Copy, Debug)]
-enum Coach {
-    Random,
-    Cautious,
-    Bold,
-}
-
 fn play_random_match(match_seed: u64, coach_seed: u64) -> Result<MatchHost, String> {
-    play_match(match_seed, coach_seed, [Coach::Random, Coach::Random])
+    play_match(match_seed, coach_seed, [Bot::Random, Bot::Random])
 }
 
-fn play_match(match_seed: u64, coach_seed: u64, coaches: [Coach; 2]) -> Result<MatchHost, String> {
+fn play_match(match_seed: u64, coach_seed: u64, coaches: [Bot; 2]) -> Result<MatchHost, String> {
     let (mut host, _) = MatchHost::start(MatchSetup {
         ruleset: Ruleset::default(),
         rosters: [Roster::DEFAULT, Roster::DEFAULT],
@@ -93,17 +85,13 @@ fn play_match(match_seed: u64, coach_seed: u64, coaches: [Coach; 2]) -> Result<M
             return Ok(host);
         };
         let game = host.game();
-        let command = match coaches[team.index()] {
-            Coach::Random => random_command(
-                game.arena(),
-                game.ruleset(),
-                game.state(),
-                team,
-                &mut coach_dice,
-            ),
-            Coach::Cautious => cautious_command(game.arena(), game.ruleset(), game.state(), team),
-            Coach::Bold => bold_command(game.arena(), game.ruleset(), game.state(), team),
-        };
+        let command = coaches[team.index()].command(
+            game.arena(),
+            game.ruleset(),
+            game.state(),
+            team,
+            &mut coach_dice,
+        );
         host.submit(team, command)
             .map_err(|error| error.to_string())?;
         if let Some(problem) = broken_invariant(host.game()) {
@@ -122,8 +110,8 @@ proptest! {
         coach_seed in any::<u64>(),
         bold in any::<bool>(),
     ) {
-        let scripted = if bold { Coach::Bold } else { Coach::Cautious };
-        let host = play_match(match_seed, coach_seed, [scripted, Coach::Random]);
+        let scripted = if bold { Bot::Bold } else { Bot::Cautious };
+        let host = play_match(match_seed, coach_seed, [scripted, Bot::Random]);
         prop_assert!(host.is_ok(), "{:?}", host.err());
     }
 }
@@ -161,7 +149,7 @@ fn given_a_random_match_when_it_ends_then_the_phase_is_finished() {
 fn given_eight_seeds_when_the_bold_coach_plays_the_random_one_then_it_scores() {
     let goals: u32 = (1..=8)
         .map(|seed| {
-            let host = play_match(seed, seed, [Coach::Bold, Coach::Random]).unwrap();
+            let host = play_match(seed, seed, [Bot::Bold, Bot::Random]).unwrap();
             u32::from(host.game().state().score[0])
         })
         .sum();
@@ -170,7 +158,7 @@ fn given_eight_seeds_when_the_bold_coach_plays_the_random_one_then_it_scores() {
 
 #[test]
 fn given_two_scripted_coaches_when_their_match_is_replayed_then_the_same_final_state() {
-    let host = play_match(3, 3, [Coach::Cautious, Coach::Bold]).unwrap();
+    let host = play_match(3, 3, [Bot::Cautious, Bot::Bold]).unwrap();
     let replayed = host.record().replay().unwrap();
     assert_eq!(replayed.state(), &host.snapshot().state);
 }

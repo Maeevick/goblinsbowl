@@ -8,46 +8,16 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use goblins_rules::balance::{BalanceSummary, MatchStats};
-use goblins_rules::command::Command;
 use goblins_rules::dice::SeededDice;
 use goblins_rules::host::{MatchHost, MatchSetup, SeatKind};
-use goblins_rules::policies::random::random_command;
-use goblins_rules::policies::scripted::{bold_command, cautious_command};
+use goblins_rules::policies::Bot;
 use goblins_rules::ruleset::Ruleset;
-use goblins_rules::team::TeamId;
 
 const COMMAND_LIMIT: usize = 4_000;
 
-#[derive(Clone, Copy, Debug)]
-enum Coach {
-    Random,
-    Cautious,
-    Bold,
-}
-
-impl Coach {
-    fn parse(name: &str) -> Result<Self, String> {
-        match name {
-            "random" => Ok(Coach::Random),
-            "cautious" => Ok(Coach::Cautious),
-            "bold" => Ok(Coach::Bold),
-            other => Err(format!("unknown coach {other}: random, cautious or bold")),
-        }
-    }
-
-    fn command(self, host: &MatchHost, team: TeamId, dice: &mut SeededDice) -> Command {
-        let game = host.game();
-        match self {
-            Coach::Random => random_command(game.arena(), game.ruleset(), game.state(), team, dice),
-            Coach::Cautious => cautious_command(game.arena(), game.ruleset(), game.state(), team),
-            Coach::Bold => bold_command(game.arena(), game.ruleset(), game.state(), team),
-        }
-    }
-}
-
 struct Options {
     games: u64,
-    coaches: [Coach; 2],
+    coaches: [Bot; 2],
     rules: Option<PathBuf>,
     seed: u64,
 }
@@ -55,7 +25,7 @@ struct Options {
 fn options() -> Result<Options, String> {
     let mut options = Options {
         games: 200,
-        coaches: [Coach::Cautious, Coach::Cautious],
+        coaches: [Bot::Cautious, Bot::Cautious],
         rules: None,
         seed: 1,
     };
@@ -68,8 +38,8 @@ fn options() -> Result<Options, String> {
             "--games" => {
                 options.games = value.parse().map_err(|_| format!("bad --games {value}"))?
             }
-            "--home" => options.coaches[0] = Coach::parse(&value)?,
-            "--away" => options.coaches[1] = Coach::parse(&value)?,
+            "--home" => options.coaches[0] = value.parse().map_err(|error| format!("{error}"))?,
+            "--away" => options.coaches[1] = value.parse().map_err(|error| format!("{error}"))?,
             "--rules" => options.rules = Some(PathBuf::from(value)),
             "--seed" => options.seed = value.parse().map_err(|_| format!("bad --seed {value}"))?,
             other => return Err(format!("unknown flag {other}")),
@@ -78,7 +48,7 @@ fn options() -> Result<Options, String> {
     Ok(options)
 }
 
-fn play(ruleset: &Ruleset, seed: u64, coaches: [Coach; 2]) -> Result<MatchStats, Box<dyn Error>> {
+fn play(ruleset: &Ruleset, seed: u64, coaches: [Bot; 2]) -> Result<MatchStats, Box<dyn Error>> {
     let (mut host, _) = MatchHost::start(MatchSetup {
         ruleset: ruleset.clone(),
         rosters: [ruleset.default_roster, ruleset.default_roster],
@@ -92,8 +62,14 @@ fn play(ruleset: &Ruleset, seed: u64, coaches: [Coach; 2]) -> Result<MatchStats,
         let Some(team) = host.game().state().active_team() else {
             return Ok(MatchStats::from_events(host.events_since(0)));
         };
-        let coach = coaches[team.index()];
-        let command = coach.command(&host, team, &mut coach_dice);
+        let game = host.game();
+        let command = coaches[team.index()].command(
+            game.arena(),
+            game.ruleset(),
+            game.state(),
+            team,
+            &mut coach_dice,
+        );
         host.submit(team, command)?;
     }
     Err(format!("match {seed} did not finish").into())
@@ -115,7 +91,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         )?);
     }
     println!(
-        "{:?} (home) vs {:?} (away), seeds {}..{}, rules {}",
+        "{} (home) vs {} (away), seeds {}..{}, rules {}",
         options.coaches[0],
         options.coaches[1],
         options.seed,
