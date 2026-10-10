@@ -12,4 +12,6 @@ make run          # play (Bevy window)
 make check        # lint + unit + integrated tests
 ```
 
-Rules: see `docs/rules.md` (coming with the rules core). Every tunable number lives in `rules.toml`.
+Rules 0.1 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`.
+
+Development: `GOBLINSBOWL_SCREENSHOT=/tmp/shot.png make run` renders the game offscreen, saves a PNG after a few frames and quits (works while the screen is locked).
