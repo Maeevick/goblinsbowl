@@ -15,6 +15,7 @@ pub mod game;
 pub mod host;
 pub mod odds;
 pub mod paths;
+pub mod policies;
 pub mod preview;
 pub mod roster;
 pub mod ruleset;
