@@ -6,5 +6,6 @@
 pub mod arena;
 pub mod characteristics;
 pub mod roster;
+pub mod ruleset;
 pub mod square;
 pub mod team;

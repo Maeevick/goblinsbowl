@@ -1,0 +1,65 @@
+# Goblins Bowl, rules 0.1: every tunable number of a match.
+# Attack, Defense and Agility are rolled as dice with that many faces.
+
+turns_per_half = 10
+halves = 2
+turn_seconds = 60
+team_size = 9
+
+# A ball roll (Pick, Throw, Catch, Intercept) must reach this value after its maluses.
+ball_roll_target = 2
+# Orthogonal steps a throw covers before losing 1 per extra step.
+throw_free_range = 6
+interception_surprise_malus = 1
+# Malus on the defense roll of a goblin assaulted while down.
+downed_defense_malus = 2
+
+# x out of bounds, O in bounds, H home den (west), A away den (east).
+arena = [
+    "xxxOOOOOOOOOxxx",
+    "xxxOOOOOOOOOxxx",
+    "xxxOOOOOOOOOxxx",
+    "HOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOA",
+    "xxxOOOOOOOOOxxx",
+    "xxxOOOOOOOOOxxx",
+    "xxxOOOOOOOOOxxx",
+]
+
+[archetypes.bruiser]
+attack = 4
+defense = 4
+agility = 2
+health = 6
+movement = 3
+
+[archetypes.sprinter]
+attack = 3
+defense = 2
+agility = 4
+health = 3
+movement = 5
+
+[archetypes.thrower]
+attack = 2
+defense = 3
+agility = 4
+health = 3
+movement = 4
+
+[roster_limits]
+bruiser = { min = 0, max = 8 }
+sprinter = { min = 0, max = 8 }
+thrower = { min = 1, max = 2 }
+
+[default_roster]
+bruisers = 4
+sprinters = 4
+throwers = 1
