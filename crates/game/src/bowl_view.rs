@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use goblins_rules::arena::Arena;
+use goblins_rules::roster::GoblinId;
 use goblins_rules::square::Square;
 use goblins_rules::team::TeamId;
 
@@ -23,9 +24,14 @@ pub struct Tile {
 #[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct HoveredSquare(pub Option<Square>);
 
-/// The last square clicked, if any.
-#[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SelectedSquare(pub Option<Square>);
+/// What a primary click on the board pointed at.
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BoardClick {
+    /// A floor square.
+    Square(Square),
+    /// A goblin figure.
+    Goblin(GoblinId),
+}
 
 #[derive(Component)]
 struct HoverHighlight;
@@ -36,7 +42,7 @@ pub struct BowlViewPlugin;
 impl Plugin for BowlViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HoveredSquare>()
-            .init_resource::<SelectedSquare>()
+            .add_message::<BoardClick>()
             .add_systems(Startup, (spawn_bowl, spawn_lights))
             .add_systems(Update, follow_hovered_square);
     }
@@ -192,10 +198,13 @@ fn forget_hovered_tile(
 fn remember_clicked_tile(
     click: On<PointerClick>,
     tiles: Query<&Tile>,
-    mut selected: ResMut<SelectedSquare>,
+    mut clicks: MessageWriter<BoardClick>,
 ) {
+    if click.button != PointerButton::Primary {
+        return;
+    }
     if let Ok(tile) = tiles.get(click.event_target()) {
-        selected.0 = Some(tile.square);
+        clicks.write(BoardClick::Square(tile.square));
     }
 }
 
@@ -218,6 +227,7 @@ fn follow_hovered_square(
 mod tests {
     use super::*;
     use crate::local_match::LocalMatchPlugin;
+    use crate::test_support::{click_on, written};
     use goblins_rules::arena::BOWL_12_MASK;
     use goblins_rules::host::{MatchHost, MatchSetup, SeatKind};
     use goblins_rules::roster::Roster;
@@ -251,6 +261,36 @@ mod tests {
         .init_asset::<StandardMaterial>();
         app.update();
         app
+    }
+
+    fn app_with_a_tile(square: Square) -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins).add_message::<BoardClick>();
+        let tile = app
+            .world_mut()
+            .spawn(Tile { square })
+            .observe(remember_clicked_tile)
+            .id();
+        (app, tile)
+    }
+
+    #[test]
+    fn given_a_tile_when_clicked_then_its_square_is_clicked() {
+        let (mut app, tile) = app_with_a_tile(Square::new(4, 7));
+        app.world_mut()
+            .trigger(click_on(tile, PointerButton::Primary));
+        assert_eq!(
+            written::<BoardClick>(&app),
+            vec![BoardClick::Square(Square::new(4, 7))]
+        );
+    }
+
+    #[test]
+    fn given_a_tile_when_right_clicked_then_nothing_is_clicked() {
+        let (mut app, tile) = app_with_a_tile(Square::new(4, 7));
+        app.world_mut()
+            .trigger(click_on(tile, PointerButton::Secondary));
+        assert_eq!(written::<BoardClick>(&app), Vec::new());
     }
 
     #[test]

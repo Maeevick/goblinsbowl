@@ -15,8 +15,8 @@ use crate::camera_rig::CameraRig;
 use crate::local_match::{MatchOrder, MatchSystems, MatchView};
 use crate::texts::Texts;
 
-const READING_FONT: &str = "fonts/Andika-Regular.ttf";
-const BOLD_FONT: &str = "fonts/Andika-Bold.ttf";
+pub(crate) const READING_FONT: &str = "fonts/Andika-Regular.ttf";
+pub(crate) const BOLD_FONT: &str = "fonts/Andika-Bold.ttf";
 const BUTTON_IDLE: Color = Color::srgb(0.2, 0.17, 0.12);
 const BUTTON_HOVERED: Color = Color::srgb(0.32, 0.26, 0.16);
 const BUTTON_PRESSED: Color = Color::srgb(0.55, 0.42, 0.15);
@@ -143,7 +143,7 @@ impl Plugin for HudPlugin {
     }
 }
 
-fn text_bundle(
+pub(crate) fn text_bundle(
     text: impl Into<String>,
     font: &Handle<Font>,
     size: f32,
@@ -288,7 +288,11 @@ fn panel() -> impl Bundle {
     )
 }
 
-fn button(label: &str, font: &Handle<Font>, label_marker: impl Component) -> impl Bundle {
+pub(crate) fn button(
+    label: &str,
+    font: &Handle<Font>,
+    label_marker: impl Component,
+) -> impl Bundle {
     (
         Button,
         Hovered::default(),

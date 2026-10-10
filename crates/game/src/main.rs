@@ -14,6 +14,7 @@ use goblins_rules::ruleset::{Ruleset, RulesetError};
 use goblinsbowl::bot_seat::BotSeatPlugin;
 use goblinsbowl::local_match::LocalMatchPlugin;
 use goblinsbowl::options::GameOptions;
+use goblinsbowl::orders::OrdersPlugin;
 use goblinsbowl::texts::Texts;
 use goblinsbowl::{bowl_view, camera_rig, dev_capture, goblin_view, hud};
 
@@ -59,6 +60,7 @@ fn main() -> AppExit {
             },
             bowl_view::BowlViewPlugin,
             goblin_view::GoblinViewPlugin,
+            OrdersPlugin,
             camera_rig::CameraRigPlugin,
             hud::HudPlugin,
             dev_capture::DevCapturePlugin,

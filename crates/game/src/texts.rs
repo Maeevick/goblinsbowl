@@ -2,8 +2,11 @@
 
 use clap::ValueEnum;
 use goblins_rules::characteristics::Archetype;
+use goblins_rules::command::{Action, Activation};
 use goblins_rules::event::{GameEvent, TurnEndReason};
 use goblins_rules::odds::Probability;
+use goblins_rules::preview::ActivationOdds;
+use goblins_rules::roster::GoblinId;
 use goblins_rules::team::TeamId;
 
 /// Language of the screens.
@@ -85,6 +88,59 @@ impl Texts {
     /// Label of the cancel button.
     pub fn cancel_button(&self) -> &'static str {
         if self.french() { "Annuler" } else { "Cancel" }
+    }
+
+    /// Hint shown once a goblin is selected, for example "H3 (Cogneur) : choisis une case ou une cible".
+    pub fn selected_goblin(&self, goblin: GoblinId, archetype: Archetype) -> String {
+        let archetype = self.archetype_name(archetype);
+        if self.french() {
+            format!("{goblin} ({archetype}) : choisis une case ou une cible")
+        } else {
+            format!("{goblin} ({archetype}): pick a square or a target")
+        }
+    }
+
+    /// What an aimed order would do and its chance, for example "Assaut sur A3 : 62,5 %".
+    pub fn describe_draft(&self, activation: &Activation, odds: &ActivationOdds) -> String {
+        let chance = if odds.overall_success == Probability::CERTAIN {
+            if self.french() {
+                "sans risque"
+            } else {
+                "no risk"
+            }
+            .to_string()
+        } else {
+            self.chance(odds.overall_success)
+        };
+        match (odds.scores_on_the_way, activation.action, self.french()) {
+            (true, _, true) => format!("Marquer ! {chance}"),
+            (true, _, false) => format!("Score! {chance}"),
+            (false, Some(Action::Assault { target }), true) => {
+                format!("Assaut sur {target} : {chance}")
+            }
+            (false, Some(Action::Assault { target }), false) => {
+                format!("Assault {target}: {chance}")
+            }
+            (false, Some(Action::Throw { receiver }), true) => {
+                format!("Passe à {receiver} : {chance}")
+            }
+            (false, Some(Action::Throw { receiver }), false) => {
+                format!("Throw to {receiver}: {chance}")
+            }
+            (false, Some(Action::Stance), true) => format!("Garde : {chance}"),
+            (false, Some(Action::Stance), false) => format!("Stance: {chance}"),
+            (false, None, true) => format!("Aller ici : {chance}"),
+            (false, None, false) => format!("Move here: {chance}"),
+        }
+    }
+
+    /// Hint shown under an aimed order.
+    pub fn confirm_hint(&self) -> &'static str {
+        if self.french() {
+            "Clique encore pour confirmer"
+        } else {
+            "Click again to confirm"
+        }
     }
 
     /// Line describing whose turn it is, for example "Mi-temps 1 · tour 3/10".
@@ -415,6 +471,77 @@ mod tests {
 
     fn id(text: &str) -> GoblinId {
         text.parse().unwrap()
+    }
+
+    fn odds(overall_success: Probability, scores_on_the_way: bool) -> ActivationOdds {
+        ActivationOdds {
+            risky_steps: Vec::new(),
+            path_success: Probability::CERTAIN,
+            scores_on_the_way,
+            action: None,
+            overall_success,
+        }
+    }
+
+    fn order(goblin: &str, steps: usize, action: Option<Action>) -> Activation {
+        Activation {
+            goblin: id(goblin),
+            path: (0..steps)
+                .map(|step| goblins_rules::square::Square::new(4 + step as u8, 7))
+                .collect(),
+            action,
+        }
+    }
+
+    #[test]
+    fn given_french_when_a_goblin_is_selected_then_it_is_asked_where_to_go() {
+        assert_eq!(
+            FRENCH.selected_goblin(id("H3"), Archetype::Bruiser),
+            "H3 (Cogneur) : choisis une case ou une cible"
+        );
+    }
+
+    #[test]
+    fn given_french_when_describing_an_aimed_assault_then_target_and_chance() {
+        assert_eq!(
+            FRENCH.describe_draft(
+                &order("H1", 0, Some(Action::Assault { target: id("A3") })),
+                &odds(Probability::new(5, 8), false)
+            ),
+            "Assaut sur A3 : 62,5 %"
+        );
+    }
+
+    #[test]
+    fn given_english_when_describing_an_aimed_throw_then_receiver_and_chance() {
+        assert_eq!(
+            ENGLISH.describe_draft(
+                &order("H9", 0, Some(Action::Throw { receiver: id("H5") })),
+                &odds(Probability::new(3, 4), false)
+            ),
+            "Throw to H5: 75.0 %"
+        );
+    }
+
+    #[test]
+    fn given_french_when_describing_a_walk_without_dice_then_no_risk() {
+        assert_eq!(
+            FRENCH.describe_draft(&order("H5", 2, None), &odds(Probability::CERTAIN, false)),
+            "Aller ici : sans risque"
+        );
+    }
+
+    #[test]
+    fn given_french_when_describing_a_walk_into_the_den_then_a_score() {
+        assert_eq!(
+            FRENCH.describe_draft(&order("H5", 3, None), &odds(Probability::new(3, 4), true)),
+            "Marquer ! 75,0 %"
+        );
+    }
+
+    #[test]
+    fn given_english_when_an_order_is_aimed_then_a_second_click_is_asked() {
+        assert_eq!(ENGLISH.confirm_hint(), "Click again to confirm");
     }
 
     #[test]

@@ -13,7 +13,7 @@ use goblins_rules::roster::GoblinId;
 use goblins_rules::state::{Ball, GameState, Goblin, Presence};
 use goblins_rules::team::TeamId;
 
-use crate::bowl_view::square_centre;
+use crate::bowl_view::{BoardClick, square_centre};
 use crate::local_match::{MatchSystems, MatchView};
 
 const WALK_SPEED: f32 = 7.0;
@@ -151,7 +151,8 @@ pub struct GoblinViewPlugin;
 
 impl Plugin for GoblinViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (spawn_figures, spawn_ball))
+        app.add_message::<BoardClick>()
+            .add_systems(Startup, (spawn_figures, spawn_ball))
             .add_systems(
                 Update,
                 (
@@ -337,6 +338,7 @@ fn spawn_figure(
                 Visibility::Hidden
             },
         ))
+        .observe(click_figure)
         .with_children(|figure| {
             figure
                 .spawn((
@@ -368,6 +370,19 @@ fn spawn_figure(
             ));
         })
         .id()
+}
+
+fn click_figure(
+    click: On<PointerClick>,
+    figures: Query<&GoblinFigure>,
+    mut clicks: MessageWriter<BoardClick>,
+) {
+    if click.button != PointerButton::Primary {
+        return;
+    }
+    if let Ok(figure) = figures.get(click.event_target()) {
+        clicks.write(BoardClick::Goblin(figure.id));
+    }
 }
 
 fn spawn_body_parts(
@@ -699,6 +714,43 @@ mod tests {
     use goblins_rules::roster::Roster;
     use goblins_rules::ruleset::Ruleset;
     use goblins_rules::square::Square;
+
+    use crate::test_support::{click_on, written};
+
+    fn app_with_a_figure(goblin: GoblinId) -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins).add_message::<BoardClick>();
+        app.world_mut().register_component::<Window>();
+        let body_part = app.world_mut().spawn_empty().id();
+        app.world_mut()
+            .spawn(GoblinFigure {
+                id: goblin,
+                waypoints: VecDeque::new(),
+            })
+            .observe(click_figure)
+            .add_child(body_part);
+        (app, body_part)
+    }
+
+    #[test]
+    fn given_a_figure_when_a_body_part_is_clicked_then_its_goblin_is_clicked() {
+        let goblin = GoblinId::new(TeamId::HOME, 3);
+        let (mut app, body_part) = app_with_a_figure(goblin);
+        app.world_mut()
+            .trigger(click_on(body_part, PointerButton::Primary));
+        assert_eq!(
+            written::<BoardClick>(&app),
+            vec![BoardClick::Goblin(goblin)]
+        );
+    }
+
+    #[test]
+    fn given_a_figure_when_right_clicked_then_nothing_is_clicked() {
+        let (mut app, body_part) = app_with_a_figure(GoblinId::new(TeamId::HOME, 3));
+        app.world_mut()
+            .trigger(click_on(body_part, PointerButton::Secondary));
+        assert_eq!(written::<BoardClick>(&app), Vec::new());
+    }
 
     fn kicked_off() -> GameState {
         MatchHost::start(MatchSetup {

@@ -8,4 +8,7 @@ pub mod goblin_view;
 pub mod hud;
 pub mod local_match;
 pub mod options;
+pub mod orders;
+#[cfg(test)]
+mod test_support;
 pub mod texts;
