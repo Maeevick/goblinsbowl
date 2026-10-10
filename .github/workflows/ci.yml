@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+    branches: [main, poc]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Install Bevy system dependencies (no audio)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pkg-config libx11-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - uses: Swatinem/rust-cache@v2
+      - run: make lint
+      - run: make test-unit
+      - run: make test-integrated
+      - run: cargo build --workspace --locked
