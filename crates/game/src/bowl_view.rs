@@ -5,14 +5,12 @@ use goblins_rules::arena::Arena;
 use goblins_rules::square::Square;
 use goblins_rules::team::TeamId;
 
+use crate::local_match::MatchView;
+
 const TILE_GAP: f32 = 0.04;
 const TILE_THICKNESS: f32 = 0.1;
 const STAND_HEIGHT: f32 = 0.7;
 const HIGHLIGHT_LIFT: f32 = 0.06;
-
-/// The arena drawn in the window.
-#[derive(Resource, Clone, Debug)]
-pub struct DisplayedArena(pub Arena);
 
 /// A pickable floor tile and the square it stands for.
 #[derive(Component, Clone, Copy, Debug)]
@@ -32,13 +30,12 @@ pub struct SelectedSquare(pub Option<Square>);
 #[derive(Component)]
 struct HoverHighlight;
 
-/// Spawns the bowl, its stands and the hover highlight, and tracks hovered and clicked squares.
+/// Spawns the bowl of the match, its stands and the hover highlight, and tracks hovered and clicked squares.
 pub struct BowlViewPlugin;
 
 impl Plugin for BowlViewPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(DisplayedArena(Arena::bowl_15()))
-            .init_resource::<HoveredSquare>()
+        app.init_resource::<HoveredSquare>()
             .init_resource::<SelectedSquare>()
             .add_systems(Startup, (spawn_bowl, spawn_lights))
             .add_systems(Update, follow_hovered_square);
@@ -98,11 +95,11 @@ fn floor_colour(arena: &Arena, square: Square) -> Color {
 
 fn spawn_bowl(
     mut commands: Commands,
-    arena: Res<DisplayedArena>,
+    view: Res<MatchView>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let arena = &arena.0;
+    let arena = &view.arena;
     let tile_mesh = meshes.add(Cuboid::new(1.0 - TILE_GAP, TILE_THICKNESS, 1.0 - TILE_GAP));
     let stand_mesh = meshes.add(Cuboid::new(1.0, STAND_HEIGHT, 1.0));
     let stand_material = materials.add(Color::srgb(0.45, 0.42, 0.4));
@@ -204,13 +201,13 @@ fn remember_clicked_tile(
 
 fn follow_hovered_square(
     hovered: Res<HoveredSquare>,
-    arena: Res<DisplayedArena>,
+    view: Res<MatchView>,
     mut highlight: Single<(&mut Transform, &mut Visibility), With<HoverHighlight>>,
 ) {
     let (transform, visibility) = &mut *highlight;
     match hovered.0 {
         Some(square) => {
-            transform.translation = square_centre(&arena.0, square) + Vec3::Y * HIGHLIGHT_LIFT;
+            transform.translation = square_centre(&view.arena, square) + Vec3::Y * HIGHLIGHT_LIFT;
             **visibility = Visibility::Visible;
         }
         None => **visibility = Visibility::Hidden,
@@ -220,6 +217,48 @@ fn follow_hovered_square(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::local_match::LocalMatchPlugin;
+    use goblins_rules::arena::BOWL_12_MASK;
+    use goblins_rules::host::{MatchHost, MatchSetup, SeatKind};
+    use goblins_rules::roster::Roster;
+    use goblins_rules::ruleset::Ruleset;
+
+    fn app_drawing(arena_mask: &[&str]) -> App {
+        let ruleset = Ruleset {
+            arena: arena_mask.iter().map(|row| row.to_string()).collect(),
+            ..Ruleset::default()
+        };
+        let (host, opening_events) = MatchHost::start(MatchSetup {
+            ruleset,
+            rosters: [Roster::DEFAULT, Roster::DEFAULT],
+            seed: 42,
+            seats: [SeatKind::Human, SeatKind::Human],
+            turn_seconds: [60, 60],
+            agent_ready_grace_seconds: 15,
+        })
+        .unwrap();
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            AssetPlugin::default(),
+            LocalMatchPlugin {
+                host,
+                opening_events,
+            },
+            BowlViewPlugin,
+        ))
+        .init_asset::<Mesh>()
+        .init_asset::<StandardMaterial>();
+        app.update();
+        app
+    }
+
+    #[test]
+    fn given_a_match_on_the_12_bowl_when_drawing_it_then_one_tile_per_square() {
+        let mut app = app_drawing(&BOWL_12_MASK);
+        let tiles = app.world_mut().query::<&Tile>().iter(app.world()).count();
+        assert_eq!(tiles, 108);
+    }
 
     #[test]
     fn given_bowl_15_when_placing_the_centre_square_then_world_origin() {
