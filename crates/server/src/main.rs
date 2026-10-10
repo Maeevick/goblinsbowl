@@ -32,6 +32,7 @@ async fn main() -> anyhow::Result<()> {
         seed,
         seats: [options.home.into(), options.away.into()],
         turn_seconds: options.turn_seconds_per_seat(),
+        agent_ready_grace_seconds: options.agent_grace_seconds,
     };
     let (host, _) = MatchHost::start(setup).context("the match cannot start")?;
     let client = spawn_match(

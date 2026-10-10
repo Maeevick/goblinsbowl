@@ -50,6 +50,9 @@ pub struct ServerOptions {
     /// Seconds per turn for the away seat, overriding --turn-seconds.
     #[arg(long)]
     pub away_turn_seconds: Option<u16>,
+    /// Seconds an agent's turn waits for the agent to look at it before its clock starts anyway.
+    #[arg(long, default_value_t = 15)]
+    pub agent_grace_seconds: u16,
     /// Bearer token of the home seat; random when left out.
     #[arg(long, env = "GB_HOME_TOKEN", hide_env_values = true)]
     pub home_token: Option<String>,

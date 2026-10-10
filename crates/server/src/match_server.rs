@@ -118,10 +118,10 @@ impl MatchClient {
         Ok(answer.await.map_err(|_| ClientError::ServerUnavailable)??)
     }
 
-    /// Starts the clock of a human seat waiting for its turn.
+    /// Starts the clock of a seat waiting for its coach; does nothing if that clock already runs.
     ///
     /// # Errors
-    /// [`ClientError::Host`] when nothing is waiting, [`ClientError::ServerUnavailable`] when the server is gone.
+    /// [`ClientError::Host`] when it is not `team`'s turn, [`ClientError::ServerUnavailable`] when the server is gone.
     pub async fn ready(&self, team: TeamId) -> Result<(), ClientError> {
         let (reply, answer) = oneshot::channel();
         self.send(SeatRequest::Ready { team, reply })?;
@@ -261,7 +261,9 @@ fn answer(host: &mut MatchHost, request: SeatRequest) -> PendingReply {
             command,
             reply,
         } => PendingReply::Submitted(reply, host.submit(team, command)),
-        SeatRequest::Ready { team, reply } => PendingReply::Readied(reply, host.ready(team)),
+        SeatRequest::Ready { team, reply } => {
+            PendingReply::Readied(reply, host.ready_or_running(team))
+        }
         SeatRequest::EventsSince { cursor, reply } => PendingReply::Events(
             reply,
             (host.events_since(cursor).to_vec(), host.event_count()),
@@ -298,6 +300,7 @@ mod tests {
             seed: 42,
             seats,
             turn_seconds: [60, 60],
+            agent_ready_grace_seconds: 15,
         })
         .unwrap()
         .0
@@ -308,14 +311,15 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn given_a_new_match_when_reading_the_latest_snapshot_then_the_clock_runs_a_minute() {
+    async fn given_a_new_match_between_agents_when_reading_the_latest_snapshot_then_the_clock_waits_for_the_agent()
+     {
         let client = spawn_match(
             host([SeatKind::Agent, SeatKind::Agent]),
             ServerPacing::default(),
         );
         assert_eq!(
             client.latest().clock,
-            TurnClock::Running {
+            TurnClock::WaitingForReady {
                 remaining_ms: 60_000
             }
         );
@@ -349,13 +353,14 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn given_an_agent_that_does_nothing_when_a_minute_passes_then_its_turn_ends_on_time_up() {
+    async fn given_an_agent_that_never_looks_when_the_grace_and_a_minute_pass_then_its_turn_ends_on_time_up()
+     {
         let client = spawn_match(
             host([SeatKind::Agent, SeatKind::Agent]),
             ServerPacing::default(),
         );
         let team = active_team(&client);
-        tokio::time::sleep(Duration::from_millis(60_200)).await;
+        tokio::time::sleep(Duration::from_millis(75_200)).await;
         let (events, _) = client.events_since(0).await.unwrap();
         assert!(events.contains(&GameEvent::TurnEnded {
             team,
@@ -439,5 +444,16 @@ mod tests {
                 .map(|entry| entry.command.clone()),
             Some(Command::EndTurn)
         );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn given_a_running_clock_when_its_seat_says_ready_again_then_accepted() {
+        let client = spawn_match(
+            host([SeatKind::Agent, SeatKind::Agent]),
+            ServerPacing::default(),
+        );
+        let team = active_team(&client);
+        client.ready(team).await.unwrap();
+        assert_eq!(client.ready(team).await, Ok(()));
     }
 }

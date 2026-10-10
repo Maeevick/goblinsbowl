@@ -319,6 +319,7 @@ mod tests {
             seed: 42,
             seats: [SeatKind::Agent, SeatKind::Agent],
             turn_seconds: [60, 60],
+            agent_ready_grace_seconds: 15,
         })
         .unwrap()
         .0

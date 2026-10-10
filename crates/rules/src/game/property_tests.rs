@@ -72,6 +72,7 @@ fn play_random_match(match_seed: u64, coach_seed: u64) -> Result<MatchHost, Stri
         seed: match_seed,
         seats: [SeatKind::Bot, SeatKind::Bot],
         turn_seconds: [60, 60],
+        agent_ready_grace_seconds: 15,
     })
     .map_err(|error| error.to_string())?;
     let mut coach_dice = SeededDice::from_seed(coach_seed);

@@ -33,6 +33,7 @@ async fn start_server() -> Outcome<Running> {
         seed: 42,
         seats: [SeatKind::Agent, SeatKind::Agent],
         turn_seconds: [600, 600],
+        agent_ready_grace_seconds: 15,
     })?;
     let client = spawn_match(host, ServerPacing::default());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
@@ -205,5 +206,19 @@ async fn given_a_foreign_browser_origin_when_connecting_then_refused() -> Outcom
             .custom_headers(headers),
     );
     assert!(ClientConfig::default().serve(transport).await.is_err());
+    Ok(())
+}
+
+#[tokio::test]
+async fn given_an_agent_whose_turn_waits_when_it_reads_the_state_then_its_clock_starts()
+-> Outcome<()> {
+    let server = start_server().await?;
+    let team = server.client.latest().state.active_team().unwrap();
+    let coach = coach(&server.url, token_of(team)).await?;
+    call(&coach, "get_state", json!({})).await?;
+    assert!(matches!(
+        server.client.latest().clock,
+        goblins_rules::host::TurnClock::Running { .. }
+    ));
     Ok(())
 }

@@ -41,13 +41,20 @@ pub struct MatchSetup {
     pub seats: [SeatKind; 2],
     /// Home then away seconds per turn.
     pub turn_seconds: [u16; 2],
+    /// Seconds an agent's turn waits for the agent to look at it before its clock starts anyway.
+    #[serde(default = "default_agent_ready_grace_seconds")]
+    pub agent_ready_grace_seconds: u16,
+}
+
+fn default_agent_ready_grace_seconds() -> u16 {
+    15
 }
 
 /// State of the turn clock.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "clock", rename_all = "snake_case")]
 pub enum TurnClock {
-    /// A human seat has not said it is ready; no time is spent.
+    /// A human seat has not said it is ready, or an agent has not looked at its turn yet; no time is spent.
     WaitingForReady {
         /// Time the turn will have once started.
         remaining_ms: u64,
@@ -145,6 +152,7 @@ pub struct MatchHost {
     clock: TurnClock,
     version: u64,
     match_time_ms: u64,
+    waited_for_agent_ms: u64,
     log: Vec<GameEvent>,
 }
 
@@ -168,10 +176,24 @@ impl MatchHost {
             clock: TurnClock::Stopped,
             version: 0,
             match_time_ms: 0,
+            waited_for_agent_ms: 0,
             log: events.clone(),
         };
         host.set_clock_for_new_turn();
         Ok((host, events))
+    }
+
+    /// Starts the turn clock of a seat waiting for its coach: a human pressing Ready, or an agent
+    /// looking at its turn.
+    ///
+    /// # Errors
+    /// [`HostError::NotWaitingForReady`] when the clock is not waiting for `team`.
+    pub fn ready_or_running(&mut self, team: TeamId) -> Result<(), HostError> {
+        let is_active = self.game.state().active_team() == Some(team);
+        if is_active && matches!(self.clock, TurnClock::Running { .. }) {
+            return Ok(());
+        }
+        self.ready(team)
     }
 
     /// Applies a command for `team`, stamping it in the record.
@@ -209,12 +231,32 @@ impl MatchHost {
     /// which is recorded like any other command.
     pub fn advance_clock(&mut self, elapsed_ms: u64) -> Vec<GameEvent> {
         self.match_time_ms = self.match_time_ms.saturating_add(elapsed_ms);
+        match self.clock {
+            TurnClock::WaitingForReady { remaining_ms }
+                if self.active_seat() == Some(SeatKind::Agent) =>
+            {
+                self.waited_for_agent_ms = self.waited_for_agent_ms.saturating_add(elapsed_ms);
+                let grace_ms = u64::from(self.record.setup.agent_ready_grace_seconds) * 1_000;
+                if self.waited_for_agent_ms < grace_ms {
+                    return Vec::new();
+                }
+                self.clock = TurnClock::Running { remaining_ms };
+                self.spend_turn_time(self.waited_for_agent_ms - grace_ms)
+            }
+            TurnClock::Running { .. } => self.spend_turn_time(elapsed_ms),
+            TurnClock::WaitingForReady { .. } | TurnClock::Paused { .. } | TurnClock::Stopped => {
+                Vec::new()
+            }
+        }
+    }
+
+    fn spend_turn_time(&mut self, spent_ms: u64) -> Vec<GameEvent> {
         let TurnClock::Running { remaining_ms } = self.clock else {
             return Vec::new();
         };
-        if elapsed_ms < remaining_ms {
+        if spent_ms < remaining_ms {
             self.clock = TurnClock::Running {
-                remaining_ms: remaining_ms - elapsed_ms,
+                remaining_ms: remaining_ms - spent_ms,
             };
             return Vec::new();
         }
@@ -223,6 +265,11 @@ impl MatchHost {
         };
         self.apply_and_record(team, Command::TimeUp)
             .unwrap_or_default()
+    }
+
+    fn active_seat(&self) -> Option<SeatKind> {
+        let team = self.game.state().active_team()?;
+        self.record.setup.seats.get(team.index()).copied()
     }
 
     /// Freezes the running clock, in matches between humans only.
@@ -302,6 +349,7 @@ impl MatchHost {
     }
 
     fn set_clock_for_new_turn(&mut self) {
+        self.waited_for_agent_ms = 0;
         let setup = &self.record.setup;
         self.clock = match self.game.state().active_team() {
             None => TurnClock::Stopped,
@@ -309,8 +357,10 @@ impl MatchHost {
                 let seconds = setup.turn_seconds.get(team.index()).copied().unwrap_or(60);
                 let remaining_ms = u64::from(seconds) * 1_000;
                 match setup.seats.get(team.index()) {
-                    Some(SeatKind::Human) => TurnClock::WaitingForReady { remaining_ms },
-                    _ => TurnClock::Running { remaining_ms },
+                    Some(SeatKind::Human | SeatKind::Agent) => {
+                        TurnClock::WaitingForReady { remaining_ms }
+                    }
+                    Some(SeatKind::Bot) | None => TurnClock::Running { remaining_ms },
                 }
             }
         };
@@ -385,6 +435,7 @@ mod tests {
             seed: 42,
             seats,
             turn_seconds: [60, 60],
+            agent_ready_grace_seconds: 15,
         }
     }
 
@@ -398,13 +449,99 @@ mod tests {
         host.snapshot().state.active_team().unwrap()
     }
 
+    fn bots() -> MatchHost {
+        MatchHost::start(setup([SeatKind::Bot, SeatKind::Bot]))
+            .unwrap()
+            .0
+    }
+
     #[test]
-    fn given_agent_seats_when_the_match_starts_then_the_clock_runs_a_full_minute() {
+    fn given_bot_seats_when_the_match_starts_then_the_clock_runs_a_full_minute() {
         assert_eq!(
-            agents().snapshot().clock,
+            bots().snapshot().clock,
             TurnClock::Running {
                 remaining_ms: 60_000
             }
+        );
+    }
+
+    #[test]
+    fn given_agent_seats_when_the_match_starts_then_the_clock_waits_for_the_agent_to_look() {
+        assert_eq!(
+            agents().snapshot().clock,
+            TurnClock::WaitingForReady {
+                remaining_ms: 60_000
+            }
+        );
+    }
+
+    #[test]
+    fn given_an_agent_looking_at_its_turn_when_ready_then_its_clock_runs() {
+        let mut host = agents();
+        let team = active_team(&host);
+        host.ready(team).unwrap();
+        assert_eq!(
+            host.snapshot().clock,
+            TurnClock::Running {
+                remaining_ms: 60_000
+            }
+        );
+    }
+
+    #[test]
+    fn given_an_agent_that_does_not_look_when_the_grace_runs_out_then_its_clock_runs() {
+        let mut host = agents();
+        host.advance_clock(15_000);
+        assert_eq!(
+            host.snapshot().clock,
+            TurnClock::Running {
+                remaining_ms: 60_000
+            }
+        );
+    }
+
+    #[test]
+    fn given_an_agent_that_does_not_look_when_twenty_seconds_pass_then_five_count_against_its_turn()
+    {
+        let mut host = agents();
+        host.advance_clock(20_000);
+        assert_eq!(
+            host.snapshot().clock,
+            TurnClock::Running {
+                remaining_ms: 55_000
+            }
+        );
+    }
+
+    #[test]
+    fn given_a_human_that_does_not_press_ready_when_a_long_time_passes_then_its_clock_still_waits()
+    {
+        let mut host = MatchHost::start(setup([SeatKind::Human, SeatKind::Human]))
+            .unwrap()
+            .0;
+        host.advance_clock(600_000);
+        assert_eq!(
+            host.snapshot().clock,
+            TurnClock::WaitingForReady {
+                remaining_ms: 60_000
+            }
+        );
+    }
+
+    #[test]
+    fn given_a_running_clock_when_its_seat_says_ready_or_running_then_accepted() {
+        let mut host = bots();
+        let team = active_team(&host);
+        assert_eq!(host.ready_or_running(team), Ok(()));
+    }
+
+    #[test]
+    fn given_the_idle_seat_when_it_says_ready_or_running_then_not_waiting_for_ready() {
+        let mut host = bots();
+        let idle = active_team(&host).duel_opponent();
+        assert_eq!(
+            host.ready_or_running(idle),
+            Err(HostError::NotWaitingForReady)
         );
     }
 
@@ -452,14 +589,14 @@ mod tests {
 
     #[test]
     fn given_a_running_clock_when_ready_is_sent_then_not_waiting_for_ready() {
-        let mut host = agents();
+        let mut host = bots();
         let team = active_team(&host);
         assert_eq!(host.ready(team), Err(HostError::NotWaitingForReady));
     }
 
     #[test]
     fn given_a_running_clock_when_thirty_seconds_pass_then_thirty_remain() {
-        let mut host = agents();
+        let mut host = bots();
         host.advance_clock(30_000);
         assert_eq!(
             host.snapshot().clock,
@@ -471,7 +608,7 @@ mod tests {
 
     #[test]
     fn given_a_running_clock_when_a_minute_passes_then_the_turn_ends_on_time_up() {
-        let mut host = agents();
+        let mut host = bots();
         let team = active_team(&host);
         let events = host.advance_clock(60_000);
         assert!(events.contains(&GameEvent::TurnEnded {
@@ -482,7 +619,7 @@ mod tests {
 
     #[test]
     fn given_a_turn_lost_on_time_when_reading_the_record_then_time_up_is_recorded() {
-        let mut host = agents();
+        let mut host = bots();
         host.advance_clock(60_000);
         assert_eq!(
             host.record()
@@ -495,7 +632,7 @@ mod tests {
 
     #[test]
     fn given_a_turn_lost_on_time_when_the_next_turn_starts_then_its_clock_is_full() {
-        let mut host = agents();
+        let mut host = bots();
         host.advance_clock(60_000);
         assert_eq!(
             host.snapshot().clock,
@@ -507,7 +644,7 @@ mod tests {
 
     #[test]
     fn given_a_slower_home_seat_when_home_plays_then_its_clock_has_ninety_seconds() {
-        let mut slow_home = setup([SeatKind::Agent, SeatKind::Agent]);
+        let mut slow_home = setup([SeatKind::Bot, SeatKind::Bot]);
         slow_home.turn_seconds = [90, 60];
         let mut host = MatchHost::start(slow_home).unwrap().0;
         if active_team(&host) == TeamId::AWAY {
@@ -614,7 +751,7 @@ mod tests {
 
     #[test]
     fn given_a_record_with_a_broken_line_when_read_then_unreadable_on_that_line() {
-        let mut host = agents();
+        let mut host = bots();
         host.advance_clock(60_000);
         let text = format!("{}\nnot json", host.record().to_json_lines());
         assert!(matches!(

@@ -298,6 +298,12 @@ impl CoachServer {
         if let Ok(mut cursors) = self.cursors.lock() {
             cursors[seat.index()] = next_cursor;
         }
+        if self.client.latest().state.active_team() == Some(seat) {
+            self.client
+                .ready(seat)
+                .await
+                .map_err(|error| error.to_string())?;
+        }
         Ok(coach_view(
             self.client.arena(),
             self.client.ruleset(),

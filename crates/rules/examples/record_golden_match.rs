@@ -20,6 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         seed: MATCH_SEED,
         seats: [SeatKind::Bot, SeatKind::Bot],
         turn_seconds: [60, 60],
+        agent_ready_grace_seconds: 15,
     })?;
     let mut coach_dice = SeededDice::from_seed(COACH_SEED);
     while let Some(team) = host.game().state().active_team() {
