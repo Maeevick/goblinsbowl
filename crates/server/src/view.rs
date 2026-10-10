@@ -1,5 +1,7 @@
 //! What a coaching agent sees: a compact, self-explaining picture of the match from its seat.
 
+use std::cmp::Reverse;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -9,11 +11,13 @@ use goblins_rules::command::{Action, Activation};
 use goblins_rules::event::GameEvent;
 use goblins_rules::host::{MatchSnapshot, TurnClock};
 use goblins_rules::odds::{ContestDice, Probability};
+use goblins_rules::paths::{PlannedPath, reachable_squares};
 use goblins_rules::preview::{
     ActionOdds, ActivationOdds, RiskyStep, activation_odds, assault_dice,
 };
+use goblins_rules::roster::GoblinId;
 use goblins_rules::ruleset::Ruleset;
-use goblins_rules::state::{Ball, Goblin, Phase, Presence};
+use goblins_rules::state::{Ball, GameState, Goblin, Phase, Presence};
 use goblins_rules::team::TeamId;
 
 /// How much odds information agents get.
@@ -96,6 +100,20 @@ pub struct AssaultOption {
     pub success_percent: Option<f64>,
 }
 
+/// A ball move one of your goblins able to act could make this turn.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
+pub struct BallOption {
+    /// Your goblin.
+    pub goblin: String,
+    /// pick (walk onto the loose ball) or score (walk the carrier into the enemy den).
+    pub kind: String,
+    /// Destination to send as `to` in play; the safest path is taken.
+    pub to: [u8; 2],
+    /// Chance to get there without a knockdown or a fumble, in percent (full hints only).
+    pub success_percent: Option<f64>,
+}
+
 /// The match as seen from one seat.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[schemars(transform = drop_integer_formats)]
@@ -122,6 +140,8 @@ pub struct CoachView {
     pub goblins: Vec<GoblinView>,
     /// Assaults your goblins able to act could make right now, without moving.
     pub assault_options: Vec<AssaultOption>,
+    /// Picking up the loose ball or scoring with your carrier, best first with full hints.
+    pub ball_options: Vec<BallOption>,
     /// What happened since your previous call.
     pub events: Vec<serde_json::Value>,
 }
@@ -172,10 +192,13 @@ pub fn coach_view(
         | TurnClock::Paused { remaining_ms } => Some(remaining_ms),
         TurnClock::Stopped => None,
     };
-    let assault_options = if status == CoachStatus::YourTurn {
-        assault_options(arena, ruleset, snapshot, seat, hints)
+    let (assault_options, ball_options) = if status == CoachStatus::YourTurn {
+        (
+            assault_options(arena, ruleset, snapshot, seat, hints),
+            ball_options(arena, ruleset, state, seat, hints),
+        )
     } else {
-        Vec::new()
+        (Vec::new(), Vec::new())
     };
     CoachView {
         status,
@@ -189,11 +212,59 @@ pub fn coach_view(
         board: render_board(arena, state),
         goblins: state.goblins.iter().map(goblin_view).collect(),
         assault_options,
+        ball_options,
         events: unseen_events
             .iter()
             .filter_map(|event| serde_json::to_value(event).ok())
             .collect(),
     }
+}
+
+fn ball_options(
+    arena: &Arena,
+    ruleset: &Ruleset,
+    state: &GameState,
+    seat: TeamId,
+    hints: OddsHints,
+) -> Vec<BallOption> {
+    let option = |goblin: GoblinId, kind: &str, path: &PlannedPath| BallOption {
+        goblin: goblin.to_string(),
+        kind: kind.to_string(),
+        to: [path.destination.x, path.destination.y],
+        success_percent: (hints == OddsHints::Full)
+            .then(|| (path.success.as_percentage() * 10.0).round() / 10.0),
+    };
+    let mut ranked: Vec<(Probability, BallOption)> = match state.ball {
+        Ball::Loose { at } => state
+            .goblins_of(seat)
+            .filter(|goblin| goblin.can_act())
+            .filter_map(|goblin| {
+                reachable_squares(arena, ruleset, state, goblin.id)
+                    .into_iter()
+                    .find(|path| path.destination == at)
+                    .map(|path| (path.success, option(goblin.id, "pick", &path)))
+            })
+            .collect(),
+        Ball::Carried { by } => state
+            .goblin(by)
+            .filter(|carrier| carrier.team() == seat && carrier.can_act())
+            .and_then(|carrier| {
+                reachable_squares(arena, ruleset, state, carrier.id)
+                    .into_iter()
+                    .filter(|path| arena.is_scoring_square_for(seat, path.destination))
+                    .min_by_key(|path| (Reverse(path.success), path.squares.len()))
+                    .map(|path| (path.success, option(carrier.id, "score", &path)))
+            })
+            .into_iter()
+            .collect(),
+    };
+    if hints == OddsHints::Full {
+        ranked.sort_by_key(|(chance, _)| Reverse(*chance));
+        ranked.truncate(3);
+    } else {
+        ranked.truncate(5);
+    }
+    ranked.into_iter().map(|(_, option)| option).collect()
 }
 
 /// Human-readable chance, such as "62.5 % (5/8)", or None when hints hide it.
@@ -495,6 +566,62 @@ mod tests {
             host.events_since(0),
             hints,
         )
+    }
+
+    #[test]
+    fn given_the_kick_off_with_full_hints_when_viewed_then_the_best_pick_comes_with_its_chance() {
+        let host = kick_off();
+        let seat = host.snapshot().state.active_team().unwrap();
+        let options = view_for(&host, seat, OddsHints::Full).ball_options;
+        assert!(
+            options
+                .first()
+                .is_some_and(|option| option.kind == "pick" && option.success_percent.is_some())
+        );
+    }
+
+    #[test]
+    fn given_the_kick_off_with_hidden_hints_when_viewed_then_picks_come_without_chances() {
+        let host = kick_off();
+        let seat = host.snapshot().state.active_team().unwrap();
+        let options = view_for(&host, seat, OddsHints::None).ball_options;
+        assert!(
+            !options.is_empty()
+                && options
+                    .iter()
+                    .all(|option| option.success_percent.is_none())
+        );
+    }
+
+    #[test]
+    fn given_a_carrier_two_steps_from_the_den_when_viewed_then_a_scoring_option() {
+        let host = kick_off();
+        let mut snapshot = host.snapshot();
+        let seat = snapshot.state.active_team().unwrap();
+        let near_the_den = if seat == TeamId::HOME {
+            goblins_rules::square::Square::new(12, 3)
+        } else {
+            goblins_rules::square::Square::new(2, 3)
+        };
+        let carrier = snapshot.state.goblins_of(seat).nth(4).unwrap().id;
+        for goblin in &mut snapshot.state.goblins {
+            if goblin.id == carrier {
+                goblin.presence = Presence::Standing(near_the_den);
+            }
+        }
+        snapshot.state.ball = Ball::Carried { by: carrier };
+        let view = coach_view(
+            host.game().arena(),
+            host.game().ruleset(),
+            &snapshot,
+            seat,
+            &[],
+            OddsHints::Full,
+        );
+        assert_eq!(
+            view.ball_options.first().map(|option| option.kind.as_str()),
+            Some("score")
+        );
     }
 
     #[test]

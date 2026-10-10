@@ -243,7 +243,7 @@ impl CoachServer {
     }
 
     #[tool(
-        description = "The match from your seat right now: status, clock, score, board, goblins, assault odds and events since your last call."
+        description = "The match from your seat right now: status, clock, score, board, goblins, assault and ball options (pick-ups, scoring routes) and events since your last call."
     )]
     async fn get_state(
         &self,
