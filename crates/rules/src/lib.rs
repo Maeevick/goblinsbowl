@@ -10,6 +10,7 @@ pub mod dice;
 pub mod event;
 pub mod formation;
 pub mod game;
+pub mod odds;
 pub mod roster;
 pub mod ruleset;
 pub mod square;
