@@ -20,6 +20,8 @@ mod fight_tests;
 mod kickoff;
 #[cfg(test)]
 pub(crate) mod scenario;
+#[cfg(test)]
+mod scoring_tests;
 mod throwing;
 mod turns;
 

@@ -193,6 +193,13 @@ pub enum GameEvent {
         /// The goblin.
         goblin: GoblinId,
     },
+    /// A team scored: one of its standing goblins held the ball in an enemy den.
+    Scored {
+        /// The scoring team.
+        team: TeamId,
+        /// The goblin holding the ball.
+        scorer: GoblinId,
+    },
     /// A team's turn is over.
     TurnEnded {
         /// The team whose turn ended.

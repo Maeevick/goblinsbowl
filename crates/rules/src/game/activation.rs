@@ -126,7 +126,7 @@ impl<D: DiceRoller> Game<D> {
                 return;
             };
             if !self.dodge_succeeds(id, from, events) {
-                self.finish_turn(TurnEndReason::Knockdown, events);
+                self.conclude_activation(team, Some(TurnEndReason::Knockdown), events);
                 return;
             }
             let Some(goblin) = self.state.goblin_mut(id) else {
@@ -139,7 +139,11 @@ impl<D: DiceRoller> Game<D> {
                 to,
             });
             if self.state.ball == (Ball::Loose { at: to }) && !self.pick_succeeds(id, to, events) {
-                self.finish_turn(TurnEndReason::Fumble, events);
+                self.conclude_activation(team, Some(TurnEndReason::Fumble), events);
+                return;
+            }
+            if self.scoring_carrier().is_some() {
+                self.conclude_activation(team, None, events);
                 return;
             }
         }
@@ -157,11 +161,20 @@ impl<D: DiceRoller> Game<D> {
                 (!self.throw_completes(id, receiver, events)).then_some(TurnEndReason::Fumble)
             }
         };
-        if let Some(reason) = turn_ending {
+        self.conclude_activation(team, turn_ending, events);
+    }
+
+    fn conclude_activation(
+        &mut self,
+        team: TeamId,
+        turn_ending: Option<TurnEndReason>,
+        events: &mut Vec<GameEvent>,
+    ) {
+        if let Some((scoring_team, scorer)) = self.scoring_carrier() {
+            self.score(scoring_team, scorer, events);
+        } else if let Some(reason) = turn_ending {
             self.finish_turn(reason, events);
-            return;
-        }
-        if !self.has_goblin_able_to_act(team) {
+        } else if !self.has_goblin_able_to_act(team) {
             self.finish_turn(TurnEndReason::NoGoblinCanAct, events);
         }
     }

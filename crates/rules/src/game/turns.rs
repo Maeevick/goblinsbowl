@@ -2,6 +2,7 @@
 
 use crate::dice::DiceRoller;
 use crate::event::{GameEvent, TurnEndReason};
+use crate::roster::GoblinId;
 use crate::state::{Phase, Presence};
 use crate::team::TeamId;
 
@@ -49,5 +50,32 @@ impl<D: DiceRoller> Game<D> {
 
     pub(super) fn has_goblin_able_to_act(&self, team: TeamId) -> bool {
         self.state.goblins_of(team).any(|goblin| goblin.can_act())
+    }
+
+    pub(super) fn scoring_carrier(&self) -> Option<(TeamId, GoblinId)> {
+        let carrier = self.state.carrier()?;
+        let goblin = self.state.goblin(carrier)?;
+        let Presence::Standing(square) = goblin.presence else {
+            return None;
+        };
+        self.arena
+            .is_scoring_square_for(goblin.team(), square)
+            .then_some((goblin.team(), carrier))
+    }
+
+    pub(super) fn score(&mut self, team: TeamId, scorer: GoblinId, events: &mut Vec<GameEvent>) {
+        if let Some(points) = self.state.score.get_mut(team.index()) {
+            *points = points.saturating_add(1);
+        }
+        events.push(GameEvent::Scored { team, scorer });
+        if let Some(active_team) = self.state.active_team() {
+            events.push(GameEvent::TurnEnded {
+                team: active_team,
+                reason: TurnEndReason::Score,
+            });
+        }
+        let receiving_team = team.duel_opponent();
+        self.kick_off(receiving_team, events);
+        self.start_turn(receiving_team, events);
     }
 }
