@@ -192,7 +192,12 @@ async fn run_match(
     loop {
         tokio::select! {
             request = inbox.recv() => match request {
-                Some(request) => answer(&mut host, request),
+                Some(request) => {
+                    let reply = answer(&mut host, request);
+                    publisher.send_replace(Arc::new(host.snapshot()));
+                    reply.deliver();
+                    continue;
+                }
                 None => break,
             },
             _ = ticker.tick() => {
@@ -209,21 +214,43 @@ async fn run_match(
     }
 }
 
-fn answer(host: &mut MatchHost, request: SeatRequest) {
+enum PendingReply {
+    Submitted(
+        oneshot::Sender<Result<Vec<GameEvent>, HostError>>,
+        Result<Vec<GameEvent>, HostError>,
+    ),
+    Readied(
+        oneshot::Sender<Result<(), HostError>>,
+        Result<(), HostError>,
+    ),
+    Events(
+        oneshot::Sender<(Vec<GameEvent>, usize)>,
+        (Vec<GameEvent>, usize),
+    ),
+}
+
+impl PendingReply {
+    fn deliver(self) {
+        let _ = match self {
+            PendingReply::Submitted(reply, outcome) => reply.send(outcome).map_err(drop),
+            PendingReply::Readied(reply, outcome) => reply.send(outcome).map_err(drop),
+            PendingReply::Events(reply, outcome) => reply.send(outcome).map_err(drop),
+        };
+    }
+}
+
+fn answer(host: &mut MatchHost, request: SeatRequest) -> PendingReply {
     match request {
         SeatRequest::Submit {
             team,
             command,
             reply,
-        } => {
-            let _ = reply.send(host.submit(team, command));
-        }
-        SeatRequest::Ready { team, reply } => {
-            let _ = reply.send(host.ready(team));
-        }
-        SeatRequest::EventsSince { cursor, reply } => {
-            let _ = reply.send((host.events_since(cursor).to_vec(), host.event_count()));
-        }
+        } => PendingReply::Submitted(reply, host.submit(team, command)),
+        SeatRequest::Ready { team, reply } => PendingReply::Readied(reply, host.ready(team)),
+        SeatRequest::EventsSince { cursor, reply } => PendingReply::Events(
+            reply,
+            (host.events_since(cursor).to_vec(), host.event_count()),
+        ),
     }
 }
 
@@ -359,5 +386,22 @@ mod tests {
         let (_, end) = client.events_since(0).await.unwrap();
         let (newer, _) = client.events_since(end).await.unwrap();
         assert!(newer.is_empty());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn given_a_submitted_command_when_it_returns_then_the_latest_snapshot_already_shows_it() {
+        let client = spawn_match(
+            host([SeatKind::Agent, SeatKind::Agent]),
+            ServerPacing::default(),
+        );
+        let mut versions_seen_late = 0;
+        for expected_version in 1..=40 {
+            let team = active_team(&client);
+            client.submit(team, Command::EndTurn).await.unwrap();
+            if client.latest().version != expected_version {
+                versions_seen_late += 1;
+            }
+        }
+        assert_eq!(versions_seen_late, 0);
     }
 }
