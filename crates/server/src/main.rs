@@ -10,7 +10,7 @@ use clap::Parser;
 use goblins_rules::host::{MatchHost, MatchSetup};
 use goblins_rules::ruleset::Ruleset;
 use goblins_server::match_server::{ServerPacing, spawn_match};
-use goblins_server::mcp::{SeatTokens, serve_mcp};
+use goblins_server::mcp::{SeatTokens, random_token, serve_mcp};
 use goblins_server::options::{RemoteSeat, ServerOptions};
 use goblins_server::runs::{
     RunFiles, save_record, save_record_at_final_whistle, seconds_since_epoch,
@@ -125,15 +125,4 @@ fn seed_from_clock() -> u64 {
     let mut hasher = RandomState::new().build_hasher();
     hasher.write_u64(seconds_since_epoch());
     hasher.finish()
-}
-
-fn random_token() -> String {
-    let state = RandomState::new();
-    let half = |salt: u64| {
-        let mut hasher = state.build_hasher();
-        hasher.write_u64(salt);
-        hasher.write_u64(seconds_since_epoch());
-        hasher.finish()
-    };
-    format!("{:016x}{:016x}", half(1), half(2))
 }

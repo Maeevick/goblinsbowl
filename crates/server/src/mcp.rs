@@ -49,6 +49,23 @@ risky ones for last. Each turn has a clock (time_left_ms): when it runs out the 
 dry_run=true to get exact odds without rolling. Squares are [x, y]; goblins are H1..H9 (home, west den) and \
 A1..A9 (away, east den). Call get_rules once for the full rules.";
 
+/// A fresh seat secret, unpredictable enough for a match on the local machine.
+pub fn random_token() -> String {
+    let state = std::collections::hash_map::RandomState::new();
+    let nanoseconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_nanos())
+        .unwrap_or_default();
+    let half = |salt: u64| {
+        use std::hash::{BuildHasher, Hasher};
+        let mut hasher = state.build_hasher();
+        hasher.write_u64(salt);
+        hasher.write_u128(nanoseconds);
+        hasher.finish()
+    };
+    format!("{:016x}{:016x}", half(1), half(2))
+}
+
 /// The secret each seat sends as a bearer token.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SeatTokens {
@@ -672,6 +689,11 @@ mod tests {
     fn has_integer_width_format<T: JsonSchema>() -> bool {
         let schema = serde_json::to_string(&schemars::schema_for!(T)).unwrap_or_default();
         schema.contains("\"format\":\"uint") || schema.contains("\"format\":\"int")
+    }
+
+    #[test]
+    fn given_two_fresh_tokens_when_compared_then_they_differ() {
+        assert_ne!(random_token(), random_token());
     }
 
     #[test]
