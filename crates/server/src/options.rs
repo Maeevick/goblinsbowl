@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, ValueEnum};
 use goblins_rules::host::SeatKind;
+use goblins_rules::policies::Bot;
 
 use crate::view::OddsHints;
 
@@ -12,7 +13,7 @@ use crate::view::OddsHints;
 pub enum RemoteSeat {
     /// An AI agent connected through MCP.
     Agent,
-    /// The built-in random bot.
+    /// The built-in bot chosen with --bot.
     Bot,
 }
 
@@ -35,6 +36,9 @@ pub struct ServerOptions {
     /// Who coaches the away team (east den).
     #[arg(long, value_enum, default_value_t = RemoteSeat::Bot)]
     pub away: RemoteSeat,
+    /// How the bot seats play: random, cautious or bold.
+    #[arg(long, default_value_t = Bot::Cautious)]
+    pub bot: Bot,
     /// Dice seed; random when left out.
     #[arg(long)]
     pub seed: Option<u64>,
@@ -109,6 +113,16 @@ mod tests {
             parse(&["--home-turn-seconds", "90"]).turn_seconds_per_seat(),
             [90, 60]
         );
+    }
+
+    #[test]
+    fn given_no_bot_style_when_parsed_then_the_cautious_bot() {
+        assert_eq!(parse(&[]).bot, Bot::Cautious);
+    }
+
+    #[test]
+    fn given_a_random_bot_when_parsed_then_the_random_bot() {
+        assert_eq!(parse(&["--bot", "random"]).bot, Bot::Random);
     }
 
     #[test]

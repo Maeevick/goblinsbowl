@@ -9,7 +9,7 @@ use goblins_rules::command::Command;
 use goblins_rules::dice::SeededDice;
 use goblins_rules::event::GameEvent;
 use goblins_rules::host::{HostError, MatchHost, MatchRecord, MatchSnapshot, SeatKind};
-use goblins_rules::policies::random::random_command;
+use goblins_rules::policies::Bot;
 use goblins_rules::ruleset::Ruleset;
 use goblins_rules::team::TeamId;
 use thiserror::Error;
@@ -25,7 +25,9 @@ pub struct ServerPacing {
     pub tick: Duration,
     /// Pause between two bot commands, so people can follow.
     pub bot_delay: Duration,
-    /// Seed of the bots' decisions.
+    /// How the bot seats play.
+    pub bot: Bot,
+    /// Seed of the bots' decisions, for the random bot.
     pub bot_seed: u64,
 }
 
@@ -34,6 +36,7 @@ impl Default for ServerPacing {
         Self {
             tick: Duration::from_millis(100),
             bot_delay: Duration::from_millis(400),
+            bot: Bot::Cautious,
             bot_seed: 7,
         }
     }
@@ -218,7 +221,7 @@ async fn run_match(
                 let elapsed = u64::try_from((now - last_tick).as_millis()).unwrap_or(u64::MAX);
                 last_tick = now;
                 host.advance_clock(elapsed);
-                if now >= next_bot_move && play_bot_move(&mut host, &mut bot_dice) {
+                if now >= next_bot_move && play_bot_move(&mut host, pacing.bot, &mut bot_dice) {
                     next_bot_move = now + pacing.bot_delay;
                 }
             }
@@ -272,7 +275,7 @@ fn answer(host: &mut MatchHost, request: SeatRequest) -> PendingReply {
     }
 }
 
-fn play_bot_move(host: &mut MatchHost, bot_dice: &mut SeededDice) -> bool {
+fn play_bot_move(host: &mut MatchHost, bot: Bot, bot_dice: &mut SeededDice) -> bool {
     let snapshot = host.snapshot();
     let Some(team) = snapshot.state.active_team() else {
         return false;
@@ -281,7 +284,7 @@ fn play_bot_move(host: &mut MatchHost, bot_dice: &mut SeededDice) -> bool {
         return false;
     }
     let game = host.game();
-    let command = random_command(game.arena(), game.ruleset(), game.state(), team, bot_dice);
+    let command = bot.command(game.arena(), game.ruleset(), game.state(), team, bot_dice);
     host.submit(team, command).is_ok()
 }
 

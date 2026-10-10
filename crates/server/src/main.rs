@@ -40,6 +40,7 @@ async fn main() -> anyhow::Result<()> {
         ServerPacing {
             tick: SERVER_TICK,
             bot_delay: Duration::from_millis(options.bot_delay_ms),
+            bot: options.bot,
             bot_seed: seed.wrapping_add(1),
         },
     );
