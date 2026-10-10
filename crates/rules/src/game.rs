@@ -1,0 +1,448 @@
+//! The rules engine: applies commands to a match state, rolling dice through a [`DiceRoller`].
+
+use thiserror::Error;
+
+use crate::arena::Arena;
+use crate::dice::DiceRoller;
+use crate::event::{BallRoll, GameEvent};
+use crate::formation::kickoff_squares;
+use crate::roster::{GoblinId, Roster, RosterError};
+use crate::ruleset::{Ruleset, RulesetError};
+use crate::square::{Direction, Square};
+use crate::state::{Ball, GameState, Goblin, Phase, Presence};
+use crate::team::TeamId;
+
+const MAX_DIRECTION_ROLLS: usize = 32;
+const MAX_BOUNCES: usize = 32;
+
+/// Why a match cannot start.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum SetupError {
+    /// The ruleset is not playable.
+    #[error(transparent)]
+    Ruleset(#[from] RulesetError),
+    /// A roster breaks the ruleset.
+    #[error("{team:?} roster: {error}")]
+    Roster {
+        /// Team whose roster is wrong.
+        team: TeamId,
+        /// What is wrong with it.
+        error: RosterError,
+    },
+}
+
+/// A match in progress: its ruleset, arena, state and dice.
+#[derive(Clone, Debug)]
+pub struct Game<D: DiceRoller> {
+    ruleset: Ruleset,
+    arena: Arena,
+    state: GameState,
+    dice: D,
+}
+
+impl<D: DiceRoller> Game<D> {
+    /// Starts a match: lines teams up, tosses a coin (d2: 1 home, 2 away) for the receiving team,
+    /// drops the ball on the centre square, bounces it once and starts the receiver's first turn.
+    ///
+    /// # Errors
+    /// [`SetupError`] when the ruleset or a roster is invalid.
+    pub fn start(
+        ruleset: Ruleset,
+        rosters: [Roster; 2],
+        dice: D,
+    ) -> Result<(Self, Vec<GameEvent>), SetupError> {
+        ruleset.validate()?;
+        let arena = ruleset.build_arena().map_err(RulesetError::from)?;
+        for (team, roster) in TeamId::DUEL.into_iter().zip(&rosters) {
+            roster
+                .validate(ruleset.team_size, &ruleset.roster_limits)
+                .map_err(|error| SetupError::Roster { team, error })?;
+        }
+        let goblins = TeamId::DUEL
+            .into_iter()
+            .zip(&rosters)
+            .flat_map(|(team, roster)| {
+                let lineup = kickoff_squares(&arena, team, roster);
+                roster
+                    .archetypes_by_number()
+                    .into_iter()
+                    .zip(lineup)
+                    .zip(1_u8..)
+                    .map(move |((archetype, square), number)| {
+                        let characteristics = ruleset.archetypes.of(archetype);
+                        Goblin {
+                            id: GoblinId::new(team, number),
+                            archetype,
+                            characteristics,
+                            health: characteristics.health,
+                            presence: Presence::Standing(square),
+                            in_stance: false,
+                            has_acted: false,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        let centre = arena.centre();
+        let mut game = Self {
+            state: GameState {
+                rosters: rosters.to_vec(),
+                goblins,
+                ball: Ball::Loose { at: centre },
+                score: vec![0; TeamId::DUEL.len()],
+                half: 1,
+                turns_played: vec![0; TeamId::DUEL.len()],
+                phase: Phase::Playing {
+                    active_team: TeamId::HOME,
+                },
+                opening_team: TeamId::HOME,
+            },
+            ruleset,
+            arena,
+            dice,
+        };
+        let mut events = Vec::new();
+        let receiving_team = if game.dice.roll(2) == 1 {
+            TeamId::HOME
+        } else {
+            TeamId::AWAY
+        };
+        events.push(GameEvent::CoinTossed { receiving_team });
+        game.state.opening_team = receiving_team;
+        game.kick_off(receiving_team, &mut events);
+        game.start_turn(receiving_team, &mut events);
+        Ok((game, events))
+    }
+
+    /// Continues a match from a saved or hand-made state.
+    ///
+    /// # Errors
+    /// [`SetupError::Ruleset`] when the ruleset is invalid.
+    pub fn resume(ruleset: Ruleset, state: GameState, dice: D) -> Result<Self, SetupError> {
+        ruleset.validate()?;
+        let arena = ruleset.build_arena().map_err(RulesetError::from)?;
+        Ok(Self {
+            ruleset,
+            arena,
+            state,
+            dice,
+        })
+    }
+
+    /// The current state.
+    pub fn state(&self) -> &GameState {
+        &self.state
+    }
+
+    /// The ruleset in force.
+    pub fn ruleset(&self) -> &Ruleset {
+        &self.ruleset
+    }
+
+    /// The arena.
+    pub fn arena(&self) -> &Arena {
+        &self.arena
+    }
+
+    /// The dice, for inspection (seed, scripted rolls left).
+    pub fn dice(&self) -> &D {
+        &self.dice
+    }
+
+    fn kick_off(&mut self, receiving_team: TeamId, events: &mut Vec<GameEvent>) {
+        events.push(GameEvent::KickedOff { receiving_team });
+        for team in TeamId::DUEL {
+            let roster = self.state.rosters[team.index()];
+            let lineup = kickoff_squares(&self.arena, team, &roster);
+            let ids: Vec<GoblinId> = self
+                .state
+                .goblins_of(team)
+                .map(|goblin| goblin.id)
+                .collect();
+            for (id, square) in ids.into_iter().zip(lineup) {
+                self.line_up(id, square, events);
+            }
+        }
+        let centre = self.arena.centre();
+        self.state.ball = Ball::Loose { at: centre };
+        events.push(GameEvent::BallDropped { at: centre });
+        self.bounce_ball(centre, events);
+    }
+
+    fn line_up(&mut self, id: GoblinId, square: Square, events: &mut Vec<GameEvent>) {
+        let Some(goblin) = self.state.goblin(id) else {
+            return;
+        };
+        let full_health = goblin.characteristics.health;
+        let health = if goblin.presence == Presence::KnockedOut {
+            let health = self.dice.roll(full_health);
+            events.push(GameEvent::ReturnedFromKnockOut { goblin: id, health });
+            health
+        } else {
+            full_health
+        };
+        if let Some(goblin) = self.state.goblin_mut(id) {
+            goblin.health = health;
+            goblin.presence = Presence::Standing(square);
+            goblin.in_stance = false;
+            goblin.has_acted = false;
+        }
+    }
+
+    fn start_turn(&mut self, team: TeamId, events: &mut Vec<GameEvent>) {
+        let turn = self.state.turns_played[team.index()].saturating_add(1);
+        self.state.turns_played[team.index()] = turn;
+        self.state.phase = Phase::Playing { active_team: team };
+        events.push(GameEvent::TurnStarted {
+            team,
+            half: self.state.half,
+            turn,
+        });
+        let mut stood_up = Vec::new();
+        for goblin in self
+            .state
+            .goblins
+            .iter_mut()
+            .filter(|goblin| goblin.team() == team)
+        {
+            goblin.has_acted = false;
+            goblin.in_stance = false;
+            if let Presence::Down(square) = goblin.presence {
+                goblin.presence = Presence::Standing(square);
+                goblin.has_acted = true;
+                stood_up.push(goblin.id);
+            }
+        }
+        events.extend(
+            stood_up
+                .into_iter()
+                .map(|goblin| GameEvent::StoodUp { goblin }),
+        );
+    }
+
+    fn bounce_ball(&mut self, origin: Square, events: &mut Vec<GameEvent>) -> Vec<GoblinId> {
+        let mut from = origin;
+        let mut missed_catches = Vec::new();
+        for _ in 0..MAX_BOUNCES {
+            let to = self.roll_bounce_destination(from);
+            events.push(GameEvent::BallBounced { from, to });
+            self.state.ball = Ball::Loose { at: to };
+            match self
+                .state
+                .goblin_at(to)
+                .map(|goblin| (goblin.id, goblin.is_standing()))
+            {
+                None => return missed_catches,
+                Some((catcher, true)) => {
+                    if self.attempt_catch(catcher, 0, events) {
+                        return missed_catches;
+                    }
+                    missed_catches.push(catcher);
+                }
+                Some((_, false)) => {}
+            }
+            from = to;
+        }
+        if let Some(resting_square) = self.nearest_empty_square(from) {
+            self.state.ball = Ball::Loose { at: resting_square };
+        }
+        missed_catches
+    }
+
+    fn roll_bounce_destination(&mut self, from: Square) -> Square {
+        for _ in 0..MAX_DIRECTION_ROLLS {
+            let face = self.dice.roll(4);
+            let destination = Direction::from_d4_face(face)
+                .and_then(|direction| direction.step_from(from))
+                .filter(|square| self.arena.is_in_bounds(*square));
+            if let Some(destination) = destination {
+                return destination;
+            }
+        }
+        self.arena.in_bounds_neighbours(from).next().unwrap_or(from)
+    }
+
+    fn attempt_catch(
+        &mut self,
+        catcher: GoblinId,
+        extra_malus: u8,
+        events: &mut Vec<GameEvent>,
+    ) -> bool {
+        let roll = self.ball_roll(catcher, extra_malus);
+        events.push(GameEvent::CatchAttempted {
+            goblin: catcher,
+            roll,
+        });
+        if roll.success {
+            self.state.ball = Ball::Carried { by: catcher };
+        }
+        roll.success
+    }
+
+    fn ball_roll(&mut self, goblin: GoblinId, extra_malus: u8) -> BallRoll {
+        let (faces, adjacent_opponents) = self
+            .state
+            .goblin(goblin)
+            .and_then(|goblin| {
+                goblin.square().map(|square| {
+                    (
+                        goblin.characteristics.agility,
+                        self.state
+                            .standing_opponents_next_to(square, goblin.team())
+                            .count(),
+                    )
+                })
+            })
+            .unwrap_or((1, 0));
+        let malus = u8::try_from(adjacent_opponents)
+            .unwrap_or(u8::MAX)
+            .saturating_add(extra_malus);
+        let rolled = self.dice.roll(faces);
+        let target = self.ruleset.ball_roll_target;
+        BallRoll {
+            faces,
+            rolled,
+            malus,
+            target,
+            success: i16::from(rolled) - i16::from(malus) >= i16::from(target),
+        }
+    }
+
+    fn nearest_empty_square(&self, origin: Square) -> Option<Square> {
+        let mut visited = vec![origin];
+        let mut frontier = std::collections::VecDeque::from([origin]);
+        while let Some(square) = frontier.pop_front() {
+            if self.state.goblin_at(square).is_none() {
+                return Some(square);
+            }
+            for neighbour in self.arena.in_bounds_neighbours(square) {
+                if !visited.contains(&neighbour) {
+                    visited.push(neighbour);
+                    frontier.push_back(neighbour);
+                }
+            }
+        }
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dice::ScriptedDice;
+
+    const COIN_HOME: u8 = 1;
+    const COIN_AWAY: u8 = 2;
+    const BOUNCE_EAST: u8 = 2;
+
+    fn started(rolls: impl IntoIterator<Item = u8>) -> (Game<ScriptedDice>, Vec<GameEvent>) {
+        Game::start(
+            Ruleset::default(),
+            [Roster::DEFAULT, Roster::DEFAULT],
+            ScriptedDice::new(rolls),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn given_default_rosters_when_the_match_starts_then_eighteen_goblins_stand_on_the_bowl() {
+        let (game, _) = started([COIN_HOME, BOUNCE_EAST]);
+        assert_eq!(
+            game.state()
+                .goblins
+                .iter()
+                .filter(|goblin| goblin.is_standing())
+                .count(),
+            18
+        );
+    }
+
+    #[test]
+    fn given_coin_shows_one_when_the_match_starts_then_home_plays_first() {
+        let (game, _) = started([COIN_HOME, BOUNCE_EAST]);
+        assert_eq!(game.state().active_team(), Some(TeamId::HOME));
+    }
+
+    #[test]
+    fn given_coin_shows_two_when_the_match_starts_then_away_plays_first() {
+        let (game, _) = started([COIN_AWAY, BOUNCE_EAST]);
+        assert_eq!(game.state().active_team(), Some(TeamId::AWAY));
+    }
+
+    #[test]
+    fn given_bounce_east_from_the_centre_when_the_match_starts_then_the_ball_lies_on_eight_seven() {
+        let (game, _) = started([COIN_HOME, BOUNCE_EAST]);
+        assert_eq!(
+            game.state().ball,
+            Ball::Loose {
+                at: Square::new(8, 7)
+            }
+        );
+    }
+
+    #[test]
+    fn given_the_match_starts_when_reading_events_then_toss_kick_off_drop_bounce_and_first_turn() {
+        let (_, events) = started([COIN_AWAY, BOUNCE_EAST]);
+        assert_eq!(
+            events,
+            vec![
+                GameEvent::CoinTossed {
+                    receiving_team: TeamId::AWAY
+                },
+                GameEvent::KickedOff {
+                    receiving_team: TeamId::AWAY
+                },
+                GameEvent::BallDropped {
+                    at: Square::new(7, 7)
+                },
+                GameEvent::BallBounced {
+                    from: Square::new(7, 7),
+                    to: Square::new(8, 7)
+                },
+                GameEvent::TurnStarted {
+                    team: TeamId::AWAY,
+                    half: 1,
+                    turn: 1
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn given_the_match_starts_when_reading_turn_counters_then_only_the_receiver_started_a_turn() {
+        let (game, _) = started([COIN_AWAY, BOUNCE_EAST]);
+        assert_eq!(game.state().turns_played, vec![0, 1]);
+    }
+
+    #[test]
+    fn given_a_ten_goblin_home_roster_when_starting_then_roster_error() {
+        let too_many = Roster {
+            bruisers: 5,
+            sprinters: 4,
+            throwers: 1,
+        };
+        let outcome = Game::start(
+            Ruleset::default(),
+            [too_many, Roster::DEFAULT],
+            ScriptedDice::new([]),
+        );
+        assert!(matches!(
+            outcome,
+            Err(SetupError::Roster {
+                team: TeamId::HOME,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn given_the_match_starts_when_reading_home_goblins_then_numbered_one_to_nine() {
+        let (game, _) = started([COIN_HOME, BOUNCE_EAST]);
+        let numbers: Vec<u8> = game
+            .state()
+            .goblins_of(TeamId::HOME)
+            .map(|goblin| goblin.id.number)
+            .collect();
+        assert_eq!(numbers, (1..=9).collect::<Vec<_>>());
+    }
+}

@@ -6,8 +6,11 @@
 pub mod arena;
 pub mod characteristics;
 pub mod dice;
+pub mod event;
 pub mod formation;
+pub mod game;
 pub mod roster;
 pub mod ruleset;
 pub mod square;
+pub mod state;
 pub mod team;

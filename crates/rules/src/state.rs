@@ -1,0 +1,372 @@
+//! The state of a match: goblins, ball, score and per-team turn counters.
+
+use serde::{Deserialize, Serialize};
+
+use crate::characteristics::{Archetype, Characteristics};
+use crate::roster::{GoblinId, Roster};
+use crate::square::Square;
+use crate::team::TeamId;
+
+/// Where a goblin is and whether it stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Presence {
+    /// On its feet on this square.
+    Standing(Square),
+    /// Lying on this square: no reach, no Stance, cannot hold the ball.
+    Down(Square),
+    /// Off the bowl until the next kick-off.
+    KnockedOut,
+}
+
+impl Presence {
+    /// The square the goblin occupies, standing or down.
+    pub fn square(self) -> Option<Square> {
+        match self {
+            Presence::Standing(square) | Presence::Down(square) => Some(square),
+            Presence::KnockedOut => None,
+        }
+    }
+
+    /// Whether the goblin is on its feet on the bowl.
+    pub fn is_standing(self) -> bool {
+        matches!(self, Presence::Standing(_))
+    }
+}
+
+/// A goblin taking part in the match.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Goblin {
+    /// Its identity.
+    pub id: GoblinId,
+    /// Its archetype.
+    pub archetype: Archetype,
+    /// Its characteristics.
+    pub characteristics: Characteristics,
+    /// Health left; 0 means knocked out.
+    pub health: u8,
+    /// Where it is.
+    pub presence: Presence,
+    /// Whether it braced in Stance since its team's last turn started.
+    pub in_stance: bool,
+    /// Whether it already used its activation this turn.
+    pub has_acted: bool,
+}
+
+impl Goblin {
+    /// The team it plays for.
+    pub fn team(&self) -> TeamId {
+        self.id.team
+    }
+
+    /// The square it occupies, standing or down.
+    pub fn square(&self) -> Option<Square> {
+        self.presence.square()
+    }
+
+    /// Whether it stands on the bowl.
+    pub fn is_standing(&self) -> bool {
+        self.presence.is_standing()
+    }
+
+    /// Whether it may still be activated this turn.
+    pub fn can_act(&self) -> bool {
+        self.is_standing() && !self.has_acted
+    }
+}
+
+/// Where the ball is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Ball {
+    /// Held by a standing goblin.
+    Carried {
+        /// The carrier.
+        by: GoblinId,
+    },
+    /// Lying on a square.
+    Loose {
+        /// Its square.
+        at: Square,
+    },
+}
+
+/// Whether the match is running and whose turn it is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Phase {
+    /// A team is playing its turn.
+    Playing {
+        /// The team allowed to act.
+        active_team: TeamId,
+    },
+    /// The final whistle went.
+    Finished,
+}
+
+/// Everything needed to know where a match stands, without its dice.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GameState {
+    /// Rosters of the teams, indexed by team.
+    pub rosters: Vec<Roster>,
+    /// All goblins, home first, each team in shirt-number order.
+    pub goblins: Vec<Goblin>,
+    /// Where the ball is.
+    pub ball: Ball,
+    /// Points per team, indexed by team.
+    pub score: Vec<u8>,
+    /// Current half, starting at 1.
+    pub half: u8,
+    /// Turns each team started in the current half, indexed by team.
+    pub turns_played: Vec<u8>,
+    /// Running or finished.
+    pub phase: Phase,
+    /// The team that played first in the first half; the other one opens the second half.
+    pub opening_team: TeamId,
+}
+
+impl GameState {
+    /// The goblin with this id.
+    pub fn goblin(&self, id: GoblinId) -> Option<&Goblin> {
+        self.goblins.iter().find(|goblin| goblin.id == id)
+    }
+
+    /// The goblin standing or lying on `square`.
+    pub fn goblin_at(&self, square: Square) -> Option<&Goblin> {
+        self.goblins
+            .iter()
+            .find(|goblin| goblin.square() == Some(square))
+    }
+
+    /// Goblins of `team`, in shirt-number order.
+    pub fn goblins_of(&self, team: TeamId) -> impl Iterator<Item = &Goblin> + '_ {
+        self.goblins
+            .iter()
+            .filter(move |goblin| goblin.team() == team)
+    }
+
+    /// The team allowed to act, if the match is running.
+    pub fn active_team(&self) -> Option<TeamId> {
+        match self.phase {
+            Phase::Playing { active_team } => Some(active_team),
+            Phase::Finished => None,
+        }
+    }
+
+    /// The goblin holding the ball, if any.
+    pub fn carrier(&self) -> Option<GoblinId> {
+        match self.ball {
+            Ball::Carried { by } => Some(by),
+            Ball::Loose { .. } => None,
+        }
+    }
+
+    /// The square of the ball, loose or carried.
+    pub fn ball_square(&self) -> Option<Square> {
+        match self.ball {
+            Ball::Carried { by } => self.goblin(by).and_then(Goblin::square),
+            Ball::Loose { at } => Some(at),
+        }
+    }
+
+    /// Standing goblins opposing `team` on squares orthogonally next to `square`.
+    pub fn standing_opponents_next_to(
+        &self,
+        square: Square,
+        team: TeamId,
+    ) -> impl Iterator<Item = &Goblin> + '_ {
+        self.goblins.iter().filter(move |goblin| {
+            goblin.team() != team
+                && goblin.is_standing()
+                && goblin
+                    .square()
+                    .is_some_and(|other| other.is_orthogonally_adjacent(square))
+        })
+    }
+
+    /// Defense bonus of goblin `id`: one per goblin in Stance among itself and its adjacent teammates.
+    pub fn stance_bonus(&self, id: GoblinId) -> u8 {
+        let Some(goblin) = self.goblin(id) else {
+            return 0;
+        };
+        let Some(square) = goblin.square() else {
+            return 0;
+        };
+        let braced_neighbours = self
+            .goblins_of(goblin.team())
+            .filter(|teammate| {
+                teammate.id != id
+                    && teammate.is_standing()
+                    && teammate.in_stance
+                    && teammate
+                        .square()
+                        .is_some_and(|other| other.is_orthogonally_adjacent(square))
+            })
+            .count();
+        let braced_itself = usize::from(goblin.is_standing() && goblin.in_stance);
+        u8::try_from(braced_neighbours + braced_itself).unwrap_or(u8::MAX)
+    }
+
+    pub(crate) fn goblin_mut(&mut self, id: GoblinId) -> Option<&mut Goblin> {
+        self.goblins.iter_mut().find(|goblin| goblin.id == id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn goblin(id: &str, presence: Presence) -> Goblin {
+        Goblin {
+            id: id.parse().unwrap(),
+            archetype: Archetype::Bruiser,
+            characteristics: Characteristics {
+                attack: 4,
+                defense: 4,
+                agility: 2,
+                health: 6,
+                movement: 3,
+            },
+            health: 6,
+            presence,
+            in_stance: false,
+            has_acted: false,
+        }
+    }
+
+    fn standing(id: &str, x: u8, y: u8) -> Goblin {
+        goblin(id, Presence::Standing(Square::new(x, y)))
+    }
+
+    fn braced(id: &str, x: u8, y: u8) -> Goblin {
+        Goblin {
+            in_stance: true,
+            ..standing(id, x, y)
+        }
+    }
+
+    fn state_with(goblins: Vec<Goblin>) -> GameState {
+        GameState {
+            rosters: vec![Roster::DEFAULT, Roster::DEFAULT],
+            goblins,
+            ball: Ball::Loose {
+                at: Square::new(7, 7),
+            },
+            score: vec![0, 0],
+            half: 1,
+            turns_played: vec![1, 0],
+            phase: Phase::Playing {
+                active_team: TeamId::HOME,
+            },
+            opening_team: TeamId::HOME,
+        }
+    }
+
+    fn id(text: &str) -> GoblinId {
+        text.parse().unwrap()
+    }
+
+    #[test]
+    fn given_standing_presence_when_asking_its_square_then_that_square() {
+        assert_eq!(
+            Presence::Standing(Square::new(3, 4)).square(),
+            Some(Square::new(3, 4))
+        );
+    }
+
+    #[test]
+    fn given_knocked_out_presence_when_asking_its_square_then_none() {
+        assert_eq!(Presence::KnockedOut.square(), None);
+    }
+
+    #[test]
+    fn given_downed_goblin_when_asking_if_it_can_act_then_no() {
+        assert!(!goblin("H1", Presence::Down(Square::new(3, 4))).can_act());
+    }
+
+    #[test]
+    fn given_goblin_that_acted_when_asking_if_it_can_act_then_no() {
+        let tired = Goblin {
+            has_acted: true,
+            ..standing("H1", 3, 4)
+        };
+        assert!(!tired.can_act());
+    }
+
+    #[test]
+    fn given_goblin_in_stance_alone_when_asking_its_bonus_then_one() {
+        assert_eq!(
+            state_with(vec![braced("H1", 5, 5)]).stance_bonus(id("H1")),
+            1
+        );
+    }
+
+    #[test]
+    fn given_goblin_between_two_braced_teammates_when_asking_its_bonus_then_two() {
+        let state = state_with(vec![
+            standing("H1", 5, 5),
+            braced("H2", 5, 4),
+            braced("H3", 5, 6),
+        ]);
+        assert_eq!(state.stance_bonus(id("H1")), 2);
+    }
+
+    #[test]
+    fn given_braced_goblin_next_to_a_braced_teammate_when_asking_its_bonus_then_two() {
+        let state = state_with(vec![braced("H1", 5, 5), braced("H2", 6, 5)]);
+        assert_eq!(state.stance_bonus(id("H1")), 2);
+    }
+
+    #[test]
+    fn given_braced_teammate_on_a_diagonal_when_asking_the_bonus_then_zero() {
+        let state = state_with(vec![standing("H1", 5, 5), braced("H2", 6, 6)]);
+        assert_eq!(state.stance_bonus(id("H1")), 0);
+    }
+
+    #[test]
+    fn given_braced_opponent_next_to_the_goblin_when_asking_its_bonus_then_zero() {
+        let state = state_with(vec![standing("H1", 5, 5), braced("A1", 6, 5)]);
+        assert_eq!(state.stance_bonus(id("H1")), 0);
+    }
+
+    #[test]
+    fn given_downed_goblin_next_to_a_braced_teammate_when_asking_its_bonus_then_one() {
+        let state = state_with(vec![
+            goblin("H1", Presence::Down(Square::new(5, 5))),
+            braced("H2", 5, 4),
+        ]);
+        assert_eq!(state.stance_bonus(id("H1")), 1);
+    }
+
+    #[test]
+    fn given_ball_carried_when_asking_where_the_ball_is_then_the_carrier_square() {
+        let mut state = state_with(vec![standing("A4", 9, 3)]);
+        state.ball = Ball::Carried { by: id("A4") };
+        assert_eq!(state.ball_square(), Some(Square::new(9, 3)));
+    }
+
+    #[test]
+    fn given_two_standing_and_one_downed_opponents_around_when_listing_then_two() {
+        let state = state_with(vec![
+            standing("A1", 5, 4),
+            standing("A2", 4, 5),
+            goblin("A3", Presence::Down(Square::new(6, 5))),
+            standing("H2", 5, 6),
+        ]);
+        assert_eq!(
+            state
+                .standing_opponents_next_to(Square::new(5, 5), TeamId::HOME)
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn given_goblin_lying_on_a_square_when_looking_up_the_square_then_found() {
+        let state = state_with(vec![goblin("A3", Presence::Down(Square::new(6, 5)))]);
+        assert_eq!(
+            state.goblin_at(Square::new(6, 5)).map(|goblin| goblin.id),
+            Some(id("A3"))
+        );
+    }
+}
