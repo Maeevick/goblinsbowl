@@ -11,6 +11,7 @@ use goblins_rules::arena::Arena;
 use goblins_rules::characteristics::Archetype;
 use goblins_rules::event::GameEvent;
 use goblins_rules::roster::GoblinId;
+use goblins_rules::square::Square;
 use goblins_rules::state::{Ball, GameState, Goblin, Presence};
 use goblins_rules::team::TeamId;
 
@@ -34,6 +35,8 @@ const LABEL_COLOUR: Color = Color::srgb(0.97, 0.96, 0.92);
 const PIP_SIZE: f32 = 7.0;
 const PIP_FULL: Color = Color::srgb(0.95, 0.2, 0.25);
 const PIP_LOST: Color = Color::srgba(0.15, 0.12, 0.12, 0.8);
+const CATCH_UP_BEATS: usize = 12;
+const CATCH_UP_PACE: f32 = 3.0;
 
 /// Where a figure should be and whether it lies on the ground.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -44,13 +47,112 @@ pub struct FigurePose {
     pub lying: bool,
 }
 
-/// A goblin figure on the bowl, walking through the squares it still has to reach.
-#[derive(Component, Clone, Debug)]
+/// One thing the bowl shows happening, played once the previous one is over.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Beat {
+    /// A goblin steps into a square.
+    Step {
+        /// The goblin walking.
+        goblin: GoblinId,
+        /// The square it enters.
+        to: Square,
+    },
+    /// A goblin falls to the ground.
+    Fall {
+        /// The goblin falling.
+        goblin: GoblinId,
+    },
+    /// A downed goblin gets back on its feet.
+    Rise {
+        /// The goblin rising.
+        goblin: GoblinId,
+    },
+    /// A knocked-out goblin leaves the bowl.
+    Vanish {
+        /// The goblin leaving.
+        goblin: GoblinId,
+    },
+    /// Every goblin walks back to its kick-off square.
+    LineUp,
+    /// The ball comes to rest on a square.
+    BallTo {
+        /// Where it rests.
+        square: Square,
+    },
+    /// The ball reaches a goblin's hands.
+    BallToGoblin {
+        /// The goblin reached.
+        goblin: GoblinId,
+    },
+}
+
+/// What the bowl shows of `events`, in order.
+pub fn beats_from_events(events: &[GameEvent]) -> Vec<Beat> {
+    events
+        .iter()
+        .filter_map(|event| match *event {
+            GameEvent::Moved { goblin, to, .. } => Some(Beat::Step { goblin, to }),
+            GameEvent::KnockedDown { goblin, .. } => Some(Beat::Fall { goblin }),
+            GameEvent::StoodUp { goblin } => Some(Beat::Rise { goblin }),
+            GameEvent::KnockedOut { goblin } => Some(Beat::Vanish { goblin }),
+            GameEvent::KickedOff { .. } => Some(Beat::LineUp),
+            GameEvent::BallDropped { at } => Some(Beat::BallTo { square: at }),
+            GameEvent::BallBounced { to, .. } => Some(Beat::BallTo { square: to }),
+            GameEvent::PickAttempted { goblin, roll }
+            | GameEvent::InterceptAttempted { goblin, roll }
+                if roll.success =>
+            {
+                Some(Beat::BallToGoblin { goblin })
+            }
+            GameEvent::CatchAttempted { goblin, .. } => Some(Beat::BallToGoblin { goblin }),
+            _ => None,
+        })
+        .collect()
+}
+
+/// A goblin figure on the bowl.
+#[derive(Component, Clone, Copy, Debug)]
 pub struct GoblinFigure {
     /// The goblin it shows.
     pub id: GoblinId,
-    waypoints: VecDeque<Vec3>,
 }
+
+/// Beats still to show, and what the ball last came to rest on.
+#[derive(Resource, Default)]
+struct Choreography {
+    beats: VecDeque<Beat>,
+    ball_rests_on: Option<BallAnchor>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BallAnchor {
+    Square(Square),
+    Goblin(GoblinId),
+}
+
+type FigureParts<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static GoblinFigure,
+        &'static mut Transform,
+        &'static mut Visibility,
+        &'static Children,
+    ),
+    Without<BallFigure>,
+>;
+type BodyParts<'w, 's> = Query<
+    'w,
+    's,
+    (&'static mut FigureBody, &'static mut Transform),
+    (Without<GoblinFigure>, Without<BallFigure>),
+>;
+type BallPlacement<'w, 's> = Single<
+    'w,
+    's,
+    &'static mut Transform,
+    (With<BallFigure>, Without<GoblinFigure>, Without<FigureBody>),
+>;
 
 #[derive(Component, Clone, Copy, Debug)]
 struct FigureBody {
@@ -143,6 +245,15 @@ pub fn label_lift(carrying: bool) -> f32 {
     }
 }
 
+/// How much faster beats play while `queued` of them wait, so the bowl never lags far behind the match.
+pub fn pace(queued: usize) -> f32 {
+    if queued > CATCH_UP_BEATS {
+        CATCH_UP_PACE
+    } else {
+        1.0
+    }
+}
+
 fn approach(current: f32, target: f32, max_step: f32) -> f32 {
     let gap = target - current;
     if gap.abs() <= max_step {
@@ -158,15 +269,16 @@ pub struct GoblinViewPlugin;
 impl Plugin for GoblinViewPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<BoardClick>()
+            .init_resource::<Choreography>()
             .add_systems(Startup, (spawn_figures, spawn_ball))
             .add_systems(
                 Update,
                 (
-                    queue_walks,
-                    walk_figures,
+                    queue_beats,
+                    play_beats,
+                    carry_ball,
                     refresh_rings,
                     refresh_health_pips,
-                    move_ball,
                     mark_loose_ball,
                 )
                     .chain()
@@ -334,10 +446,7 @@ fn spawn_figure(
     };
     commands
         .spawn((
-            GoblinFigure {
-                id: goblin.id,
-                waypoints: VecDeque::new(),
-            },
+            GoblinFigure { id: goblin.id },
             Transform::from_translation(pose.map_or(Vec3::ZERO, |pose| pose.position)),
             if pose.is_some() {
                 Visibility::Inherited
@@ -538,12 +647,21 @@ fn spawn_label(commands: &mut Commands, kit: &FigureKit, goblin: &Goblin, figure
         });
 }
 
+fn anchor_of(ball: Ball) -> BallAnchor {
+    match ball {
+        Ball::Loose { at } => BallAnchor::Square(at),
+        Ball::Carried { by } => BallAnchor::Goblin(by),
+    }
+}
+
 fn spawn_ball(
     mut commands: Commands,
     view: Res<MatchView>,
+    mut choreography: ResMut<Choreography>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    choreography.ball_rests_on = Some(anchor_of(view.snapshot.state.ball));
     commands.spawn((
         Mesh3d(meshes.add(faceted(Sphere::new(BALL_RADIUS)))),
         MeshMaterial3d(materials.add(StandardMaterial {
@@ -583,38 +701,60 @@ fn spawn_ball(
         ));
 }
 
-fn queue_walks(view: Res<MatchView>, mut figures: Query<&mut GoblinFigure>) {
-    for event in &view.fresh_events {
-        match event {
-            GameEvent::Moved { goblin, to, .. } => {
-                if let Some(mut figure) = figures.iter_mut().find(|figure| figure.id == *goblin) {
-                    figure.waypoints.push_back(square_centre(&view.arena, *to));
-                }
-            }
-            GameEvent::KickedOff { .. } => {
-                for mut figure in &mut figures {
-                    figure.waypoints.clear();
-                }
-            }
-            _ => {}
-        }
+fn queue_beats(view: Res<MatchView>, mut choreography: ResMut<Choreography>) {
+    if !view.fresh_events.is_empty() {
+        let beats = beats_from_events(&view.fresh_events);
+        choreography.beats.extend(beats);
     }
 }
 
-fn walk_figures(
-    time: Res<Time>,
-    view: Res<MatchView>,
-    mut figures: Query<(
-        &mut GoblinFigure,
-        &mut Transform,
-        &mut Visibility,
-        &Children,
-    )>,
-    mut bodies: Query<(&mut FigureBody, &mut Transform), Without<GoblinFigure>>,
-) {
-    let walk = WALK_SPEED * time.delta_secs();
-    let fall = FALL_SPEED * time.delta_secs();
-    for (mut figure, mut transform, mut visibility, children) in &mut figures {
+fn step(transform: &mut Mut<Transform>, target: Vec3, max_step: f32) -> bool {
+    let stepped = transform.translation.move_towards(target, max_step);
+    if stepped != transform.translation {
+        transform.translation = stepped;
+    }
+    stepped == target
+}
+
+fn turn_bodies(children: &Children, bodies: &mut BodyParts, lying: bool, max_step: f32) -> bool {
+    let target = if lying { 1.0 } else { 0.0 };
+    let mut turned = true;
+    for child in children.iter() {
+        let Ok((mut body, mut placement)) = bodies.get_mut(child) else {
+            continue;
+        };
+        let lie = approach(body.lie, target, max_step);
+        if lie != body.lie {
+            body.lie = lie;
+            *placement = body_transform(body.facing, lie);
+        }
+        turned &= lie == target;
+    }
+    turned
+}
+
+fn lie_down(
+    goblin: GoblinId,
+    lying: bool,
+    figures: &FigureParts,
+    bodies: &mut BodyParts,
+    max_step: f32,
+) -> bool {
+    figures
+        .iter()
+        .find(|(figure, ..)| figure.id == goblin)
+        .is_none_or(|(_, _, _, children)| turn_bodies(children, bodies, lying, max_step))
+}
+
+fn settle_figures(
+    view: &MatchView,
+    figures: &mut FigureParts,
+    bodies: &mut BodyParts,
+    walk: f32,
+    fall: f32,
+) -> bool {
+    let mut settled = true;
+    for (figure, mut transform, mut visibility, children) in figures.iter_mut() {
         let pose = view
             .snapshot
             .state
@@ -622,31 +762,131 @@ fn walk_figures(
             .and_then(|goblin| figure_pose(&view.arena, goblin));
         let Some(pose) = pose else {
             visibility.set_if_neq(Visibility::Hidden);
-            figure.waypoints.clear();
             continue;
         };
         if *visibility == Visibility::Hidden {
             *visibility = Visibility::Inherited;
             transform.translation = pose.position;
         }
-        let destination = figure.waypoints.front().copied().unwrap_or(pose.position);
-        let stepped = transform.translation.move_towards(destination, walk);
-        if stepped != transform.translation {
-            transform.translation = stepped;
+        let arrived = step(&mut transform, pose.position, walk);
+        let turned = turn_bodies(children, bodies, pose.lying, fall);
+        settled &= arrived && turned;
+    }
+    settled
+}
+
+fn play_beats(
+    time: Res<Time>,
+    view: Res<MatchView>,
+    mut choreography: ResMut<Choreography>,
+    mut figures: FigureParts,
+    mut bodies: BodyParts,
+    mut ball: BallPlacement,
+) {
+    let speed_up = pace(choreography.beats.len());
+    let walk = WALK_SPEED * speed_up * time.delta_secs();
+    let fall = FALL_SPEED * speed_up * time.delta_secs();
+    let fly = BALL_SPEED * speed_up * time.delta_secs();
+    let Some(beat) = choreography.beats.front().copied() else {
+        settle_figures(&view, &mut figures, &mut bodies, walk, fall);
+        return;
+    };
+    let finished = match beat {
+        Beat::Step { goblin, to } => {
+            let target = square_centre(&view.arena, to);
+            figures
+                .iter_mut()
+                .find(|(figure, ..)| figure.id == goblin)
+                .is_none_or(|(_, mut transform, ..)| step(&mut transform, target, walk))
         }
-        if stepped == destination && !figure.waypoints.is_empty() {
-            figure.waypoints.pop_front();
-        }
-        let lying = pose.lying && figure.waypoints.is_empty();
-        for child in children.iter() {
-            let Ok((mut body, mut body_placement)) = bodies.get_mut(child) else {
-                continue;
-            };
-            let lie = approach(body.lie, if lying { 1.0 } else { 0.0 }, fall);
-            if lie != body.lie {
-                body.lie = lie;
-                *body_placement = body_transform(body.facing, lie);
+        Beat::Fall { goblin } => lie_down(goblin, true, &figures, &mut bodies, fall),
+        Beat::Rise { goblin } => lie_down(goblin, false, &figures, &mut bodies, fall),
+        Beat::Vanish { goblin } => {
+            if let Some((_, _, mut visibility, _)) =
+                figures.iter_mut().find(|(figure, ..)| figure.id == goblin)
+            {
+                visibility.set_if_neq(Visibility::Hidden);
             }
+            true
+        }
+        Beat::LineUp => settle_figures(&view, &mut figures, &mut bodies, walk, fall),
+        Beat::BallTo { square } => {
+            let resting = square_centre(&view.arena, square) + Vec3::Y * BALL_RADIUS;
+            let arrived = step(&mut ball, resting, fly);
+            if arrived {
+                choreography.ball_rests_on = Some(BallAnchor::Square(square));
+            }
+            arrived
+        }
+        Beat::BallToGoblin { goblin } => {
+            let hands = figures
+                .iter()
+                .find(|(figure, ..)| figure.id == goblin)
+                .map(|(_, transform, ..)| transform.translation + Vec3::Y * BALL_ABOVE_CARRIER);
+            let arrived = hands.is_none_or(|hands| step(&mut ball, hands, fly));
+            if arrived {
+                choreography.ball_rests_on = Some(BallAnchor::Goblin(goblin));
+            }
+            arrived
+        }
+    };
+    if finished {
+        choreography.beats.pop_front();
+    }
+}
+
+fn ball_in_flight(choreography: &Choreography) -> bool {
+    matches!(
+        choreography.beats.front(),
+        Some(Beat::BallTo { .. } | Beat::BallToGoblin { .. })
+    )
+}
+
+fn carry_ball(
+    time: Res<Time>,
+    view: Res<MatchView>,
+    mut choreography: ResMut<Choreography>,
+    figures: Query<(&GoblinFigure, &Transform), Without<BallFigure>>,
+    mut ball: Single<&mut Transform, With<BallFigure>>,
+) {
+    if ball_in_flight(&choreography) {
+        return;
+    }
+    if choreography.beats.is_empty() {
+        choreography.ball_rests_on = Some(anchor_of(view.snapshot.state.ball));
+    }
+    let target = match choreography.ball_rests_on {
+        Some(BallAnchor::Square(square)) => {
+            Some(square_centre(&view.arena, square) + Vec3::Y * BALL_RADIUS)
+        }
+        Some(BallAnchor::Goblin(goblin)) => figures
+            .iter()
+            .find(|(figure, _)| figure.id == goblin)
+            .map(|(_, carrier)| carrier.translation + Vec3::Y * BALL_ABOVE_CARRIER),
+        None => None,
+    };
+    if let Some(target) = target {
+        let speed_up = pace(choreography.beats.len());
+        step(&mut ball, target, BALL_SPEED * speed_up * time.delta_secs());
+    }
+}
+
+fn mark_loose_ball(
+    view: Res<MatchView>,
+    choreography: Res<Choreography>,
+    mut marker: Single<(&mut Transform, &mut Visibility), With<BallMarker>>,
+) {
+    let (transform, visibility) = &mut *marker;
+    match choreography.ball_rests_on {
+        Some(BallAnchor::Square(square)) if !ball_in_flight(&choreography) => {
+            let floor = square_centre(&view.arena, square) + Vec3::Y * BALL_MARKER_LIFT;
+            if transform.translation != floor {
+                transform.translation = floor;
+            }
+            visibility.set_if_neq(Visibility::Inherited);
+        }
+        _ => {
+            visibility.set_if_neq(Visibility::Hidden);
         }
     }
 }
@@ -692,46 +932,6 @@ fn refresh_health_pips(view: Res<MatchView>, mut pips: Query<(&HealthPip, &mut B
     }
 }
 
-fn move_ball(
-    time: Res<Time>,
-    view: Res<MatchView>,
-    figures: Query<(&GoblinFigure, &Transform), Without<BallFigure>>,
-    mut ball: Single<&mut Transform, With<BallFigure>>,
-) {
-    let state = &view.snapshot.state;
-    let above_carrier = state
-        .carrier()
-        .and_then(|carrier| figures.iter().find(|(figure, _)| figure.id == carrier))
-        .map(|(_, carrier)| carrier.translation + Vec3::Y * BALL_ABOVE_CARRIER);
-    if let Some(target) = above_carrier.or_else(|| ball_position(&view.arena, state)) {
-        let stepped = ball
-            .translation
-            .move_towards(target, BALL_SPEED * time.delta_secs());
-        if stepped != ball.translation {
-            ball.translation = stepped;
-        }
-    }
-}
-
-fn mark_loose_ball(
-    view: Res<MatchView>,
-    mut marker: Single<(&mut Transform, &mut Visibility), With<BallMarker>>,
-) {
-    let (transform, visibility) = &mut *marker;
-    match view.snapshot.state.ball {
-        Ball::Loose { at } => {
-            let floor = square_centre(&view.arena, at) + Vec3::Y * BALL_MARKER_LIFT;
-            if transform.translation != floor {
-                transform.translation = floor;
-            }
-            visibility.set_if_neq(Visibility::Inherited);
-        }
-        Ball::Carried { .. } => {
-            visibility.set_if_neq(Visibility::Hidden);
-        }
-    }
-}
-
 fn place_labels(
     view: Res<MatchView>,
     camera: Single<(&Camera, &GlobalTransform)>,
@@ -774,10 +974,7 @@ mod tests {
         app.world_mut().register_component::<Window>();
         let body_part = app.world_mut().spawn_empty().id();
         app.world_mut()
-            .spawn(GoblinFigure {
-                id: goblin,
-                waypoints: VecDeque::new(),
-            })
+            .spawn(GoblinFigure { id: goblin })
             .observe(click_figure)
             .add_child(body_part);
         (app, body_part)
@@ -822,6 +1019,191 @@ mod tests {
         let mut goblin = kicked_off().goblins[0].clone();
         goblin.presence = presence;
         goblin
+    }
+
+    fn roll(success: bool) -> goblins_rules::event::BallRoll {
+        goblins_rules::event::BallRoll {
+            faces: 4,
+            rolled: if success { 3 } else { 1 },
+            malus: 0,
+            target: 2,
+            success,
+        }
+    }
+
+    fn goblin(text: &str) -> GoblinId {
+        text.parse().unwrap()
+    }
+
+    #[test]
+    fn given_two_moves_when_turning_events_into_beats_then_two_steps_in_order() {
+        let events = [
+            GameEvent::Moved {
+                goblin: goblin("H5"),
+                from: Square::new(4, 4),
+                to: Square::new(5, 4),
+            },
+            GameEvent::Moved {
+                goblin: goblin("H5"),
+                from: Square::new(5, 4),
+                to: Square::new(6, 4),
+            },
+        ];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![
+                Beat::Step {
+                    goblin: goblin("H5"),
+                    to: Square::new(5, 4)
+                },
+                Beat::Step {
+                    goblin: goblin("H5"),
+                    to: Square::new(6, 4)
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn given_a_knockdown_when_turning_events_into_beats_then_the_goblin_falls() {
+        let events = [GameEvent::KnockedDown {
+            goblin: goblin("H2"),
+            at: Square::new(6, 6),
+        }];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::Fall {
+                goblin: goblin("H2")
+            }]
+        );
+    }
+
+    #[test]
+    fn given_a_goblin_standing_up_when_turning_events_into_beats_then_it_rises() {
+        let events = [GameEvent::StoodUp {
+            goblin: goblin("H2"),
+        }];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::Rise {
+                goblin: goblin("H2")
+            }]
+        );
+    }
+
+    #[test]
+    fn given_a_knock_out_when_turning_events_into_beats_then_the_goblin_vanishes() {
+        let events = [GameEvent::KnockedOut {
+            goblin: goblin("A5"),
+        }];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::Vanish {
+                goblin: goblin("A5")
+            }]
+        );
+    }
+
+    #[test]
+    fn given_a_successful_pick_when_turning_events_into_beats_then_the_ball_reaches_the_picker() {
+        let events = [GameEvent::PickAttempted {
+            goblin: goblin("A6"),
+            roll: roll(true),
+        }];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::BallToGoblin {
+                goblin: goblin("A6")
+            }]
+        );
+    }
+
+    #[test]
+    fn given_a_failed_pick_when_turning_events_into_beats_then_the_ball_stays_put() {
+        let events = [GameEvent::PickAttempted {
+            goblin: goblin("A6"),
+            roll: roll(false),
+        }];
+        assert_eq!(beats_from_events(&events), Vec::new());
+    }
+
+    #[test]
+    fn given_a_bounce_when_turning_events_into_beats_then_the_ball_rests_where_it_bounced() {
+        let events = [GameEvent::BallBounced {
+            from: Square::new(7, 6),
+            to: Square::new(7, 5),
+        }];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::BallTo {
+                square: Square::new(7, 5)
+            }]
+        );
+    }
+
+    #[test]
+    fn given_a_kick_off_when_turning_events_into_beats_then_the_teams_line_up_before_the_ball_drops()
+     {
+        let events = [
+            GameEvent::KickedOff {
+                receiving_team: TeamId::HOME,
+            },
+            GameEvent::BallDropped {
+                at: Square::new(7, 7),
+            },
+        ];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![
+                Beat::LineUp,
+                Beat::BallTo {
+                    square: Square::new(7, 7)
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn given_a_caught_throw_when_turning_events_into_beats_then_the_ball_reaches_the_receiver() {
+        let events = [
+            GameEvent::ThrowAttempted {
+                thrower: goblin("H9"),
+                receiver: goblin("H5"),
+                roll: roll(true),
+            },
+            GameEvent::CatchAttempted {
+                goblin: goblin("H5"),
+                roll: roll(true),
+            },
+        ];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::BallToGoblin {
+                goblin: goblin("H5")
+            }]
+        );
+    }
+
+    #[test]
+    fn given_an_interception_when_turning_events_into_beats_then_the_ball_reaches_the_interceptor()
+    {
+        let events = [
+            GameEvent::ThrowAttempted {
+                thrower: goblin("H9"),
+                receiver: goblin("H5"),
+                roll: roll(true),
+            },
+            GameEvent::InterceptAttempted {
+                goblin: goblin("A2"),
+                roll: roll(true),
+            },
+        ];
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::BallToGoblin {
+                goblin: goblin("A2")
+            }]
+        );
     }
 
     #[test]
@@ -933,6 +1315,16 @@ mod tests {
     #[test]
     fn given_the_carrier_when_lifting_its_label_then_above_the_ball() {
         assert!(label_lift(true) > BALL_ABOVE_CARRIER + BALL_RADIUS);
+    }
+
+    #[test]
+    fn given_a_few_beats_waiting_when_pacing_then_normal_speed() {
+        assert_eq!(pace(3), 1.0);
+    }
+
+    #[test]
+    fn given_a_backlog_of_beats_when_pacing_then_faster() {
+        assert!(pace(40) > 1.0);
     }
 
     #[test]
