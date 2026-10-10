@@ -69,9 +69,38 @@ async fn main() -> anyhow::Result<()> {
         client.clone(),
         record_file.clone(),
     ));
-    serve_mcp(listener, client, tokens, options.odds_hints, log)
-        .await
-        .context("the MCP server stopped")
+    tokio::select! {
+        served = serve_mcp(listener, client.clone(), tokens, options.odds_hints, log) => {
+            served.context("the MCP server stopped")
+        }
+        () = shutdown_signal() => {
+            save_record(&client, &record_file, "Stopped").await;
+            Ok(())
+        }
+    }
+}
+
+async fn shutdown_signal() {
+    let interrupted = tokio::signal::ctrl_c();
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        match signal(SignalKind::terminate()) {
+            Ok(mut terminated) => {
+                tokio::select! {
+                    _ = interrupted => {}
+                    _ = terminated.recv() => {}
+                }
+            }
+            Err(_) => {
+                let _ = interrupted.await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = interrupted.await;
+    }
 }
 
 fn load_ruleset(path: &Path) -> anyhow::Result<Ruleset> {

@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 goblins_rules.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["signal"] }
 rmcp.workspace = true
 axum.workspace = true
 schemars.workspace = true
