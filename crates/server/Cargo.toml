@@ -1,0 +1,29 @@
+[package]
+name = "goblins_server"
+description = "Goblins Bowl match server: hosts a match and lets AI agents coach through MCP."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "goblinsbowl-server"
+path = "src/main.rs"
+
+[dependencies]
+goblins_rules.workspace = true
+tokio.workspace = true
+rmcp.workspace = true
+axum.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true
