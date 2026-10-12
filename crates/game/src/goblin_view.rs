@@ -38,6 +38,7 @@ const PIP_LOST: Color = Color::srgba(0.15, 0.12, 0.12, 0.8);
 const CATCH_UP_BEATS: usize = 12;
 const CATCH_UP_PACE: f32 = 3.0;
 const ROLL_HOLD_SECONDS: f32 = 0.9;
+const FOOT_PLATE_LIFT: f32 = 0.016;
 
 /// Where a figure should be and whether it lies on the ground.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -46,6 +47,28 @@ pub struct FigurePose {
     pub position: Vec3,
     /// Whether the goblin lies down.
     pub lying: bool,
+}
+
+/// How the floor under a goblin is lit, so the coach sees at a glance who can still play.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Footing {
+    /// Not its team's turn, or not on the bowl: the floor stays as it is.
+    Unlit,
+    /// It can still walk or act this turn: a bright tile.
+    Ready,
+    /// It is done for this turn: a dark tile.
+    Done,
+}
+
+/// The footing of `goblin` while `active_team` plays.
+pub fn footing(goblin: &Goblin, active_team: Option<TeamId>) -> Footing {
+    if Some(goblin.team()) != active_team || goblin.presence == Presence::KnockedOut {
+        Footing::Unlit
+    } else if goblin.can_act() {
+        Footing::Ready
+    } else {
+        Footing::Done
+    }
 }
 
 /// A goblin figure on the bowl.
@@ -105,6 +128,9 @@ struct ReadyRing;
 
 #[derive(Component)]
 struct StanceRing;
+
+#[derive(Component)]
+struct FootPlate;
 
 #[derive(Component)]
 struct BallFigure;
@@ -219,6 +245,7 @@ impl Plugin for GoblinViewPlugin {
                     play_beats,
                     carry_ball,
                     refresh_rings,
+                    refresh_foot_plates,
                     refresh_health_pips,
                     mark_loose_ball,
                 )
@@ -256,7 +283,16 @@ struct FigureKit {
     leather: Handle<StandardMaterial>,
     ready_glow: Handle<StandardMaterial>,
     stance_glow: Handle<StandardMaterial>,
+    foot_plate: Handle<Mesh>,
+    ready_floor: Handle<StandardMaterial>,
+    done_floor: Handle<StandardMaterial>,
     label_font: Handle<Font>,
+}
+
+#[derive(Resource)]
+struct FloorLooks {
+    ready: Handle<StandardMaterial>,
+    done: Handle<StandardMaterial>,
 }
 
 struct BodyShape {
@@ -310,6 +346,13 @@ fn glowing(colour: Color) -> StandardMaterial {
     }
 }
 
+fn see_through(colour: Color) -> StandardMaterial {
+    StandardMaterial {
+        alpha_mode: AlphaMode::Blend,
+        ..glowing(colour)
+    }
+}
+
 fn figure_kit(
     assets: &AssetServer,
     meshes: &mut Assets<Mesh>,
@@ -351,6 +394,9 @@ fn figure_kit(
         leather: materials.add(Color::srgb(0.45, 0.28, 0.14)),
         ready_glow: materials.add(glowing(Color::srgb(0.35, 1.0, 0.45))),
         stance_glow: materials.add(glowing(Color::srgb(0.9, 0.95, 1.0))),
+        foot_plate: meshes.add(Cuboid::new(0.94, 0.01, 0.94)),
+        ready_floor: materials.add(see_through(Color::srgba(0.3, 0.95, 0.4, 0.85))),
+        done_floor: materials.add(see_through(Color::srgba(0.1, 0.1, 0.12, 0.85))),
         label_font: assets.load("fonts/Andika-Bold.ttf"),
     }
 }
@@ -367,6 +413,10 @@ fn spawn_figures(
         let figure = spawn_figure(&mut commands, &kit, &view.arena, goblin);
         spawn_label(&mut commands, &kit, goblin, figure);
     }
+    commands.insert_resource(FloorLooks {
+        ready: kit.ready_floor.clone(),
+        done: kit.done_floor.clone(),
+    });
 }
 
 fn spawn_figure(
@@ -426,6 +476,15 @@ fn spawn_figure(
                 Pickable::IGNORE,
                 NotShadowCaster,
                 StanceRing,
+            ));
+            figure.spawn((
+                Mesh3d(kit.foot_plate.clone()),
+                MeshMaterial3d(kit.ready_floor.clone()),
+                Transform::from_xyz(0.0, FOOT_PLATE_LIFT, 0.0),
+                Visibility::Hidden,
+                Pickable::IGNORE,
+                NotShadowCaster,
+                FootPlate,
             ));
         })
         .id()
@@ -843,6 +902,44 @@ fn mark_loose_ball(
     }
 }
 
+fn refresh_foot_plates(
+    view: Res<MatchView>,
+    looks: Option<Res<FloorLooks>>,
+    figures: Query<(&GoblinFigure, &Children)>,
+    mut plates: Query<(&mut Visibility, &mut MeshMaterial3d<StandardMaterial>), With<FootPlate>>,
+) {
+    let Some(looks) = looks else {
+        return;
+    };
+    let active_team = view.snapshot.state.active_team();
+    for (figure, children) in &figures {
+        let Some(goblin) = view.snapshot.state.goblin(figure.id) else {
+            continue;
+        };
+        let look = match footing(goblin, active_team) {
+            Footing::Unlit => None,
+            Footing::Ready => Some(&looks.ready),
+            Footing::Done => Some(&looks.done),
+        };
+        for child in children.iter() {
+            let Ok((mut visibility, mut material)) = plates.get_mut(child) else {
+                continue;
+            };
+            match look {
+                Some(look) => {
+                    visibility.set_if_neq(Visibility::Inherited);
+                    if material.0 != *look {
+                        material.0 = look.clone();
+                    }
+                }
+                None => {
+                    visibility.set_if_neq(Visibility::Hidden);
+                }
+            }
+        }
+    }
+}
+
 fn refresh_rings(
     view: Res<MatchView>,
     figures: Query<(&GoblinFigure, &Children)>,
@@ -950,6 +1047,46 @@ mod tests {
         app.world_mut()
             .trigger(click_on(body_part, PointerButton::Secondary));
         assert_eq!(written::<BoardClick>(&app), Vec::new());
+    }
+
+    fn goblin_of_home(state: &GameState) -> Goblin {
+        state
+            .goblin(GoblinId::new(TeamId::HOME, 5))
+            .unwrap()
+            .clone()
+    }
+
+    #[test]
+    fn given_a_goblin_that_can_still_act_in_its_turn_when_lighting_its_floor_then_ready() {
+        let goblin = goblin_of_home(&kicked_off());
+        assert_eq!(footing(&goblin, Some(TeamId::HOME)), Footing::Ready);
+    }
+
+    #[test]
+    fn given_a_goblin_done_for_its_turn_when_lighting_its_floor_then_done() {
+        let mut goblin = goblin_of_home(&kicked_off());
+        goblin.spend_its_turn();
+        assert_eq!(footing(&goblin, Some(TeamId::HOME)), Footing::Done);
+    }
+
+    #[test]
+    fn given_a_goblin_lying_down_in_its_turn_when_lighting_its_floor_then_done() {
+        let mut goblin = goblin_of_home(&kicked_off());
+        goblin.presence = Presence::Down(Square::new(7, 7));
+        assert_eq!(footing(&goblin, Some(TeamId::HOME)), Footing::Done);
+    }
+
+    #[test]
+    fn given_a_goblin_outside_its_turn_when_lighting_its_floor_then_unlit() {
+        let goblin = goblin_of_home(&kicked_off());
+        assert_eq!(footing(&goblin, Some(TeamId::AWAY)), Footing::Unlit);
+    }
+
+    #[test]
+    fn given_a_knocked_out_goblin_in_its_turn_when_lighting_its_floor_then_unlit() {
+        let mut goblin = goblin_of_home(&kicked_off());
+        goblin.presence = Presence::KnockedOut;
+        assert_eq!(footing(&goblin, Some(TeamId::HOME)), Footing::Unlit);
     }
 
     fn kicked_off() -> GameState {
