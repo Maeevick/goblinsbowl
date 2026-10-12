@@ -122,7 +122,7 @@ impl Default for Ruleset {
             downed_defense_malus: 2,
             kickoff_depth: 0,
             stance_bonus_cap: uncapped_stance_bonus(),
-            keeps_moving_after_action: false,
+            keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: turns_end_on_their_own(),
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),
             formation: Formation::Lines(vec![
@@ -246,6 +246,12 @@ mod tests {
     fn given_default_ruleset_when_reading_the_match_length_then_two_halves_of_twelve_turns() {
         let ruleset = Ruleset::default();
         assert_eq!((ruleset.halves, ruleset.turns_per_half), (2, 12));
+    }
+
+    #[test]
+    fn given_default_ruleset_when_reading_how_goblins_move_then_they_keep_moving_after_their_action()
+     {
+        assert!(Ruleset::default().keeps_moving_after_action);
     }
 
     #[test]
