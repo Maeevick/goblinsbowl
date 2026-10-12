@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::arena::{Arena, ArenaError, BOWL_15_MASK};
+use crate::arena::{Arena, ArenaError, BOWL_21_MASK};
 use crate::characteristics::{Archetype, Characteristics};
 use crate::formation::{Formation, FormationError};
 use crate::roster::{CountLimit, Roster, RosterError, RosterLimits};
@@ -124,7 +124,7 @@ impl Default for Ruleset {
             stance_bonus_cap: uncapped_stance_bonus(),
             keeps_moving_after_action: false,
             turn_ends_when_no_goblin_can_act: turns_end_on_their_own(),
-            arena: BOWL_15_MASK.iter().map(|row| (*row).to_string()).collect(),
+            arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),
             formation: Formation::DenLines,
             archetypes: ArchetypeCharacteristics {
                 bruiser: Characteristics {

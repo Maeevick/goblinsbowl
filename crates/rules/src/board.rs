@@ -83,8 +83,8 @@ mod tests {
     }
 
     #[test]
-    fn given_the_bowl_15_when_rendered_then_a_header_and_fifteen_rows() {
-        assert_eq!(kick_off_board().len(), 16);
+    fn given_the_shipped_bowl_when_rendered_then_a_header_and_twenty_one_rows() {
+        assert_eq!(kick_off_board().len(), 22);
     }
 
     #[test]

@@ -229,7 +229,7 @@ mod tests {
         )
         .unwrap();
         assert!(events.contains(&GameEvent::BallDropped {
-            at: Square::new(10, 7)
+            at: Square::new(13, 10)
         }));
     }
 
@@ -259,12 +259,12 @@ mod tests {
     }
 
     #[test]
-    fn given_bounce_east_from_the_centre_when_the_match_starts_then_the_ball_lies_on_eight_seven() {
+    fn given_bounce_east_from_the_centre_when_the_match_starts_then_the_ball_lies_on_eleven_ten() {
         let (game, _) = started([COIN_HOME, BOUNCE_EAST]);
         assert_eq!(
             game.state().ball,
             Ball::Loose {
-                at: Square::new(8, 7)
+                at: Square::new(11, 10)
             }
         );
     }
@@ -282,11 +282,11 @@ mod tests {
                     receiving_team: TeamId::AWAY
                 },
                 GameEvent::BallDropped {
-                    at: Square::new(7, 7)
+                    at: Square::new(10, 10)
                 },
                 GameEvent::BallBounced {
-                    from: Square::new(7, 7),
-                    to: Square::new(8, 7)
+                    from: Square::new(10, 10),
+                    to: Square::new(11, 10)
                 },
                 GameEvent::TurnStarted {
                     team: TeamId::AWAY,

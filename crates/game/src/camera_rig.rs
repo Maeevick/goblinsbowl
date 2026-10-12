@@ -13,8 +13,8 @@ const PAN_DRAG_SPEED: f32 = 0.02;
 const ZOOM_LINE_STEP: f32 = 1.2;
 const ZOOM_PIXEL_STEP: f32 = 0.02;
 const MIN_DISTANCE: f32 = 7.0;
-const MAX_DISTANCE: f32 = 32.0;
-const MAX_FOCUS_OFFSET: f32 = 9.0;
+const MAX_DISTANCE: f32 = 44.0;
+const MAX_FOCUS_OFFSET: f32 = 12.0;
 
 /// Orbit parameters of the camera: a floor focus point seen from `distance`,
 /// turned by `yaw` around the vertical axis and tilted `pitch` radians above the horizon.
@@ -36,7 +36,7 @@ impl Default for CameraRig {
             focus: Vec3::new(0.0, 0.0, 1.0),
             yaw: 0.0,
             pitch: 1.0,
-            distance: 21.0,
+            distance: 28.0,
         }
     }
 }

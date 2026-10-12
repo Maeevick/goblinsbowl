@@ -609,9 +609,9 @@ mod tests {
         let mut snapshot = host.snapshot();
         let seat = snapshot.state.active_team().unwrap();
         let near_the_den = if seat == TeamId::HOME {
-            goblins_rules::square::Square::new(12, 3)
+            goblins_rules::square::Square::new(18, 10)
         } else {
-            goblins_rules::square::Square::new(2, 3)
+            goblins_rules::square::Square::new(2, 10)
         };
         let carrier = snapshot.state.goblins_of(seat).nth(4).unwrap().id;
         for goblin in &mut snapshot.state.goblins {
@@ -754,15 +754,15 @@ mod tests {
         assert!(
             view_for(&host, TeamId::HOME, OddsHints::Full)
                 .you
-                .contains("score in the east den (column 14)")
+                .contains("score in the east den (column 20)")
         );
     }
 
     #[test]
-    fn given_the_kick_off_when_viewed_then_eighteen_goblins_and_sixteen_board_lines() {
+    fn given_the_kick_off_when_viewed_then_eighteen_goblins_and_twenty_two_board_lines() {
         let host = kick_off();
         let view = view_for(&host, TeamId::HOME, OddsHints::Full);
-        assert_eq!((view.goblins.len(), view.board.len()), (18, 16));
+        assert_eq!((view.goblins.len(), view.board.len()), (18, 22));
     }
 
     #[test]

@@ -1,7 +1,9 @@
 //! Hand-made match situations for rule tests.
 
+use crate::arena::BOWL_15_MASK;
 use crate::characteristics::Archetype;
 use crate::dice::ScriptedDice;
+use crate::formation::Formation;
 use crate::roster::{GoblinId, Roster};
 use crate::ruleset::Ruleset;
 use crate::square::Square;
@@ -10,15 +12,27 @@ use crate::team::TeamId;
 
 use super::Game;
 
-/// Hand-made match situations for rule tests: an empty bowl, home to play turn 1 of half 1.
+/// Hand-made match situations for rule tests: an empty 15 × 15 bowl under rules 0.1, whatever
+/// `rules.toml` ships, home to play turn 1 of half 1.
 pub(crate) struct Scenario {
     ruleset: Ruleset,
     state: GameState,
 }
 
+fn rules_0_1() -> Ruleset {
+    Ruleset {
+        turns_per_half: 10,
+        arena: BOWL_15_MASK.iter().map(|row| (*row).to_string()).collect(),
+        formation: Formation::DenLines,
+        keeps_moving_after_action: false,
+        turn_ends_when_no_goblin_can_act: true,
+        ..Ruleset::default()
+    }
+}
+
 impl Scenario {
     pub(crate) fn new() -> Self {
-        let ruleset = Ruleset::default();
+        let ruleset = rules_0_1();
         let state = GameState {
             rosters: vec![Roster::DEFAULT, Roster::DEFAULT],
             goblins: Vec::new(),
