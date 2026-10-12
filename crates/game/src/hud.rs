@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use bevy::ui::Pressed;
 use bevy::ui_widgets::{Activate, Button, observe};
 use goblins_rules::command::Command;
+use goblins_rules::event::GameEvent;
 use goblins_rules::host::{MatchSnapshot, SeatKind, TurnClock};
 use goblins_rules::state::{GameState, Goblin, Phase};
 use goblins_rules::team::TeamId;
@@ -29,16 +30,65 @@ const END_TURN_CONFIRM_SECONDS: f32 = 3.0;
 const BUTTON_BORDER: Color = Color::srgb(0.95, 0.8, 0.4);
 const PULSE_PER_SECOND: f32 = 5.0;
 const INTERLUDE_SECONDS: f32 = 2.5;
+const HEADLINE_SECONDS: f32 = 2.2;
+const LOG_COLOUR: Color = Color::srgb(0.92, 0.92, 0.88);
+
+/// A line of the match story, and the team it is about, if any.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StoryLine {
+    /// What happened.
+    pub text: String,
+    /// The team that did it, which colours the line.
+    pub team: Option<TeamId>,
+}
+
+/// The team an event is about: the one acting, scoring or starting its turn.
+pub fn event_team(event: &GameEvent) -> Option<TeamId> {
+    match event {
+        GameEvent::CoinTossed { receiving_team } | GameEvent::KickedOff { receiving_team } => {
+            Some(*receiving_team)
+        }
+        GameEvent::TurnStarted { team, .. }
+        | GameEvent::TurnEnded { team, .. }
+        | GameEvent::Scored { team, .. } => Some(*team),
+        GameEvent::ReturnedFromKnockOut { goblin, .. }
+        | GameEvent::CatchAttempted { goblin, .. }
+        | GameEvent::StoodUp { goblin }
+        | GameEvent::Moved { goblin, .. }
+        | GameEvent::DodgeAttempted { goblin, .. }
+        | GameEvent::PickAttempted { goblin, .. }
+        | GameEvent::InterceptAttempted { goblin, .. }
+        | GameEvent::StanceTaken { goblin }
+        | GameEvent::KnockedDown { goblin, .. }
+        | GameEvent::HealthLost { goblin, .. }
+        | GameEvent::KnockedOut { goblin } => Some(goblin.team),
+        GameEvent::ThrowAttempted { thrower, .. } => Some(thrower.team),
+        GameEvent::AssaultResolved { attacker, .. } => Some(attacker.team),
+        GameEvent::BallDropped { .. }
+        | GameEvent::BallBounced { .. }
+        | GameEvent::HalfEnded { .. }
+        | GameEvent::GameEnded { .. } => None,
+    }
+}
+
+/// Colour of a story line: the team's colour, or a soft white for the match itself.
+pub fn story_colour(team: Option<TeamId>) -> Color {
+    match team {
+        Some(TeamId::HOME) => HOME_COLOUR,
+        Some(_) => AWAY_COLOUR,
+        None => LOG_COLOUR,
+    }
+}
 
 /// The last lines of the match story.
 #[derive(Resource, Default, Clone, Debug, PartialEq, Eq)]
 pub struct EventLog {
-    lines: VecDeque<String>,
+    lines: VecDeque<StoryLine>,
 }
 
 impl EventLog {
     /// Adds lines at the bottom, keeping only the most recent ones.
-    pub fn push_lines(&mut self, lines: impl IntoIterator<Item = String>) {
+    pub fn push_lines(&mut self, lines: impl IntoIterator<Item = StoryLine>) {
         self.lines.extend(lines);
         while self.lines.len() > LOG_LINES {
             self.lines.pop_front();
@@ -46,8 +96,47 @@ impl EventLog {
     }
 
     /// The lines, oldest first.
-    pub fn text(&self) -> String {
-        self.lines.iter().cloned().collect::<Vec<_>>().join("\n")
+    pub fn lines(&self) -> impl Iterator<Item = &StoryLine> {
+        self.lines.iter()
+    }
+}
+
+/// Headlines waiting to be shown big, one at a time, once the bowl has played out what happened.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct Headlines {
+    waiting: VecDeque<StoryLine>,
+    showing: Option<(StoryLine, f32)>,
+}
+
+impl Headlines {
+    /// Queues headlines after those already waiting.
+    pub fn announce(&mut self, headlines: impl IntoIterator<Item = StoryLine>) {
+        self.waiting.extend(headlines);
+    }
+
+    /// The headlines `seconds` later, `animating` telling whether the bowl still plays out moves.
+    pub fn after(mut self, animating: bool, seconds: f32) -> Self {
+        self.showing = self
+            .showing
+            .map(|(headline, left)| (headline, left - seconds))
+            .filter(|(_, left)| *left > 0.0);
+        if self.showing.is_none() && !animating {
+            self.showing = self
+                .waiting
+                .pop_front()
+                .map(|headline| (headline, HEADLINE_SECONDS));
+        }
+        self
+    }
+
+    /// The headline on screen, if any.
+    pub fn shown(&self) -> Option<&StoryLine> {
+        self.showing.as_ref().map(|(headline, _)| headline)
+    }
+
+    /// Whether no headline is shown or waiting.
+    pub fn are_over(&self) -> bool {
+        self.showing.is_none() && self.waiting.is_empty()
     }
 }
 
@@ -168,6 +257,12 @@ struct ClockText;
 #[derive(Component)]
 struct LogText;
 #[derive(Component)]
+struct LogSpan(usize);
+#[derive(Component)]
+struct HeadlineBanner;
+#[derive(Component)]
+struct HeadlineText;
+#[derive(Component)]
 struct ReadyOverlay;
 #[derive(Component)]
 struct ReadyQuestion;
@@ -224,6 +319,7 @@ impl Plugin for HudPlugin {
         app.init_resource::<EventLog>()
             .init_resource::<EndTurnConfirmation>()
             .init_resource::<Handover>()
+            .init_resource::<Headlines>()
             .add_systems(Startup, spawn_hud)
             .add_systems(
                 Update,
@@ -237,6 +333,8 @@ impl Plugin for HudPlugin {
                         refresh_turn_and_clock,
                         refresh_log,
                         refresh_refusal,
+                        follow_headlines,
+                        refresh_headline,
                         follow_handover,
                         refresh_ready_overlay,
                         refresh_final_overlay,
@@ -305,18 +403,67 @@ fn spawn_hud(mut commands: Commands, assets: Res<AssetServer>, texts: Res<Texts>
             ),
         ],
     ));
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                right: px(16),
+                top: px(110),
+                width: px(430),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|log| {
+            log.spawn((
+                text_bundle("", &reading, 18.0, LOG_COLOUR),
+                Pickable::IGNORE,
+                LogText,
+            ))
+            .with_children(|text| {
+                for index in 0..LOG_LINES {
+                    text.spawn((
+                        TextSpan::new(""),
+                        TextFont {
+                            font: reading.clone().into(),
+                            font_size: FontSize::Px(18.0),
+                            ..default()
+                        },
+                        TextColor(LOG_COLOUR),
+                        LogSpan(index),
+                    ));
+                }
+            });
+        });
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
-            right: px(16),
-            top: px(110),
-            width: px(430),
+            top: px(112),
+            left: px(0),
+            right: px(0),
+            justify_content: JustifyContent::Center,
             ..default()
         },
+        GlobalZIndex(10),
+        Visibility::Hidden,
         Pickable::IGNORE,
+        HeadlineBanner,
         children![(
-            text_bundle("", &reading, 18.0, Color::srgb(0.92, 0.92, 0.88)),
-            LogText
+            Node {
+                max_width: px(620),
+                padding: UiRect::axes(px(24), px(10)),
+                border: UiRect::all(px(3)),
+                border_radius: BorderRadius::all(px(16)),
+                ..default()
+            },
+            BorderColor::all(BUTTON_BORDER),
+            BackgroundColor(Color::srgba(0.12, 0.09, 0.07, 0.9)),
+            Pickable::IGNORE,
+            children![(
+                text_bundle("", &bold, 30.0, Color::WHITE),
+                Pickable::IGNORE,
+                HeadlineText
+            )],
         )],
     ));
     commands.spawn((
@@ -490,12 +637,54 @@ fn ready_pressed(
     }
 }
 
-fn collect_log_lines(view: Res<MatchView>, texts: Res<Texts>, mut log: ResMut<EventLog>) {
-    log.push_lines(
+fn collect_log_lines(
+    view: Res<MatchView>,
+    texts: Res<Texts>,
+    mut log: ResMut<EventLog>,
+    mut headlines: ResMut<Headlines>,
+) {
+    if view.fresh_events.is_empty() {
+        return;
+    }
+    let story = |describe: &dyn Fn(&GameEvent) -> Option<String>| {
         view.fresh_events
             .iter()
-            .filter_map(|event| texts.describe_event(event)),
-    );
+            .filter_map(|event| {
+                describe(event).map(|text| StoryLine {
+                    text,
+                    team: event_team(event),
+                })
+            })
+            .collect::<Vec<_>>()
+    };
+    log.push_lines(story(&|event| texts.describe_event(event)));
+    headlines.announce(story(&|event| texts.headline(event)));
+}
+
+fn follow_headlines(
+    time: Res<Time>,
+    animation: Res<BowlAnimation>,
+    mut headlines: ResMut<Headlines>,
+) {
+    let next = headlines.clone().after(animation.busy, time.delta_secs());
+    headlines.set_if_neq(next);
+}
+
+fn refresh_headline(
+    headlines: Res<Headlines>,
+    mut banner: Single<&mut Visibility, With<HeadlineBanner>>,
+    mut text: Single<(&mut Text, &mut TextColor), With<HeadlineText>>,
+) {
+    let Some(headline) = headlines.shown() else {
+        banner.set_if_neq(Visibility::Hidden);
+        return;
+    };
+    banner.set_if_neq(Visibility::Inherited);
+    let (text, colour) = &mut *text;
+    if text.0 != headline.text {
+        text.0.clone_from(&headline.text);
+    }
+    colour.set_if_neq(TextColor(story_colour(headline.team)));
 }
 
 fn refresh_scores(
@@ -545,9 +734,20 @@ fn refresh_turn_and_clock(
     colour.0 = clock_colour(remaining_ms);
 }
 
-fn refresh_log(log: Res<EventLog>, mut text: Single<&mut Text, With<LogText>>) {
-    if log.is_changed() {
-        text.0 = log.text();
+fn refresh_log(log: Res<EventLog>, mut spans: Query<(&LogSpan, &mut TextSpan, &mut TextColor)>) {
+    if !log.is_changed() {
+        return;
+    }
+    let lines: Vec<&StoryLine> = log.lines().collect();
+    for (span, mut text, mut colour) in &mut spans {
+        let (line, team) = lines.get(span.0).map_or((String::new(), None), |line| {
+            let break_after = if span.0 + 1 < lines.len() { "\n" } else { "" };
+            (format!("{}{break_after}", line.text), line.team)
+        });
+        if text.0 != line {
+            text.0 = line;
+        }
+        colour.set_if_neq(TextColor(story_colour(team)));
     }
 }
 
@@ -578,11 +778,12 @@ fn follow_handover(
     time: Res<Time>,
     view: Res<MatchView>,
     animation: Res<BowlAnimation>,
+    headlines: Res<Headlines>,
     mut handover: ResMut<Handover>,
 ) {
     let next = handover.after(
         waiting_turn(&view.snapshot),
-        animation.busy,
+        animation.busy || !headlines.are_over(),
         time.delta_secs(),
     );
     handover.set_if_neq(next);
@@ -724,11 +925,96 @@ mod tests {
         .snapshot()
     }
 
+    fn story(text: &str, team: Option<TeamId>) -> StoryLine {
+        StoryLine {
+            text: text.to_string(),
+            team,
+        }
+    }
+
     #[test]
     fn given_more_lines_than_kept_when_pushed_then_only_the_latest_remain() {
         let mut log = EventLog::default();
-        log.push_lines((1..=10).map(|number| format!("line {number}")));
-        assert_eq!(log.text().lines().next(), Some("line 4"));
+        log.push_lines((1..=10).map(|number| story(&format!("line {number}"), None)));
+        assert_eq!(
+            log.lines().next().map(|line| line.text.as_str()),
+            Some("line 4")
+        );
+    }
+
+    #[test]
+    fn given_an_away_assault_when_finding_its_team_then_the_attacker_s_team() {
+        let event = GameEvent::AssaultResolved {
+            attacker: "A3".parse().unwrap(),
+            defender: "H1".parse().unwrap(),
+            contest: goblins_rules::event::ContestRoll {
+                actor_faces: 4,
+                actor_rolled: 3,
+                opponent_faces: 4,
+                opponent_rolled: 2,
+                opponent_modifier: 0,
+                margin: 1,
+            },
+            defender_braced: false,
+        };
+        assert_eq!(event_team(&event), Some(TeamId::AWAY));
+    }
+
+    #[test]
+    fn given_the_half_ending_when_finding_its_team_then_none() {
+        assert_eq!(event_team(&GameEvent::HalfEnded { half: 1 }), None);
+    }
+
+    #[test]
+    fn given_lines_of_both_teams_and_of_the_match_when_coloured_then_three_colours() {
+        assert_eq!(
+            [Some(TeamId::HOME), Some(TeamId::AWAY), None].map(story_colour),
+            [HOME_COLOUR, AWAY_COLOUR, LOG_COLOUR]
+        );
+    }
+
+    #[test]
+    fn given_a_headline_announced_while_the_bowl_moves_when_time_passes_then_nothing_shows_yet() {
+        let mut headlines = Headlines::default();
+        headlines.announce([story("Chute !", Some(TeamId::HOME))]);
+        assert_eq!(headlines.after(true, 0.5).shown(), None);
+    }
+
+    #[test]
+    fn given_a_headline_announced_when_the_bowl_is_still_then_it_shows() {
+        let mut headlines = Headlines::default();
+        headlines.announce([story("Chute !", Some(TeamId::HOME))]);
+        assert_eq!(
+            headlines
+                .after(false, 0.1)
+                .shown()
+                .map(|line| line.text.as_str()),
+            Some("Chute !")
+        );
+    }
+
+    #[test]
+    fn given_two_headlines_when_the_first_has_shown_long_enough_then_the_second_shows() {
+        let mut headlines = Headlines::default();
+        headlines.announce([story("A7 est KO !", None), story("POINT !", None)]);
+        let shown = headlines
+            .after(false, 0.1)
+            .after(false, HEADLINE_SECONDS)
+            .shown()
+            .map(|line| line.text.clone());
+        assert_eq!(shown, Some("POINT !".to_string()));
+    }
+
+    #[test]
+    fn given_the_last_headline_shown_long_enough_when_time_passes_then_headlines_are_over() {
+        let mut headlines = Headlines::default();
+        headlines.announce([story("POINT !", None)]);
+        assert!(
+            headlines
+                .after(false, 0.1)
+                .after(false, HEADLINE_SECONDS)
+                .are_over()
+        );
     }
 
     #[test]

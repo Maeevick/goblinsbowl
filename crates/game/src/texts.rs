@@ -425,28 +425,28 @@ impl Texts {
                 thrower,
                 receiver,
                 roll,
-                ..
+                distance,
             } => pick(
                 french,
                 if roll.success {
                     format!(
-                        "{thrower} lance vers {receiver} : {}",
+                        "{thrower} lance vers {receiver} à {distance} cases : {}",
                         describe_ball_roll(roll, "sur")
                     )
                 } else {
                     format!(
-                        "{thrower} rate son lancer : {}",
+                        "{thrower} rate son lancer vers {receiver} : {}",
                         describe_ball_roll(roll, "sur")
                     )
                 },
                 if roll.success {
                     format!(
-                        "{thrower} throws to {receiver}: {}",
+                        "{thrower} throws to {receiver}, {distance} squares away: {}",
                         describe_ball_roll(roll, "on")
                     )
                 } else {
                     format!(
-                        "{thrower} fumbles the throw: {}",
+                        "{thrower} fumbles the throw to {receiver}: {}",
                         describe_ball_roll(roll, "on")
                     )
                 },
@@ -528,19 +528,19 @@ impl Texts {
             ),
             GameEvent::TurnEnded { team, reason } => {
                 let (french_cause, english_cause) = match reason {
-                    TurnEndReason::Knockdown => ("Chute !", "Knockdown!"),
-                    TurnEndReason::Fumble => ("Fumble !", "Fumble!"),
-                    TurnEndReason::TimeUp => ("Temps écoulé !", "Time is up!"),
-                    TurnEndReason::EndTurn
-                    | TurnEndReason::Score
-                    | TurnEndReason::NoGoblinCanAct => {
-                        return None;
+                    TurnEndReason::Knockdown => ("Chute ! ", "Knockdown! "),
+                    TurnEndReason::Fumble => ("Fumble ! ", "Fumble! "),
+                    TurnEndReason::TimeUp => ("Temps écoulé ! ", "Time is up! "),
+                    TurnEndReason::NoGoblinCanAct => {
+                        ("Plus personne ne peut jouer. ", "Nobody left to play. ")
                     }
+                    TurnEndReason::EndTurn => ("", ""),
+                    TurnEndReason::Score => return None,
                 };
                 pick(
                     french,
-                    format!("{french_cause} Fin du tour des {}", self.team_name(*team)),
-                    format!("{english_cause} End of the {} turn", self.team_name(*team)),
+                    format!("{french_cause}Fin du tour des {}", self.team_name(*team)),
+                    format!("{english_cause}End of the {} turn", self.team_name(*team)),
                 )
             }
             GameEvent::HalfEnded { half } => pick(
@@ -559,6 +559,59 @@ impl Texts {
             }
         };
         Some(line)
+    }
+
+    /// A headline for the moments that change a match, shown big once the bowl has played them out:
+    /// a turn lost, a point, a knock-out, an interception, half-time.
+    pub fn headline(&self, event: &GameEvent) -> Option<String> {
+        let french = self.french();
+        let headline = match event {
+            GameEvent::TurnEnded { team, reason } => {
+                let team = self.team_name(*team);
+                match reason {
+                    TurnEndReason::Knockdown => pick(
+                        french,
+                        format!("Chute ! Le tour des {team} s'arrête"),
+                        format!("Knockdown! The {team} turn is over"),
+                    ),
+                    TurnEndReason::Fumble => pick(
+                        french,
+                        format!("Fumble ! Le tour des {team} s'arrête"),
+                        format!("Fumble! The {team} turn is over"),
+                    ),
+                    TurnEndReason::TimeUp => pick(
+                        french,
+                        format!("Temps écoulé pour les {team} !"),
+                        format!("Time is up for the {team}!"),
+                    ),
+                    TurnEndReason::EndTurn
+                    | TurnEndReason::Score
+                    | TurnEndReason::NoGoblinCanAct => return None,
+                }
+            }
+            GameEvent::Scored { team, scorer } => pick(
+                french,
+                format!("POINT ! {scorer} marque pour les {}", self.team_name(*team)),
+                format!("POINT! {scorer} scores for the {}", self.team_name(*team)),
+            ),
+            GameEvent::KnockedOut { goblin } => pick(
+                french,
+                format!("{goblin} est KO !"),
+                format!("{goblin} is knocked out!"),
+            ),
+            GameEvent::InterceptAttempted { goblin, roll } if roll.success => pick(
+                french,
+                format!("Interception de {goblin} !"),
+                format!("{goblin} intercepts!"),
+            ),
+            GameEvent::HalfEnded { half } => pick(
+                french,
+                format!("Fin de la mi-temps {half} !"),
+                format!("End of half {half}!"),
+            ),
+            _ => return None,
+        };
+        Some(headline)
     }
 
     /// Final line once the match is over.
@@ -887,6 +940,86 @@ mod tests {
             FRENCH.describe_event(&event),
             Some("Fumble ! Fin du tour des Dokkaebi de la Flamme bleue".to_string())
         );
+    }
+
+    #[test]
+    fn given_a_turn_ended_by_its_coach_when_described_in_french_then_the_end_of_that_turn() {
+        let event = GameEvent::TurnEnded {
+            team: TeamId::AWAY,
+            reason: TurnEndReason::EndTurn,
+        };
+        assert_eq!(
+            FRENCH.describe_event(&event),
+            Some("Fin du tour des Leprechauns".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_throw_when_described_in_french_then_the_receiver_and_how_far() {
+        let event = GameEvent::ThrowAttempted {
+            thrower: id("H9"),
+            receiver: id("H5"),
+            roll: BallRoll {
+                faces: 4,
+                rolled: 3,
+                malus: 1,
+                target: 2,
+                success: true,
+            },
+            distance: 7,
+        };
+        assert_eq!(
+            FRENCH.describe_event(&event),
+            Some("H9 lance vers H5 à 7 cases : 3−1 sur d4".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_knockdown_ending_the_turn_when_headlined_in_french_then_the_turn_stops() {
+        let event = GameEvent::TurnEnded {
+            team: TeamId::HOME,
+            reason: TurnEndReason::Knockdown,
+        };
+        assert_eq!(
+            FRENCH.headline(&event),
+            Some("Chute ! Le tour des Dokkaebi de la Flamme bleue s'arrête".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_point_when_headlined_in_english_then_the_scorer_and_its_team() {
+        let event = GameEvent::Scored {
+            team: TeamId::AWAY,
+            scorer: id("A5"),
+        };
+        assert_eq!(
+            ENGLISH.headline(&event),
+            Some("POINT! A5 scores for the Leprechauns".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_missed_interception_when_headlined_then_no_headline() {
+        let event = GameEvent::InterceptAttempted {
+            goblin: id("A2"),
+            roll: BallRoll {
+                faces: 4,
+                rolled: 1,
+                malus: 1,
+                target: 2,
+                success: false,
+            },
+        };
+        assert_eq!(FRENCH.headline(&event), None);
+    }
+
+    #[test]
+    fn given_a_turn_ended_by_its_coach_when_headlined_then_no_headline() {
+        let event = GameEvent::TurnEnded {
+            team: TeamId::HOME,
+            reason: TurnEndReason::EndTurn,
+        };
+        assert_eq!(FRENCH.headline(&event), None);
     }
 
     #[test]
