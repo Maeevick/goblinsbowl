@@ -99,7 +99,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         options
             .rules
             .as_ref()
-            .map_or("0.1 defaults".to_string(), |path| path
+            .map_or("built-in defaults".to_string(), |path| path
                 .display()
                 .to_string())
     );
