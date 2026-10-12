@@ -123,7 +123,7 @@ impl Default for Ruleset {
             kickoff_depth: 0,
             stance_bonus_cap: uncapped_stance_bonus(),
             keeps_moving_after_action: true,
-            turn_ends_when_no_goblin_can_act: turns_end_on_their_own(),
+            turn_ends_when_no_goblin_can_act: false,
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),
             formation: Formation::Lines(vec![
                 FormationLine {
@@ -252,6 +252,11 @@ mod tests {
     fn given_default_ruleset_when_reading_how_goblins_move_then_they_keep_moving_after_their_action()
      {
         assert!(Ruleset::default().keeps_moving_after_action);
+    }
+
+    #[test]
+    fn given_default_ruleset_when_reading_how_turns_end_then_they_wait_for_the_coach() {
+        assert!(!Ruleset::default().turn_ends_when_no_goblin_can_act);
     }
 
     #[test]
