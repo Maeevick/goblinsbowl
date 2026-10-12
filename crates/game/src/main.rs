@@ -19,6 +19,7 @@ use goblinsbowl::bot_seat::BotSeatPlugin;
 use goblinsbowl::local_match::LocalMatchPlugin;
 use goblinsbowl::options::{GameOptions, LocalSeat};
 use goblinsbowl::orders::OrdersPlugin;
+use goblinsbowl::pointer::PointerPlugin;
 use goblinsbowl::server_link::{LinkSettings, ServerLink, ServerLinkPlugin};
 use goblinsbowl::texts::Texts;
 use goblinsbowl::{bowl_view, camera_rig, dev_capture, dice_view, goblin_view, hud};
@@ -113,6 +114,7 @@ fn main() -> AppExit {
         goblin_view::GoblinViewPlugin,
         dice_view::DiceViewPlugin,
         OrdersPlugin,
+        PointerPlugin,
         camera_rig::CameraRigPlugin,
         hud::HudPlugin,
         dev_capture::DevCapturePlugin,

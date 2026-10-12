@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::light::NotShadowCaster;
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::transform::TransformSystems;
 use bevy::ui::UiSystems;
@@ -447,6 +448,7 @@ fn spawn_figure(
     commands
         .spawn((
             GoblinFigure { id: goblin.id },
+            Hovered::default(),
             Transform::from_translation(pose.map_or(Vec3::ZERO, |pose| pose.position)),
             if pose.is_some() {
                 Visibility::Inherited
