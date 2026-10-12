@@ -130,6 +130,10 @@ impl Coach<'_> {
             .filter(|goblin| goblin.can_act())
     }
 
+    fn actors(&self) -> impl Iterator<Item = &Goblin> + '_ {
+        self.movers().filter(|goblin| goblin.has_action_left)
+    }
+
     fn paths(&self, goblin: GoblinId) -> Vec<PlannedPath> {
         reachable_squares(self.arena, self.ruleset, self.state, goblin)
     }
@@ -205,7 +209,7 @@ impl Coach<'_> {
         let target = carrier.square()?;
         let assault = Some(Action::Assault { target: carrier.id });
         let candidates: Vec<_> = self
-            .movers()
+            .actors()
             .flat_map(|mover| {
                 let in_contact = mover
                     .square()
@@ -262,7 +266,7 @@ impl Coach<'_> {
             .filter_map(|marker| marker.square().map(|square| (marker.id, square)))
             .collect();
         let candidates: Vec<_> = self
-            .movers()
+            .actors()
             .filter(|mover| mover.id != carrier.id)
             .flat_map(|mover| {
                 let here = mover.square();
@@ -323,7 +327,9 @@ impl Coach<'_> {
     }
 
     fn pass(&self) -> Option<Activation> {
-        let carrier = self.own_carrier().filter(|carrier| carrier.can_act())?;
+        let carrier = self
+            .own_carrier()
+            .filter(|carrier| carrier.can_act() && carrier.has_action_left)?;
         let carrier_distance = self.den_distance(carrier.square()?);
         let candidates: Vec<_> = self
             .state
@@ -389,10 +395,11 @@ impl Coach<'_> {
             .or_else(fairly_safe)
             .map(|path| path.squares.clone())
             .unwrap_or_default();
-        Some(Activation {
+        let action = carrier.has_action_left.then_some(Action::Stance);
+        (!path.is_empty() || action.is_some()).then_some(Activation {
             goblin: carrier.id,
             path,
-            action: Some(Action::Stance),
+            action,
         })
     }
 
@@ -407,7 +414,7 @@ impl Coach<'_> {
         let guard_post = |square: Square| {
             square.is_orthogonally_adjacent(carrier_square) && self.den_distance(square) > ahead
         };
-        self.movers()
+        self.actors()
             .filter(|mover| mover.id != carrier.id)
             .find_map(|mover| {
                 let here = mover.square()?;
@@ -432,7 +439,7 @@ impl Coach<'_> {
 
     fn hit(&self) -> Option<Activation> {
         let candidates: Vec<_> = self
-            .movers()
+            .actors()
             .flat_map(|mover| {
                 let here = mover.square();
                 self.state
@@ -483,17 +490,18 @@ impl Coach<'_> {
                         path.squares.len(),
                     )
                 })?;
-            let in_contact = self.enemies_next_to(best.destination) > 0;
+            let braces_in_contact =
+                mover.has_action_left && self.enemies_next_to(best.destination) > 0;
             Some(Activation {
                 goblin: mover.id,
                 path: best.squares,
-                action: in_contact.then_some(Action::Stance),
+                action: braces_in_contact.then_some(Action::Stance),
             })
         })
     }
 
     fn brace(&self) -> Option<Activation> {
-        self.movers()
+        self.actors()
             .find(|mover| {
                 mover
                     .square()
@@ -721,6 +729,32 @@ mod tests {
                 action: Some(Action::Stance),
             }
         );
+    }
+
+    #[test]
+    fn given_goblins_that_keep_moving_when_a_bruiser_in_contact_already_braced_then_the_turn_ends()
+    {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.keeps_moving_after_action = true)
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .edit("H1", |goblin| goblin.has_action_left = false)
+            .ball_loose_at(9, 3);
+        assert_eq!(choose(scenario), Command::EndTurn);
+    }
+
+    #[test]
+    fn given_goblins_that_keep_moving_when_the_carrier_already_braced_then_it_advances_without_bracing()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.keeps_moving_after_action = true)
+            .goblin("H9", Thrower, 4, 7)
+            .edit("H9", |goblin| goblin.has_action_left = false)
+            .ball_carried_by("H9");
+        assert!(matches!(
+            choose(scenario),
+            Command::Act(Activation { goblin, action: None, .. }) if goblin == id("H9")
+        ));
     }
 
     #[test]

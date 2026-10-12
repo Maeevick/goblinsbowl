@@ -70,8 +70,25 @@ fn play_random_match(match_seed: u64, coach_seed: u64) -> Result<MatchHost, Stri
 }
 
 fn play_match(match_seed: u64, coach_seed: u64, coaches: [Bot; 2]) -> Result<MatchHost, String> {
+    play_match_under(Ruleset::default(), match_seed, coach_seed, coaches)
+}
+
+fn goblins_moving_after_action_and_turns_waiting_for_the_coach() -> Ruleset {
+    Ruleset {
+        keeps_moving_after_action: true,
+        turn_ends_when_no_goblin_can_act: false,
+        ..Ruleset::default()
+    }
+}
+
+fn play_match_under(
+    ruleset: Ruleset,
+    match_seed: u64,
+    coach_seed: u64,
+    coaches: [Bot; 2],
+) -> Result<MatchHost, String> {
     let (mut host, _) = MatchHost::start(MatchSetup {
-        ruleset: Ruleset::default(),
+        ruleset,
         rosters: [Roster::DEFAULT, Roster::DEFAULT],
         seed: match_seed,
         seats: [SeatKind::Bot, SeatKind::Bot],
@@ -113,6 +130,24 @@ proptest! {
         let scripted = if bold { Bot::Bold } else { Bot::Cautious };
         let host = play_match(match_seed, coach_seed, [scripted, Bot::Random]);
         prop_assert!(host.is_ok(), "{:?}", host.err());
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(8))]
+
+    #[test]
+    fn given_any_seeds_when_coaches_play_goblins_that_keep_moving_and_turns_that_wait_then_every_invariant_holds_and_the_match_ends(
+        match_seed in any::<u64>(),
+        coach_seed in any::<u64>(),
+        bold in any::<bool>(),
+    ) {
+        let scripted = if bold { Bot::Bold } else { Bot::Cautious };
+        let rules = goblins_moving_after_action_and_turns_waiting_for_the_coach();
+        let against_random = play_match_under(rules.clone(), match_seed, coach_seed, [scripted, Bot::Random]);
+        let mirror = play_match_under(rules, match_seed, coach_seed, [scripted, scripted]);
+        prop_assert!(against_random.is_ok(), "{:?}", against_random.err());
+        prop_assert!(mirror.is_ok(), "{:?}", mirror.err());
     }
 }
 
