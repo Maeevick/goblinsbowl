@@ -1,7 +1,7 @@
 # Goblins Bowl, rules 0.1: every tunable number of a match.
 # Attack, Defense and Agility are rolled as dice with that many faces.
 
-turns_per_half = 10
+turns_per_half = 12
 halves = 2
 turn_seconds = 60
 team_size = 9

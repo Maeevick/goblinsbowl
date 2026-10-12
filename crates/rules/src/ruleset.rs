@@ -112,7 +112,7 @@ fn turns_end_on_their_own() -> bool {
 impl Default for Ruleset {
     fn default() -> Self {
         Self {
-            turns_per_half: 10,
+            turns_per_half: 12,
             halves: 2,
             turn_seconds: 60,
             team_size: 9,
@@ -224,6 +224,12 @@ mod tests {
                 movement: 3
             }
         );
+    }
+
+    #[test]
+    fn given_default_ruleset_when_reading_the_match_length_then_two_halves_of_twelve_turns() {
+        let ruleset = Ruleset::default();
+        assert_eq!((ruleset.halves, ruleset.turns_per_half), (2, 12));
     }
 
     #[test]
