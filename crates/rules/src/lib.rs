@@ -21,6 +21,7 @@ pub mod policies;
 pub mod preview;
 pub mod roster;
 pub mod ruleset;
+pub mod scoresheet;
 pub mod square;
 pub mod state;
 pub mod team;

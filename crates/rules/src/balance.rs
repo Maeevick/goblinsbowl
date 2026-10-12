@@ -27,7 +27,12 @@ pub struct Attempts {
 }
 
 impl Attempts {
-    fn record(&mut self, success: bool) {
+    /// Tries that failed.
+    pub fn failed(&self) -> u32 {
+        self.tried.saturating_sub(self.succeeded)
+    }
+
+    pub(crate) fn record(&mut self, success: bool) {
         self.tried += 1;
         self.succeeded += u32::from(success);
     }
@@ -301,6 +306,15 @@ mod tests {
                 succeeded: 1
             }
         );
+    }
+
+    #[test]
+    fn given_three_tries_and_one_success_when_counting_failures_then_two() {
+        let attempts = Attempts {
+            tried: 3,
+            succeeded: 1,
+        };
+        assert_eq!(attempts.failed(), 2);
     }
 
     #[test]
