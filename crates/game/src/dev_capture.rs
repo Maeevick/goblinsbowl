@@ -3,8 +3,8 @@
 //! Rendering offscreen keeps captures working while the display is asleep or locked.
 //!
 //! `GOBLINSBOWL_SCRIPT` plays inputs at given frames beforehand, for example
-//! `30:ready;60:click H5;90:click 7,9;100:done H6;120:end`, so a capture can show an order
-//! being given, a goblin done for its turn or the turn handed over.
+//! `30:ready;60:click H5;90:click 7,9;100:done H6;120:end;600:restart`, so a capture can show an
+//! order being given, a goblin done for its turn, the turn handed over or a new match.
 
 use std::path::PathBuf;
 
@@ -50,6 +50,8 @@ pub enum ScriptedInput {
     Done(GoblinId),
     /// End the turn of the human team in control.
     EndTurn,
+    /// Start a new match, as the Play again button does.
+    Restart,
 }
 
 /// A scripted input and the frame it is played at.
@@ -136,6 +138,8 @@ fn parse_step(step: &str) -> Result<ScriptStep, String> {
         ScriptedInput::Ready
     } else if input == "end" {
         ScriptedInput::EndTurn
+    } else if input == "restart" {
+        ScriptedInput::Restart
     } else if let Some(target) = input.strip_prefix("click ") {
         ScriptedInput::Click(parse_click_target(target.trim())?)
     } else if let Some(goblin) = input.strip_prefix("done ") {
@@ -147,7 +151,7 @@ fn parse_step(step: &str) -> Result<ScriptStep, String> {
         )
     } else {
         return Err(format!(
-            "\"{input}\" is neither ready, end, a click nor a goblin done"
+            "\"{input}\" is neither ready, end, restart, a click nor a goblin done"
         ));
     };
     Ok(ScriptStep { at_frame, input })
@@ -214,6 +218,9 @@ fn play_script(
                         command: Command::EndTurn,
                     });
                 }
+            }
+            ScriptedInput::Restart => {
+                orders.write(MatchOrder::Restart);
             }
         }
     }
@@ -341,6 +348,17 @@ mod tests {
             Ok(vec![ScriptStep {
                 at_frame: 120,
                 input: ScriptedInput::EndTurn
+            }])
+        );
+    }
+
+    #[test]
+    fn given_a_restart_step_when_parsing_the_script_then_a_restart_at_its_frame() {
+        assert_eq!(
+            parse_script("600:restart"),
+            Ok(vec![ScriptStep {
+                at_frame: 600,
+                input: ScriptedInput::Restart
             }])
         );
     }
