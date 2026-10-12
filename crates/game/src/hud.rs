@@ -8,7 +8,7 @@ use bevy::ui::Pressed;
 use bevy::ui_widgets::{Activate, Button, observe};
 use goblins_rules::command::Command;
 use goblins_rules::host::{MatchSnapshot, SeatKind, TurnClock};
-use goblins_rules::state::Phase;
+use goblins_rules::state::{GameState, Goblin, Phase};
 use goblins_rules::team::TeamId;
 
 use crate::camera_rig::CameraRig;
@@ -25,6 +25,8 @@ const AWAY_COLOUR: Color = Color::srgb(1.0, 0.82, 0.35);
 const URGENT_SECONDS_MS: u64 = 10_000;
 const LOG_LINES: usize = 7;
 const END_TURN_CONFIRM_SECONDS: f32 = 3.0;
+const BUTTON_BORDER: Color = Color::srgb(0.95, 0.8, 0.4);
+const PULSE_PER_SECOND: f32 = 5.0;
 
 /// The last lines of the match story.
 #[derive(Resource, Default, Clone, Debug, PartialEq, Eq)]
@@ -68,6 +70,18 @@ pub fn human_team_in_control(snapshot: &MatchSnapshot) -> Option<TeamId> {
     (snapshot.seats.get(team.index()) == Some(&SeatKind::Human)).then_some(team)
 }
 
+/// Whether every goblin of `team` is done for the turn, so only ending it is left.
+pub fn every_goblin_done(state: &GameState, team: TeamId) -> bool {
+    !state.goblins_of(team).any(Goblin::can_act)
+}
+
+/// The human team playing with its clock running that has nothing left to play, if any.
+pub fn team_with_nothing_left_to_play(snapshot: &MatchSnapshot) -> Option<TeamId> {
+    let team = human_team_in_control(snapshot)?;
+    let running = matches!(snapshot.clock, TurnClock::Running { .. });
+    (running && every_goblin_done(&snapshot.state, team)).then_some(team)
+}
+
 #[derive(Component)]
 struct HomeScore;
 #[derive(Component)]
@@ -94,6 +108,8 @@ struct EndTurnLabel;
 struct EndTurnButton;
 #[derive(Component)]
 struct ReadyLabel;
+#[derive(Component)]
+struct NothingLeftNotice;
 
 type ClockLabel<'w, 's> = Single<
     'w,
@@ -136,6 +152,7 @@ impl Plugin for HudPlugin {
                         refresh_end_turn_label,
                         show_end_turn_to_humans,
                         restyle_buttons,
+                        show_nothing_left_to_play,
                     )
                         .in_set(MatchSystems::Present),
                 ),
@@ -209,6 +226,29 @@ fn spawn_hud(mut commands: Commands, assets: Res<AssetServer>, texts: Res<Texts>
         children![(
             text_bundle("", &reading, 18.0, Color::srgb(0.92, 0.92, 0.88)),
             LogText
+        )],
+    ));
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: px(96),
+            right: px(16),
+            padding: UiRect::axes(px(16), px(8)),
+            border_radius: BorderRadius::all(px(12)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.1, 0.08, 0.06, 0.8)),
+        Visibility::Hidden,
+        Pickable::IGNORE,
+        NothingLeftNotice,
+        children![(
+            text_bundle(
+                texts.nothing_left_to_play(),
+                &bold,
+                24.0,
+                Color::srgb(1.0, 0.9, 0.55)
+            ),
+            Pickable::IGNORE
         )],
     ));
     commands.spawn((
@@ -304,7 +344,7 @@ pub(crate) fn button(
             align_items: AlignItems::Center,
             ..default()
         },
-        BorderColor::all(Color::srgb(0.95, 0.8, 0.4)),
+        BorderColor::all(BUTTON_BORDER),
         BackgroundColor(BUTTON_IDLE),
         children![(
             text_bundle(label, font, 28.0, Color::srgb(1.0, 0.95, 0.85)),
@@ -500,6 +540,27 @@ fn show_end_turn_to_humans(
     });
 }
 
+fn show_nothing_left_to_play(
+    time: Res<Time>,
+    view: Res<MatchView>,
+    mut notice: Single<&mut Visibility, With<NothingLeftNotice>>,
+    mut end_turn_border: Single<&mut BorderColor, With<EndTurnButton>>,
+) {
+    let nothing_left = team_with_nothing_left_to_play(&view.snapshot).is_some();
+    notice.set_if_neq(if nothing_left {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    });
+    let border = if nothing_left {
+        let glow = 0.5 + 0.5 * (time.elapsed_secs() * PULSE_PER_SECOND).sin();
+        BUTTON_BORDER.mix(&Color::WHITE, glow)
+    } else {
+        BUTTON_BORDER
+    };
+    end_turn_border.set_if_neq(BorderColor::all(border));
+}
+
 fn restyle_buttons(
     mut buttons: Query<(&Hovered, Has<Pressed>, &mut BackgroundColor), With<Button>>,
 ) {
@@ -574,6 +635,52 @@ mod tests {
             human_team_in_control(&snapshot),
             snapshot.state.active_team()
         );
+    }
+
+    fn ready_snapshot() -> MatchSnapshot {
+        let (mut host, _) = MatchHost::start(MatchSetup {
+            ruleset: Ruleset::default(),
+            rosters: [Roster::DEFAULT, Roster::DEFAULT],
+            seed: 42,
+            seats: [SeatKind::Human, SeatKind::Human],
+            turn_seconds: [60, 60],
+            agent_ready_grace_seconds: 15,
+        })
+        .unwrap();
+        let team = host.snapshot().state.active_team().unwrap();
+        host.ready(team).unwrap();
+        host.snapshot()
+    }
+
+    fn with_every_goblin_done(mut snapshot: MatchSnapshot) -> MatchSnapshot {
+        let team = snapshot.state.active_team().unwrap();
+        for goblin in &mut snapshot.state.goblins {
+            if goblin.team() == team {
+                goblin.spend_its_turn();
+            }
+        }
+        snapshot
+    }
+
+    #[test]
+    fn given_a_team_whose_goblins_are_all_done_when_its_clock_runs_then_it_has_nothing_left_to_play()
+     {
+        let snapshot = with_every_goblin_done(ready_snapshot());
+        assert_eq!(
+            team_with_nothing_left_to_play(&snapshot),
+            snapshot.state.active_team()
+        );
+    }
+
+    #[test]
+    fn given_a_team_with_a_goblin_left_when_its_clock_runs_then_it_still_has_something_to_play() {
+        assert_eq!(team_with_nothing_left_to_play(&ready_snapshot()), None);
+    }
+
+    #[test]
+    fn given_a_team_whose_goblins_are_all_done_while_waiting_for_ready_then_no_notice_yet() {
+        let snapshot = with_every_goblin_done(snapshot([SeatKind::Human, SeatKind::Human]));
+        assert_eq!(team_with_nothing_left_to_play(&snapshot), None);
     }
 
     #[test]

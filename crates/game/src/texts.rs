@@ -82,6 +82,15 @@ impl Texts {
         if self.french() { "Vraiment ?" } else { "Sure?" }
     }
 
+    /// Notice shown once no goblin of the team in control can play, until its coach ends the turn.
+    pub fn nothing_left_to_play(&self) -> &'static str {
+        if self.french() {
+            "Plus aucun gobelin ne peut jouer : clique sur « Fin du tour »"
+        } else {
+            "No goblin can play any more: press “End turn”"
+        }
+    }
+
     /// Label of the stance button.
     pub fn stance_button(&self) -> &'static str {
         if self.french() { "Garde" } else { "Stance" }
@@ -861,6 +870,14 @@ mod tests {
         assert_eq!(
             ENGLISH.describe_event(&event),
             Some("H2 catches the ball: 3 on d4".to_string())
+        );
+    }
+
+    #[test]
+    fn given_french_when_no_goblin_can_play_then_the_coach_is_told_to_end_the_turn() {
+        assert_eq!(
+            FRENCH.nothing_left_to_play(),
+            "Plus aucun gobelin ne peut jouer : clique sur « Fin du tour »"
         );
     }
 
