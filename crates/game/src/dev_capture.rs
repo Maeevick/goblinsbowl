@@ -3,7 +3,8 @@
 //! Rendering offscreen keeps captures working while the display is asleep or locked.
 //!
 //! `GOBLINSBOWL_SCRIPT` plays inputs at given frames beforehand, for example
-//! `30:ready;60:click H5;90:click 7,9`, so a capture can show an order being given.
+//! `30:ready;60:click H5;90:click 7,9;100:done H6;120:end`, so a capture can show an order
+//! being given, a goblin done for its turn or the turn handed over.
 
 use std::path::PathBuf;
 
@@ -13,12 +14,13 @@ use bevy::prelude::*;
 use bevy::render::render_resource::TextureFormat;
 use bevy::render::view::window::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk};
 use bevy::ui::IsDefaultUiCamera;
+use goblins_rules::command::{Activation, Command};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::square::Square;
 
 use crate::bowl_view::BoardClick;
 use crate::camera_rig::CameraRig;
-use crate::hud::team_waiting_for_ready;
+use crate::hud::{human_team_in_control, team_waiting_for_ready};
 use crate::local_match::{MatchOrder, MatchSystems, MatchView};
 
 const SCREENSHOT_PATH_VARIABLE: &str = "GOBLINSBOWL_SCREENSHOT";
@@ -44,6 +46,10 @@ pub enum ScriptedInput {
     Ready,
     /// Click on the board.
     Click(BoardClick),
+    /// Order a goblin of the team in control to stay put and do nothing, ending its turn.
+    Done(GoblinId),
+    /// End the turn of the human team in control.
+    EndTurn,
 }
 
 /// A scripted input and the frame it is played at.
@@ -104,7 +110,8 @@ impl Plugin for DevCapturePlugin {
     }
 }
 
-/// Steps of a development script such as `30:ready;60:click H5;90:click 7,9`, in the order given.
+/// Steps of a development script such as `30:ready;60:click H5;90:click 7,9;100:done H6;120:end`,
+/// in the order given.
 ///
 /// # Errors
 /// A description of the first step that cannot be read.
@@ -127,10 +134,21 @@ fn parse_step(step: &str) -> Result<ScriptStep, String> {
     let input = input.trim();
     let input = if input == "ready" {
         ScriptedInput::Ready
+    } else if input == "end" {
+        ScriptedInput::EndTurn
     } else if let Some(target) = input.strip_prefix("click ") {
         ScriptedInput::Click(parse_click_target(target.trim())?)
+    } else if let Some(goblin) = input.strip_prefix("done ") {
+        ScriptedInput::Done(
+            goblin
+                .trim()
+                .parse()
+                .map_err(|_| format!("\"{goblin}\" is not a goblin"))?,
+        )
     } else {
-        return Err(format!("\"{input}\" is neither ready nor a click"));
+        return Err(format!(
+            "\"{input}\" is neither ready, end, a click nor a goblin done"
+        ));
     };
     Ok(ScriptStep { at_frame, input })
 }
@@ -176,6 +194,26 @@ fn play_script(
             }
             ScriptedInput::Click(click) => {
                 clicks.write(click);
+            }
+            ScriptedInput::Done(goblin) => {
+                if let Some(team) = human_team_in_control(&view.snapshot) {
+                    orders.write(MatchOrder::Command {
+                        team,
+                        command: Command::Act(Activation {
+                            goblin,
+                            path: Vec::new(),
+                            action: None,
+                        }),
+                    });
+                }
+            }
+            ScriptedInput::EndTurn => {
+                if let Some(team) = human_team_in_control(&view.snapshot) {
+                    orders.write(MatchOrder::Command {
+                        team,
+                        command: Command::EndTurn,
+                    });
+                }
             }
         }
     }
@@ -281,6 +319,28 @@ mod tests {
             Ok(vec![ScriptStep {
                 at_frame: 90,
                 input: ScriptedInput::Click(BoardClick::Square(Square::new(7, 9)))
+            }])
+        );
+    }
+
+    #[test]
+    fn given_a_goblin_done_when_parsing_the_script_then_that_goblin_is_done() {
+        assert_eq!(
+            parse_script("100:done A6"),
+            Ok(vec![ScriptStep {
+                at_frame: 100,
+                input: ScriptedInput::Done(GoblinId::new(goblins_rules::team::TeamId::AWAY, 6))
+            }])
+        );
+    }
+
+    #[test]
+    fn given_an_end_step_when_parsing_the_script_then_the_turn_ends_at_its_frame() {
+        assert_eq!(
+            parse_script("120:end"),
+            Ok(vec![ScriptStep {
+                at_frame: 120,
+                input: ScriptedInput::EndTurn
             }])
         );
     }

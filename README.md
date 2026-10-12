@@ -38,4 +38,4 @@ With an agent seat, the window and the headless server both open an MCP endpoint
 
 ## Development
 
-`GOBLINSBOWL_SCREENSHOT=/tmp/shot.png make run` renders the game offscreen, saves a PNG after a few frames and quits (works while the screen is locked). `GOBLINSBOWL_SCREENSHOT_FRAME` picks the frame, and `GOBLINSBOWL_SCRIPT="30:ready;60:click A6;90:click 7,6"` plays inputs before the capture.
+`GOBLINSBOWL_SCREENSHOT=/tmp/shot.png make run` renders the game offscreen, saves a PNG after a few frames and quits (works while the screen is locked). `GOBLINSBOWL_SCREENSHOT_FRAME` picks the frame, and `GOBLINSBOWL_SCRIPT="30:ready;60:click A6;90:click 12,6;120:done A7;150:end"` plays inputs before the capture: `ready`, a `click` on a goblin or a square, `done` for a goblin that stays put for the rest of its turn, and `end` for the end of the turn.
