@@ -14,5 +14,8 @@ goblins_server.workspace = true
 clap.workspace = true
 tokio = { workspace = true, features = ["signal"] }
 
+[features]
+dynamic_linking = ["bevy/dynamic_linking"]
+
 [lints]
 workspace = true

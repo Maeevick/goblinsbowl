@@ -21,7 +21,7 @@ fmt:
 check: lint test-unit test-integrated
 
 run:
-	cargo run -p goblinsbowl --features bevy/dynamic_linking -- $(ARGS)
+	cargo run -p goblinsbowl --features dynamic_linking -- $(ARGS)
 
 serve:
 	cargo run -p goblins_server -- $(ARGS)
