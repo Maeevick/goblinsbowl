@@ -71,7 +71,7 @@ mod tests {
         let (game, _) = Game::start(
             Ruleset::default(),
             [Roster::DEFAULT, Roster::DEFAULT],
-            ScriptedDice::new([1, 2]),
+            ScriptedDice::new([1, 1]),
         )
         .unwrap();
         render_board(game.arena(), game.state())
@@ -92,7 +92,7 @@ mod tests {
         let (mut game, _) = Game::start(
             Ruleset::default(),
             [Roster::DEFAULT, Roster::DEFAULT],
-            ScriptedDice::new([1, 2]),
+            ScriptedDice::new([1, 1]),
         )
         .unwrap();
         let mut state = game.state().clone();

@@ -205,6 +205,7 @@ mod tests {
     const COIN_HOME: u8 = 1;
     const COIN_AWAY: u8 = 2;
     const BOUNCE_EAST: u8 = 2;
+    const BOUNCE_NORTH: u8 = 1;
 
     fn started(rolls: impl IntoIterator<Item = u8>) -> (Game<ScriptedDice>, Vec<GameEvent>) {
         Game::start(
@@ -235,7 +236,7 @@ mod tests {
 
     #[test]
     fn given_default_rosters_when_the_match_starts_then_eighteen_goblins_stand_on_the_bowl() {
-        let (game, _) = started([COIN_HOME, BOUNCE_EAST]);
+        let (game, _) = started([COIN_HOME, BOUNCE_NORTH]);
         assert_eq!(
             game.state()
                 .goblins
@@ -248,30 +249,31 @@ mod tests {
 
     #[test]
     fn given_coin_shows_one_when_the_match_starts_then_home_plays_first() {
-        let (game, _) = started([COIN_HOME, BOUNCE_EAST]);
+        let (game, _) = started([COIN_HOME, BOUNCE_NORTH]);
         assert_eq!(game.state().active_team(), Some(TeamId::HOME));
     }
 
     #[test]
     fn given_coin_shows_two_when_the_match_starts_then_away_plays_first() {
-        let (game, _) = started([COIN_AWAY, BOUNCE_EAST]);
+        let (game, _) = started([COIN_AWAY, BOUNCE_NORTH]);
         assert_eq!(game.state().active_team(), Some(TeamId::AWAY));
     }
 
     #[test]
-    fn given_bounce_east_from_the_centre_when_the_match_starts_then_the_ball_lies_on_eleven_ten() {
-        let (game, _) = started([COIN_HOME, BOUNCE_EAST]);
+    fn given_bounce_north_from_the_centre_when_the_match_starts_then_the_ball_lies_between_the_front_lines()
+     {
+        let (game, _) = started([COIN_HOME, BOUNCE_NORTH]);
         assert_eq!(
             game.state().ball,
             Ball::Loose {
-                at: Square::new(11, 10)
+                at: Square::new(10, 9)
             }
         );
     }
 
     #[test]
     fn given_the_match_starts_when_reading_events_then_toss_kick_off_drop_bounce_and_first_turn() {
-        let (_, events) = started([COIN_AWAY, BOUNCE_EAST]);
+        let (_, events) = started([COIN_AWAY, BOUNCE_NORTH]);
         assert_eq!(
             events,
             vec![
@@ -286,7 +288,7 @@ mod tests {
                 },
                 GameEvent::BallBounced {
                     from: Square::new(10, 10),
-                    to: Square::new(11, 10)
+                    to: Square::new(10, 9)
                 },
                 GameEvent::TurnStarted {
                     team: TeamId::AWAY,
@@ -299,7 +301,7 @@ mod tests {
 
     #[test]
     fn given_the_match_starts_when_reading_turn_counters_then_only_the_receiver_started_a_turn() {
-        let (game, _) = started([COIN_AWAY, BOUNCE_EAST]);
+        let (game, _) = started([COIN_AWAY, BOUNCE_NORTH]);
         assert_eq!(game.state().turns_played, vec![0, 1]);
     }
 
@@ -326,7 +328,7 @@ mod tests {
 
     #[test]
     fn given_the_match_starts_when_reading_home_goblins_then_numbered_one_to_nine() {
-        let (game, _) = started([COIN_HOME, BOUNCE_EAST]);
+        let (game, _) = started([COIN_HOME, BOUNCE_NORTH]);
         let numbers: Vec<u8> = game
             .state()
             .goblins_of(TeamId::HOME)

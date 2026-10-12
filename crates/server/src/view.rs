@@ -558,7 +558,7 @@ mod tests {
         MatchHost::start(MatchSetup {
             ruleset: Ruleset::default(),
             rosters: [Roster::DEFAULT, Roster::DEFAULT],
-            seed: 42,
+            seed: 2,
             seats: [SeatKind::Agent, SeatKind::Agent],
             turn_seconds: [60, 60],
             agent_ready_grace_seconds: 15,

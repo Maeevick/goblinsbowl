@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::arena::{Arena, ArenaError, BOWL_21_MASK};
 use crate::characteristics::{Archetype, Characteristics};
-use crate::formation::{Formation, FormationError};
+use crate::formation::{Formation, FormationError, FormationLine};
 use crate::roster::{CountLimit, Roster, RosterError, RosterLimits};
 
 /// Characteristics of each archetype.
@@ -125,7 +125,23 @@ impl Default for Ruleset {
             keeps_moving_after_action: false,
             turn_ends_when_no_goblin_can_act: turns_end_on_their_own(),
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),
-            formation: Formation::DenLines,
+            formation: Formation::Lines(vec![
+                FormationLine {
+                    depth: 1,
+                    across: vec![-1, 0, 1],
+                    prefers: vec![Archetype::Bruiser, Archetype::Sprinter, Archetype::Thrower],
+                },
+                FormationLine {
+                    depth: 3,
+                    across: vec![-5, -4, 4, 5],
+                    prefers: vec![Archetype::Sprinter, Archetype::Bruiser, Archetype::Thrower],
+                },
+                FormationLine {
+                    depth: 8,
+                    across: vec![-2, 2],
+                    prefers: vec![Archetype::Thrower, Archetype::Bruiser, Archetype::Sprinter],
+                },
+            ]),
             archetypes: ArchetypeCharacteristics {
                 bruiser: Characteristics {
                     attack: 4,

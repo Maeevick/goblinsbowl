@@ -231,6 +231,7 @@ mod tests {
     use crate::local_match::LocalMatchPlugin;
     use crate::test_support::{click_on, written};
     use goblins_rules::arena::BOWL_12_MASK;
+    use goblins_rules::formation::Formation;
     use goblins_rules::host::{MatchHost, MatchSetup, SeatKind};
     use goblins_rules::roster::Roster;
     use goblins_rules::ruleset::Ruleset;
@@ -238,6 +239,7 @@ mod tests {
     fn app_drawing(arena_mask: &[&str]) -> App {
         let ruleset = Ruleset {
             arena: arena_mask.iter().map(|row| row.to_string()).collect(),
+            formation: Formation::DenLines,
             ..Ruleset::default()
         };
         let (host, opening_events) = MatchHost::start(MatchSetup {

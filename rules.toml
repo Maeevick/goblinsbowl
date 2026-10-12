@@ -48,6 +48,24 @@ arena = [
     "xxxxxOOOOOOOOOOOxxxxx",
 ]
 
+# Kick-off formation of the home team, mirrored for away: each line stands `depth` columns behind
+# the centre column, on the rows `across` counted from the centre row (negative: north), and its
+# squares go first to the archetypes it prefers, then to any goblin left.
+[[formation]]
+depth = 1
+across = [-1, 0, 1]
+prefers = ["bruiser", "sprinter", "thrower"]
+
+[[formation]]
+depth = 3
+across = [-5, -4, 4, 5]
+prefers = ["sprinter", "bruiser", "thrower"]
+
+[[formation]]
+depth = 8
+across = [-2, 2]
+prefers = ["thrower", "bruiser", "sprinter"]
+
 [archetypes.bruiser]
 attack = 4
 defense = 4
