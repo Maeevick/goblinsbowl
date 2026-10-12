@@ -11,6 +11,44 @@ use goblins_rules::team::TeamId;
 
 use crate::beats::ShownRoll;
 
+const FRENCH_QUIPS: [&str; 16] = [
+    "Un dokkaebi a perdu son gourdin magique. Il fouille sous les gradins.",
+    "Les leprechauns recomptent leur or. Encore. Et encore.",
+    "Un nisse réclame sa bouillie au beurre avant de reprendre.",
+    "Des korrigans dansent en rond autour de la tanière. Personne n'ose les arrêter.",
+    "La balle a été vue au pied d'un arc-en-ciel. Fausse alerte.",
+    "L'arbitre gobelin relit le règlement. À l'envers.",
+    "Une flamme bleue flotte au-dessus du bowl. Bon signe… ou pas.",
+    "Pause boisson : jus de champignon pour tout le monde.",
+    "Un gobelin vend des chaussures porte-bonheur en tribune. Que des pieds gauches.",
+    "Le public scande « Gar-de ! Gar-de ! » sans trop savoir pourquoi.",
+    "Les dokkaebi parient leur gelée de sarrasin sur le prochain tour.",
+    "Un leprechaun jure que la balle était en or massif ce matin.",
+    "Quelqu'un a noué les lacets du Lanceur ensemble. Enquête en cours.",
+    "Le chronomètre s'est fait mordre. Il marche encore, en grognant.",
+    "Les korrigans proposent un pas de danse pour se réchauffer.",
+    "Un nisse balaie la tanière. C'est la tradition, paraît-il.",
+];
+
+const ENGLISH_QUIPS: [&str; 16] = [
+    "A dokkaebi lost its magic club. It is searching under the stands.",
+    "The leprechauns are counting their gold. Again. And again.",
+    "A nisse wants its buttered porridge before play resumes.",
+    "Korrigans dance in circles around the den. Nobody dares to stop them.",
+    "The ball was spotted at the end of a rainbow. False alarm.",
+    "The goblin referee rereads the rulebook. Upside down.",
+    "A blue flame floats over the bowl. A good sign… or not.",
+    "Drinks break: mushroom juice for everyone.",
+    "A goblin sells lucky boots in the stands. Left feet only.",
+    "The crowd chants “Stance! Stance!” without quite knowing why.",
+    "The dokkaebi bet their buckwheat jelly on the next turn.",
+    "A leprechaun swears the ball was solid gold this morning.",
+    "Someone tied the Thrower's laces together. Investigation under way.",
+    "The clock got bitten. It still works, grumbling.",
+    "The korrigans suggest a dance step to warm up.",
+    "A nisse sweeps the den. Tradition, apparently.",
+];
+
 /// Language of the screens.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub enum Language {
@@ -61,6 +99,17 @@ impl Texts {
         } else {
             format!("{}, your turn! Ready?", self.team_name(team))
         }
+    }
+
+    /// A goblin-folklore aside shown while the bowl changes hands, varied from turn to turn.
+    pub fn handover_quip(&self, team: TeamId, half: u8, turn: u8) -> &'static str {
+        let quips = if self.french() {
+            &FRENCH_QUIPS
+        } else {
+            &ENGLISH_QUIPS
+        };
+        let index = usize::from(half) * 7 + usize::from(turn) * 3 + team.index() * 5;
+        quips[index % quips.len()]
     }
 
     /// Label of the ready button.
@@ -878,6 +927,31 @@ mod tests {
         assert_eq!(
             FRENCH.nothing_left_to_play(),
             "Plus aucun gobelin ne peut jouer : clique sur « Fin du tour »"
+        );
+    }
+
+    #[test]
+    fn given_two_consecutive_turns_when_picking_quips_then_they_differ() {
+        assert_ne!(
+            FRENCH.handover_quip(TeamId::AWAY, 1, 3),
+            FRENCH.handover_quip(TeamId::AWAY, 1, 4)
+        );
+    }
+
+    #[test]
+    fn given_both_teams_on_the_same_turn_when_picking_quips_then_they_differ() {
+        assert_ne!(
+            ENGLISH.handover_quip(TeamId::HOME, 2, 5),
+            ENGLISH.handover_quip(TeamId::AWAY, 2, 5)
+        );
+    }
+
+    #[test]
+    fn given_the_same_turn_in_both_languages_when_picking_quips_then_the_same_joke() {
+        let quip_number = |quip: &str, quips: &[&str]| quips.iter().position(|line| *line == quip);
+        assert_eq!(
+            quip_number(FRENCH.handover_quip(TeamId::HOME, 1, 1), &FRENCH_QUIPS),
+            quip_number(ENGLISH.handover_quip(TeamId::HOME, 1, 1), &ENGLISH_QUIPS)
         );
     }
 

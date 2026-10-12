@@ -12,6 +12,7 @@ use goblins_rules::state::{GameState, Goblin, Phase};
 use goblins_rules::team::TeamId;
 
 use crate::camera_rig::CameraRig;
+use crate::goblin_view::BowlAnimation;
 use crate::local_match::{MatchOrder, MatchSystems, MatchView};
 use crate::texts::Texts;
 
@@ -27,6 +28,7 @@ const LOG_LINES: usize = 7;
 const END_TURN_CONFIRM_SECONDS: f32 = 3.0;
 const BUTTON_BORDER: Color = Color::srgb(0.95, 0.8, 0.4);
 const PULSE_PER_SECOND: f32 = 5.0;
+const INTERLUDE_SECONDS: f32 = 2.5;
 
 /// The last lines of the match story.
 #[derive(Resource, Default, Clone, Debug, PartialEq, Eq)]
@@ -70,6 +72,79 @@ pub fn human_team_in_control(snapshot: &MatchSnapshot) -> Option<TeamId> {
     (snapshot.seats.get(team.index()) == Some(&SeatKind::Human)).then_some(team)
 }
 
+/// A human team's turn waiting to start.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WaitingTurn {
+    /// The team.
+    pub team: TeamId,
+    /// The half.
+    pub half: u8,
+    /// Its turn number in the half.
+    pub turn: u8,
+}
+
+/// The human team's turn waiting for its Ready, if any.
+pub fn waiting_turn(snapshot: &MatchSnapshot) -> Option<WaitingTurn> {
+    let team = team_waiting_for_ready(snapshot)?;
+    Some(WaitingTurn {
+        team,
+        half: snapshot.state.half,
+        turn: snapshot
+            .state
+            .turns_played
+            .get(team.index())
+            .copied()
+            .unwrap_or_default(),
+    })
+}
+
+/// What the hand-over between two turns shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HandoverStage {
+    /// No human team waits for its turn.
+    NoHandover,
+    /// The bowl still plays out the last moves, left in full view.
+    WatchingTheBowl,
+    /// The next team is announced with a goblin aside, before anyone can press Ready.
+    Interlude,
+    /// The next team is asked whether it is ready.
+    AskingForReady,
+}
+
+/// The hand-over between two turns: which turn waits and how long the bowl has been still since.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct Handover {
+    /// The turn waiting for its Ready.
+    pub waiting: Option<WaitingTurn>,
+    /// Seconds the bowl has been still while that turn waits.
+    pub still_for: f32,
+}
+
+impl Handover {
+    /// The hand-over `seconds` later, with `waiting` the turn now waiting and `animating` whether
+    /// the bowl still plays out the last moves.
+    pub fn after(self, waiting: Option<WaitingTurn>, animating: bool, seconds: f32) -> Self {
+        let still_for = if waiting.is_none() || animating {
+            0.0
+        } else if self.waiting == waiting {
+            self.still_for + seconds
+        } else {
+            seconds
+        };
+        Self { waiting, still_for }
+    }
+
+    /// What the hand-over shows now.
+    pub fn stage(&self) -> HandoverStage {
+        match self.waiting {
+            None => HandoverStage::NoHandover,
+            Some(_) if self.still_for <= 0.0 => HandoverStage::WatchingTheBowl,
+            Some(_) if self.still_for < INTERLUDE_SECONDS => HandoverStage::Interlude,
+            Some(_) => HandoverStage::AskingForReady,
+        }
+    }
+}
+
 /// Whether every goblin of `team` is done for the turn, so only ending it is left.
 pub fn every_goblin_done(state: &GameState, team: TeamId) -> bool {
     !state.goblins_of(team).any(Goblin::can_act)
@@ -109,6 +184,10 @@ struct EndTurnButton;
 #[derive(Component)]
 struct ReadyLabel;
 #[derive(Component)]
+struct ReadyButton;
+#[derive(Component)]
+struct ReadyQuip;
+#[derive(Component)]
 struct NothingLeftNotice;
 
 type ClockLabel<'w, 's> = Single<
@@ -121,6 +200,16 @@ type ReadyVisibility<'w, 's> =
     Single<'w, 's, &'static mut Visibility, (With<ReadyOverlay>, Without<FinalOverlay>)>;
 type FinalVisibility<'w, 's> =
     Single<'w, 's, &'static mut Visibility, (With<FinalOverlay>, Without<ReadyOverlay>)>;
+type ReadyButtonVisibility<'w, 's> = Single<
+    'w,
+    's,
+    &'static mut Visibility,
+    (
+        With<ReadyButton>,
+        Without<ReadyOverlay>,
+        Without<FinalOverlay>,
+    ),
+>;
 
 #[derive(Resource, Default)]
 struct EndTurnConfirmation {
@@ -134,6 +223,7 @@ impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EventLog>()
             .init_resource::<EndTurnConfirmation>()
+            .init_resource::<Handover>()
             .add_systems(Startup, spawn_hud)
             .add_systems(
                 Update,
@@ -147,6 +237,7 @@ impl Plugin for HudPlugin {
                         refresh_turn_and_clock,
                         refresh_log,
                         refresh_refusal,
+                        follow_handover,
                         refresh_ready_overlay,
                         refresh_final_overlay,
                         refresh_end_turn_label,
@@ -281,7 +372,12 @@ fn spawn_hud(mut commands: Commands, assets: Res<AssetServer>, texts: Res<Texts>
             children![
                 (text_bundle("", &bold, 42.0, Color::WHITE), ReadyQuestion),
                 (
+                    text_bundle("", &reading, 24.0, Color::srgb(0.95, 0.85, 0.6)),
+                    ReadyQuip
+                ),
+                (
                     button(texts.ready_button(), &bold, ReadyLabel),
+                    ReadyButton,
                     observe(ready_pressed)
                 ),
             ],
@@ -381,9 +477,13 @@ fn end_turn_pressed(
 fn ready_pressed(
     _activate: On<Activate>,
     view: Res<MatchView>,
+    handover: Res<Handover>,
     mut rig: ResMut<CameraRig>,
     mut orders: MessageWriter<MatchOrder>,
 ) {
+    if handover.stage() != HandoverStage::AskingForReady {
+        return;
+    }
     if let Some(team) = team_waiting_for_ready(&view.snapshot) {
         *rig = CameraRig::behind(team);
         orders.write(MatchOrder::Ready { team });
@@ -474,20 +574,50 @@ fn pause_on_key(
     }
 }
 
-fn refresh_ready_overlay(
+fn follow_handover(
+    time: Res<Time>,
     view: Res<MatchView>,
+    animation: Res<BowlAnimation>,
+    mut handover: ResMut<Handover>,
+) {
+    let next = handover.after(
+        waiting_turn(&view.snapshot),
+        animation.busy,
+        time.delta_secs(),
+    );
+    handover.set_if_neq(next);
+}
+
+fn refresh_ready_overlay(
+    handover: Res<Handover>,
     texts: Res<Texts>,
     mut overlay: ReadyVisibility,
-    mut question: Single<&mut Text, With<ReadyQuestion>>,
+    mut ready_button: ReadyButtonVisibility,
+    mut question: Single<&mut Text, (With<ReadyQuestion>, Without<ReadyQuip>)>,
+    mut quip: Single<&mut Text, (With<ReadyQuip>, Without<ReadyQuestion>)>,
 ) {
-    let waiting = team_waiting_for_ready(&view.snapshot);
-    **overlay = if waiting.is_some() {
-        Visibility::Visible
-    } else {
-        Visibility::Hidden
+    let stage = handover.stage();
+    let shown = |visible: bool| {
+        if visible {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        }
     };
-    if let Some(team) = waiting {
-        question.0 = texts.ready_question(team);
+    overlay.set_if_neq(shown(matches!(
+        stage,
+        HandoverStage::Interlude | HandoverStage::AskingForReady
+    )));
+    ready_button.set_if_neq(shown(stage == HandoverStage::AskingForReady));
+    if let Some(waiting) = handover.waiting {
+        let wanted_question = texts.ready_question(waiting.team);
+        if question.0 != wanted_question {
+            question.0 = wanted_question;
+        }
+        let wanted_quip = texts.handover_quip(waiting.team, waiting.half, waiting.turn);
+        if quip.0 != wanted_quip {
+            quip.0 = wanted_quip.to_string();
+        }
     }
 }
 
@@ -681,6 +811,52 @@ mod tests {
     fn given_a_team_whose_goblins_are_all_done_while_waiting_for_ready_then_no_notice_yet() {
         let snapshot = with_every_goblin_done(snapshot([SeatKind::Human, SeatKind::Human]));
         assert_eq!(team_with_nothing_left_to_play(&snapshot), None);
+    }
+
+    const AWAY_TURN_THREE: WaitingTurn = WaitingTurn {
+        team: TeamId::AWAY,
+        half: 1,
+        turn: 3,
+    };
+
+    #[test]
+    fn given_no_human_turn_waiting_when_the_frame_passes_then_no_handover() {
+        let handover = Handover::default().after(None, false, 0.5);
+        assert_eq!(handover.stage(), HandoverStage::NoHandover);
+    }
+
+    #[test]
+    fn given_a_turn_waiting_while_the_bowl_still_moves_then_the_bowl_is_watched() {
+        let handover = Handover::default().after(Some(AWAY_TURN_THREE), true, 0.5);
+        assert_eq!(handover.stage(), HandoverStage::WatchingTheBowl);
+    }
+
+    #[test]
+    fn given_a_turn_waiting_for_one_still_second_then_the_interlude_shows() {
+        let handover = Handover::default()
+            .after(Some(AWAY_TURN_THREE), true, 0.5)
+            .after(Some(AWAY_TURN_THREE), false, 1.0);
+        assert_eq!(handover.stage(), HandoverStage::Interlude);
+    }
+
+    #[test]
+    fn given_a_turn_waiting_for_three_still_seconds_then_ready_is_asked() {
+        let handover = Handover::default()
+            .after(Some(AWAY_TURN_THREE), false, 1.5)
+            .after(Some(AWAY_TURN_THREE), false, 1.5);
+        assert_eq!(handover.stage(), HandoverStage::AskingForReady);
+    }
+
+    #[test]
+    fn given_a_new_turn_waiting_when_the_frame_passes_then_the_stillness_starts_over() {
+        let next_turn = WaitingTurn {
+            team: TeamId::HOME,
+            ..AWAY_TURN_THREE
+        };
+        let handover = Handover::default()
+            .after(Some(AWAY_TURN_THREE), false, 3.0)
+            .after(Some(next_turn), false, 0.1);
+        assert_eq!(handover.stage(), HandoverStage::Interlude);
     }
 
     #[test]

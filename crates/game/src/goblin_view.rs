@@ -71,6 +71,13 @@ pub fn footing(goblin: &Goblin, active_team: Option<TeamId>) -> Footing {
     }
 }
 
+/// Whether the bowl is still playing out what happened: steps, falls, rolls and flights.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BowlAnimation {
+    /// Whether beats are still waiting to be shown.
+    pub busy: bool,
+}
+
 /// A goblin figure on the bowl.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct GoblinFigure {
@@ -237,12 +244,14 @@ impl Plugin for GoblinViewPlugin {
         app.add_message::<BoardClick>()
             .add_message::<RollShown>()
             .init_resource::<Choreography>()
+            .init_resource::<BowlAnimation>()
             .add_systems(Startup, (spawn_figures, spawn_ball))
             .add_systems(
                 Update,
                 (
                     queue_beats,
                     play_beats,
+                    report_animation,
                     carry_ball,
                     refresh_rings,
                     refresh_foot_plates,
@@ -844,6 +853,12 @@ fn play_beats(
         choreography.front_held_for = 0.0;
         choreography.front_announced = false;
     }
+}
+
+fn report_animation(choreography: Res<Choreography>, mut animation: ResMut<BowlAnimation>) {
+    animation.set_if_neq(BowlAnimation {
+        busy: !choreography.beats.is_empty(),
+    });
 }
 
 fn ball_in_flight(choreography: &Choreography) -> bool {
