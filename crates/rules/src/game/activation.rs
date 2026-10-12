@@ -85,7 +85,9 @@ impl<D: DiceRoller> Game<D> {
             self.score(scoring_team, scorer, events);
         } else if let Some(reason) = turn_ending {
             self.finish_turn(reason, events);
-        } else if !self.has_goblin_able_to_act(team) {
+        } else if self.ruleset.turn_ends_when_no_goblin_can_act
+            && !self.has_goblin_able_to_act(team)
+        {
             self.finish_turn(TurnEndReason::NoGoblinCanAct, events);
         }
     }

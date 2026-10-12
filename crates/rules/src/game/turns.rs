@@ -38,7 +38,7 @@ impl<D: DiceRoller> Game<D> {
                 .into_iter()
                 .map(|goblin| GameEvent::StoodUp { goblin }),
         );
-        if !self.has_goblin_able_to_act(team) {
+        if self.ruleset.turn_ends_when_no_goblin_can_act && !self.has_goblin_able_to_act(team) {
             self.finish_turn(TurnEndReason::NoGoblinCanAct, events);
         }
     }

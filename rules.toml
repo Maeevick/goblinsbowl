@@ -20,6 +20,8 @@ stance_bonus_cap = 5
 # Whether a goblin keeps the steps it did not walk after its action, its Move and one action
 # per turn spent over several orders (false: its first order ends its turn).
 keeps_moving_after_action = false
+# Whether a turn ends on its own once no goblin can act (false: it waits for "end turn" or the clock).
+turn_ends_when_no_goblin_can_act = true
 
 # x out of bounds, O in bounds, H home den (west), A away den (east).
 arena = [

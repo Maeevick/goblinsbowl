@@ -60,6 +60,10 @@ pub struct Ruleset {
     /// per turn, spent over as many orders as its coach likes; otherwise its first order ends its turn.
     #[serde(default)]
     pub keeps_moving_after_action: bool,
+    /// Whether a turn ends on its own once no goblin of the team can act; otherwise it waits
+    /// for its coach to end it or for the clock to run out.
+    #[serde(default = "turns_end_on_their_own")]
+    pub turn_ends_when_no_goblin_can_act: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Characteristics per archetype.
@@ -94,6 +98,10 @@ fn uncapped_stance_bonus() -> u8 {
     5
 }
 
+fn turns_end_on_their_own() -> bool {
+    true
+}
+
 impl Default for Ruleset {
     fn default() -> Self {
         Self {
@@ -108,6 +116,7 @@ impl Default for Ruleset {
             kickoff_depth: 0,
             stance_bonus_cap: uncapped_stance_bonus(),
             keeps_moving_after_action: false,
+            turn_ends_when_no_goblin_can_act: turns_end_on_their_own(),
             arena: BOWL_15_MASK.iter().map(|row| (*row).to_string()).collect(),
             archetypes: ArchetypeCharacteristics {
                 bruiser: Characteristics {

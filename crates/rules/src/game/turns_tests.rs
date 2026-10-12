@@ -1,7 +1,7 @@
 //! Turn order across a match: per-team counters, half-time and the final whistle.
 
 use crate::characteristics::Archetype::{Bruiser, Sprinter};
-use crate::command::Command;
+use crate::command::{Activation, Command};
 use crate::event::{GameEvent, TurnEndReason};
 use crate::game::scenario::Scenario;
 use crate::square::Square;
@@ -15,6 +15,14 @@ fn small_match() -> Scenario {
     Scenario::new()
         .goblin("H1", Sprinter, 3, 7)
         .goblin("A1", Bruiser, 11, 7)
+}
+
+fn act(goblin: &str, path: &[(u8, u8)]) -> Command {
+    Command::Act(Activation {
+        goblin: goblin.parse().unwrap(),
+        path: path.iter().map(|(x, y)| Square::new(*x, *y)).collect(),
+        action: None,
+    })
 }
 
 #[test]
@@ -129,6 +137,50 @@ fn given_every_away_goblin_down_when_away_turn_starts_then_it_ends_at_once() {
         team: TeamId::AWAY,
         reason: TurnEndReason::NoGoblinCanAct
     }));
+}
+
+#[test]
+fn given_turns_that_wait_for_the_coach_when_away_starts_with_every_goblin_down_then_away_still_plays()
+ {
+    let mut game = small_match()
+        .rules(|ruleset| ruleset.turn_ends_when_no_goblin_can_act = false)
+        .edit("A1", |goblin| {
+            goblin.presence = Presence::Down(Square::new(11, 7))
+        })
+        .game([]);
+
+    game.apply(TeamId::HOME, Command::EndTurn).unwrap();
+
+    assert_eq!(game.state().active_team(), Some(TeamId::AWAY));
+}
+
+#[test]
+fn given_turns_that_wait_for_the_coach_when_the_last_home_goblin_acts_then_home_still_plays() {
+    let mut game = small_match()
+        .rules(|ruleset| ruleset.turn_ends_when_no_goblin_can_act = false)
+        .game([]);
+
+    game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+
+    assert_eq!(game.state().active_team(), Some(TeamId::HOME));
+}
+
+#[test]
+fn given_turns_that_wait_for_the_coach_when_home_ends_its_spent_turn_then_away_plays() {
+    let mut game = small_match()
+        .rules(|ruleset| ruleset.turn_ends_when_no_goblin_can_act = false)
+        .game([]);
+    game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+
+    let events = game.apply(TeamId::HOME, Command::EndTurn).unwrap();
+
+    assert_eq!(
+        events.first(),
+        Some(&GameEvent::TurnEnded {
+            team: TeamId::HOME,
+            reason: TurnEndReason::EndTurn
+        })
+    );
 }
 
 #[test]
