@@ -454,7 +454,7 @@ impl CoachServer {
                     .map(|planned_path| planned_path.squares)
                     .ok_or_else(|| {
                         format!(
-                            "{goblin} cannot reach [{}, {}] this activation (too far, blocked or out of the bowl)",
+                            "{goblin} cannot reach [{}, {}] with its steps left this turn (too far, blocked or out of the bowl)",
                             to[0], to[1]
                         )
                     })?

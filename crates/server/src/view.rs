@@ -74,15 +74,20 @@ pub struct GoblinView {
     pub max_health: u8,
     /// Braced in Stance (+1 defense to itself and adjacent teammates).
     pub in_stance: bool,
-    /// May still be activated this turn (only meaningful for the team playing).
+    /// May still be ordered this turn: it has steps or its action left (only meaningful for the
+    /// team playing).
     pub can_act: bool,
+    /// Steps it may still take this turn (only meaningful for the team playing).
+    pub steps_left: u8,
+    /// May still assault, brace in Stance or throw this turn (only meaningful for the team playing).
+    pub has_action_left: bool,
     /// Faces of the attack die.
     pub attack: u8,
     /// Faces of the defense die.
     pub defense: u8,
     /// Faces of the agility die.
     pub agility: u8,
-    /// Squares per activation.
+    /// Squares per turn.
     pub movement: u8,
 }
 
@@ -128,7 +133,9 @@ pub struct CoachView {
     pub time_left_ms: Option<u64>,
     /// Current half (1 or 2).
     pub half: u8,
-    /// Turns each team started in this half (10 per half).
+    /// Turns each team plays per half.
+    pub turns_per_half: u8,
+    /// Turns each team started in this half.
     pub turns_played: PerTeam,
     /// Points scored.
     pub score: PerTeam,
@@ -206,6 +213,7 @@ pub fn coach_view(
         version: snapshot.version,
         time_left_ms,
         half: state.half,
+        turns_per_half: ruleset.turns_per_half,
         turns_played: per_team(&state.turns_played),
         score: per_team(&state.score),
         ball: describe_ball(snapshot),
@@ -421,6 +429,8 @@ fn goblin_view(goblin: &Goblin) -> GoblinView {
         max_health: goblin.characteristics.health,
         in_stance: goblin.in_stance,
         can_act: goblin.can_act(),
+        steps_left: goblin.steps_left,
+        has_action_left: goblin.has_action_left,
         attack: goblin.characteristics.attack,
         defense: goblin.characteristics.defense,
         agility: goblin.characteristics.agility,
@@ -438,7 +448,7 @@ fn assault_options(
     let state = &snapshot.state;
     state
         .goblins_of(seat)
-        .filter(|goblin| goblin.can_act())
+        .filter(|goblin| goblin.can_act() && goblin.has_action_left)
         .flat_map(|attacker| {
             let square = attacker.square();
             state
@@ -621,6 +631,91 @@ mod tests {
         assert_eq!(
             view.ball_options.first().map(|option| option.kind.as_str()),
             Some("score")
+        );
+    }
+
+    fn attacker_next_to_an_enemy(host: &MatchHost, has_action_left: bool) -> CoachView {
+        let mut snapshot = host.snapshot();
+        let seat = snapshot.state.active_team().unwrap();
+        let attacker = snapshot.state.goblins_of(seat).next().unwrap().id;
+        let defender = snapshot
+            .state
+            .goblins_of(seat.duel_opponent())
+            .next()
+            .unwrap();
+        let target = defender.square().unwrap();
+        let beside = if seat == TeamId::HOME {
+            goblins_rules::square::Square::new(target.x - 1, target.y)
+        } else {
+            goblins_rules::square::Square::new(target.x + 1, target.y)
+        };
+        for goblin in &mut snapshot.state.goblins {
+            if goblin.id == attacker {
+                goblin.presence = Presence::Standing(beside);
+                goblin.has_action_left = has_action_left;
+            }
+        }
+        coach_view(
+            host.game().arena(),
+            host.game().ruleset(),
+            &snapshot,
+            seat,
+            &[],
+            OddsHints::Full,
+        )
+    }
+
+    #[test]
+    fn given_an_attacker_next_to_an_enemy_when_viewed_then_an_assault_option() {
+        let view = attacker_next_to_an_enemy(&kick_off(), true);
+        assert_eq!(view.assault_options.len(), 1);
+    }
+
+    #[test]
+    fn given_an_attacker_next_to_an_enemy_that_already_used_its_action_when_viewed_then_no_assault_option()
+     {
+        let view = attacker_next_to_an_enemy(&kick_off(), false);
+        assert!(view.assault_options.is_empty());
+    }
+
+    #[test]
+    fn given_a_goblin_that_used_its_action_when_viewed_then_its_steps_left_show_without_its_action()
+    {
+        let mut snapshot = kick_off().snapshot();
+        let seat = snapshot.state.active_team().unwrap();
+        let runner = snapshot.state.goblins_of(seat).nth(4).unwrap().id;
+        for goblin in &mut snapshot.state.goblins {
+            if goblin.id == runner {
+                goblin.steps_left = 2;
+                goblin.has_action_left = false;
+            }
+        }
+        let host = kick_off();
+        let view = coach_view(
+            host.game().arena(),
+            host.game().ruleset(),
+            &snapshot,
+            seat,
+            &[],
+            OddsHints::Full,
+        );
+        let seen = view
+            .goblins
+            .iter()
+            .find(|goblin| goblin.id == runner.to_string())
+            .unwrap();
+        assert_eq!(
+            (seen.steps_left, seen.has_action_left, seen.can_act),
+            (2, false, true)
+        );
+    }
+
+    #[test]
+    fn given_the_kick_off_when_viewed_then_the_turns_per_half_of_the_rules_show() {
+        let host = kick_off();
+        assert_eq!(
+            view_for(&host, TeamId::HOME, OddsHints::Full).turns_per_half,
+            host.game().ruleset().turns_per_half
         );
     }
 
