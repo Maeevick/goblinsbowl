@@ -17,7 +17,7 @@ use goblins_rules::team::TeamId;
 
 use crate::beats::{Beat, RollShown, beats_from_events};
 use crate::bowl_view::{BoardClick, square_centre};
-use crate::local_match::{MatchSystems, MatchView};
+use crate::local_match::{MatchRestarted, MatchSystems, MatchView};
 
 const WALK_SPEED: f32 = 7.0;
 const FALL_SPEED: f32 = 6.0;
@@ -244,12 +244,14 @@ impl Plugin for GoblinViewPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<BoardClick>()
             .add_message::<RollShown>()
+            .add_message::<MatchRestarted>()
             .init_resource::<Choreography>()
             .init_resource::<BowlAnimation>()
             .add_systems(Startup, (spawn_figures, spawn_ball))
             .add_systems(
                 Update,
                 (
+                    forget_the_last_match,
                     queue_beats,
                     play_beats,
                     report_animation,
@@ -710,6 +712,15 @@ fn spawn_ball(
             Pickable::IGNORE,
             NotShadowCaster,
         ));
+}
+
+fn forget_the_last_match(
+    mut restarts: MessageReader<MatchRestarted>,
+    mut choreography: ResMut<Choreography>,
+) {
+    if restarts.read().count() > 0 {
+        *choreography = Choreography::default();
+    }
 }
 
 fn queue_beats(view: Res<MatchView>, mut choreography: ResMut<Choreography>) {

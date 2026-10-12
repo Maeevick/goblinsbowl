@@ -14,7 +14,7 @@ use goblins_rules::team::TeamId;
 
 use crate::camera_rig::CameraRig;
 use crate::goblin_view::BowlAnimation;
-use crate::local_match::{MatchOrder, MatchSystems, MatchView};
+use crate::local_match::{MatchOrder, MatchRestarted, MatchSystems, MatchView};
 use crate::texts::Texts;
 
 pub(crate) const READING_FONT: &str = "fonts/Andika-Regular.ttf";
@@ -267,10 +267,6 @@ struct ReadyOverlay;
 #[derive(Component)]
 struct ReadyQuestion;
 #[derive(Component)]
-struct FinalOverlay;
-#[derive(Component)]
-struct FinalText;
-#[derive(Component)]
 struct RefusalText;
 #[derive(Component)]
 struct EndTurnLabel;
@@ -292,19 +288,9 @@ type ClockLabel<'w, 's> = Single<
     (With<ClockText>, Without<TurnLine>),
 >;
 type ReadyVisibility<'w, 's> =
-    Single<'w, 's, &'static mut Visibility, (With<ReadyOverlay>, Without<FinalOverlay>)>;
-type FinalVisibility<'w, 's> =
-    Single<'w, 's, &'static mut Visibility, (With<FinalOverlay>, Without<ReadyOverlay>)>;
-type ReadyButtonVisibility<'w, 's> = Single<
-    'w,
-    's,
-    &'static mut Visibility,
-    (
-        With<ReadyButton>,
-        Without<ReadyOverlay>,
-        Without<FinalOverlay>,
-    ),
->;
+    Single<'w, 's, &'static mut Visibility, (With<ReadyOverlay>, Without<ReadyButton>)>;
+type ReadyButtonVisibility<'w, 's> =
+    Single<'w, 's, &'static mut Visibility, (With<ReadyButton>, Without<ReadyOverlay>)>;
 
 #[derive(Resource, Default)]
 struct EndTurnConfirmation {
@@ -316,7 +302,8 @@ pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<EventLog>()
+        app.add_message::<MatchRestarted>()
+            .init_resource::<EventLog>()
             .init_resource::<EndTurnConfirmation>()
             .init_resource::<Handover>()
             .init_resource::<Headlines>()
@@ -328,6 +315,7 @@ impl Plugin for HudPlugin {
                         .in_set(MatchSystems::Apply)
                         .before(MatchSystems::Present),
                     (
+                        forget_the_last_match,
                         collect_log_lines,
                         refresh_scores,
                         refresh_turn_and_clock,
@@ -337,7 +325,6 @@ impl Plugin for HudPlugin {
                         refresh_headline,
                         follow_handover,
                         refresh_ready_overlay,
-                        refresh_final_overlay,
                         refresh_end_turn_label,
                         show_end_turn_to_humans,
                         restyle_buttons,
@@ -530,18 +517,9 @@ fn spawn_hud(mut commands: Commands, assets: Res<AssetServer>, texts: Res<Texts>
             ],
         )],
     ));
-    commands.spawn((
-        overlay(),
-        Visibility::Hidden,
-        FinalOverlay,
-        children![(
-            panel(),
-            children![(text_bundle("", &bold, 46.0, Color::WHITE), FinalText)]
-        )],
-    ));
 }
 
-fn overlay() -> impl Bundle {
+pub(crate) fn overlay() -> impl Bundle {
     (
         Node {
             position_type: PositionType::Absolute,
@@ -555,7 +533,7 @@ fn overlay() -> impl Bundle {
     )
 }
 
-fn panel() -> impl Bundle {
+pub(crate) fn panel() -> impl Bundle {
     (
         Node {
             flex_direction: FlexDirection::Column,
@@ -637,6 +615,22 @@ fn ready_pressed(
     }
 }
 
+fn forget_the_last_match(
+    mut restarts: MessageReader<MatchRestarted>,
+    mut log: ResMut<EventLog>,
+    mut headlines: ResMut<Headlines>,
+    mut handover: ResMut<Handover>,
+    mut confirmation: ResMut<EndTurnConfirmation>,
+) {
+    if restarts.read().count() == 0 {
+        return;
+    }
+    *log = EventLog::default();
+    *headlines = Headlines::default();
+    *handover = Handover::default();
+    confirmation.seconds_left = 0.0;
+}
+
 fn collect_log_lines(
     view: Res<MatchView>,
     texts: Res<Texts>,
@@ -713,6 +707,12 @@ fn refresh_turn_and_clock(
     mut clock: ClockLabel,
 ) {
     let state = &view.snapshot.state;
+    let (text, colour) = &mut *clock;
+    if state.phase == Phase::Finished {
+        turn_line.0 = texts.full_time().to_string();
+        text.0.clear();
+        return;
+    }
     let turn = state
         .active_team()
         .and_then(|team| state.turns_played.get(team.index()).copied())
@@ -725,7 +725,6 @@ fn refresh_turn_and_clock(
         TurnClock::Paused { remaining_ms } => (remaining_ms, true),
         TurnClock::Stopped => (0, false),
     };
-    let (text, colour) = &mut *clock;
     text.0 = if paused {
         format!("{} ‖", texts.clock(remaining_ms))
     } else {
@@ -819,27 +818,6 @@ fn refresh_ready_overlay(
         if quip.0 != wanted_quip {
             quip.0 = wanted_quip.to_string();
         }
-    }
-}
-
-fn refresh_final_overlay(
-    view: Res<MatchView>,
-    texts: Res<Texts>,
-    mut overlay: FinalVisibility,
-    mut final_line: Single<&mut Text, With<FinalText>>,
-) {
-    let state = &view.snapshot.state;
-    let is_over = state.phase == Phase::Finished;
-    **overlay = if is_over {
-        Visibility::Visible
-    } else {
-        Visibility::Hidden
-    };
-    if is_over {
-        final_line.0 = texts.final_whistle(
-            state.score.first().copied().unwrap_or_default(),
-            state.score.get(1).copied().unwrap_or_default(),
-        );
     }
 }
 

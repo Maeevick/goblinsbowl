@@ -181,6 +181,9 @@ fn forward_orders(
             MatchOrder::TogglePause => {
                 Err("the clock cannot be paused against an agent".to_string())
             }
+            MatchOrder::Restart => {
+                Err("a match against an agent cannot be started again from here".to_string())
+            }
         };
         if let Err(refusal) = outcome {
             view.refusal = Some(refusal);

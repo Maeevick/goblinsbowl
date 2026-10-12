@@ -45,7 +45,17 @@ pub enum MatchOrder {
     },
     /// Freeze or unfreeze the clock (matches between humans only).
     TogglePause,
+    /// Start a new match with the same teams and seats, and the next dice seed.
+    Restart,
 }
+
+/// A new match replaced the one that was played: screens forget what they kept of it.
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MatchRestarted;
+
+/// Present when the match runs inside the app and can be started again.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct RestartableMatch;
 
 /// Ordering of the match systems within a frame: orders are applied before screens present them.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -82,6 +92,8 @@ impl Plugin for LocalMatchPlugin {
             refusal: None,
         };
         app.add_message::<MatchOrder>()
+            .add_message::<MatchRestarted>()
+            .init_resource::<RestartableMatch>()
             .insert_resource(view)
             .insert_resource(LocalMatch {
                 host,
@@ -107,6 +119,7 @@ fn apply_orders(
     mut local: ResMut<LocalMatch>,
     mut view: ResMut<MatchView>,
     opening: Option<ResMut<OpeningEvents>>,
+    mut restarts: MessageWriter<MatchRestarted>,
 ) {
     view.fresh_events.clear();
     view.refusal = None;
@@ -134,6 +147,18 @@ fn apply_orders(
                 } else {
                     local.host.pause()
                 }
+            }
+            MatchOrder::Restart => {
+                let mut setup = local.host.record().setup.clone();
+                setup.seed = setup.seed.wrapping_add(1);
+                if let Ok((host, opening_events)) = MatchHost::start(setup) {
+                    local.host = host;
+                    local.clock_ran_before_orders = false;
+                    local.unspent_time = Duration::ZERO;
+                    view.fresh_events = opening_events;
+                    restarts.write(MatchRestarted);
+                }
+                Ok(())
             }
         };
         if let Err(refusal) = outcome {
@@ -199,6 +224,36 @@ mod tests {
 
     fn active_team(app: &App) -> TeamId {
         view(app).snapshot.state.active_team().unwrap()
+    }
+
+    #[test]
+    fn given_a_finished_match_when_restarted_then_a_new_match_kicks_off_with_the_next_seed() {
+        let mut app = app_with([SeatKind::Human, SeatKind::Human]);
+        app.world_mut().write_message(MatchOrder::Restart);
+
+        app.update();
+
+        let local = app.world().resource::<LocalMatch>();
+        assert_eq!(
+            (
+                local.host.record().setup.seed,
+                local.host.record().entries.len()
+            ),
+            (43, 0)
+        );
+    }
+
+    #[test]
+    fn given_a_restart_when_the_frame_runs_then_the_new_opening_events_are_fresh() {
+        let mut app = app_with([SeatKind::Human, SeatKind::Human]);
+        app.world_mut().write_message(MatchOrder::Restart);
+
+        app.update();
+
+        assert!(matches!(
+            view(&app).fresh_events.first(),
+            Some(GameEvent::CoinTossed { .. })
+        ));
     }
 
     #[test]

@@ -6,6 +6,8 @@ use bevy::input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseSc
 use bevy::prelude::*;
 use goblins_rules::team::TeamId;
 
+use crate::local_match::MatchRestarted;
+
 const YAW_KEY_SPEED: f32 = 1.6;
 const YAW_DRAG_SPEED: f32 = 0.006;
 const PAN_KEY_SPEED: f32 = 8.0;
@@ -105,9 +107,16 @@ pub struct CameraRigPlugin;
 
 impl Plugin for CameraRigPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CameraRig>()
+        app.add_message::<MatchRestarted>()
+            .init_resource::<CameraRig>()
             .add_systems(Startup, spawn_camera)
-            .add_systems(Update, (steer_rig, apply_rig).chain());
+            .add_systems(Update, (look_at_a_new_match, steer_rig, apply_rig).chain());
+    }
+}
+
+fn look_at_a_new_match(mut restarts: MessageReader<MatchRestarted>, mut rig: ResMut<CameraRig>) {
+    if restarts.read().count() > 0 {
+        *rig = CameraRig::default();
     }
 }
 

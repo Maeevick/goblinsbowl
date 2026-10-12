@@ -10,6 +10,7 @@ use goblins_rules::roster::GoblinId;
 use goblins_rules::team::TeamId;
 
 use crate::beats::ShownRoll;
+use crate::final_whistle::SheetEntry;
 
 const FRENCH_QUIPS: [&str; 16] = [
     "Un dokkaebi a perdu son gourdin magique. Il fouille sous les gradins.",
@@ -614,6 +615,93 @@ impl Texts {
         Some(headline)
     }
 
+    /// What the turn line reads once the match is over.
+    pub fn full_time(&self) -> &'static str {
+        if self.french() {
+            "Fin du match"
+        } else {
+            "Full time"
+        }
+    }
+
+    /// Title of the end-of-match screen.
+    pub fn final_title(&self) -> &'static str {
+        if self.french() {
+            "Coup de sifflet final !"
+        } else {
+            "Final whistle!"
+        }
+    }
+
+    /// The result of the match: who won, and the score.
+    pub fn final_result(&self, home_score: u8, away_score: u8) -> String {
+        let winner = match home_score.cmp(&away_score) {
+            std::cmp::Ordering::Greater => Some(TeamId::HOME),
+            std::cmp::Ordering::Less => Some(TeamId::AWAY),
+            std::cmp::Ordering::Equal => None,
+        };
+        match (winner, self.french()) {
+            (Some(team), true) => format!(
+                "Victoire des {}, {home_score} à {away_score}",
+                self.team_name(team)
+            ),
+            (Some(team), false) => format!(
+                "The {} win, {home_score} to {away_score}",
+                self.team_name(team)
+            ),
+            (None, true) => format!("Match nul, {home_score} à {away_score}"),
+            (None, false) => format!("Draw, {home_score} to {away_score}"),
+        }
+    }
+
+    /// What a line of the final scoresheet counts, with the meaning of its two numbers.
+    pub fn sheet_label(&self, entry: SheetEntry) -> &'static str {
+        match (entry, self.french()) {
+            (SheetEntry::Assaults, true) => "Assauts (gagnés / perdus)",
+            (SheetEntry::Assaults, false) => "Assaults (won / lost)",
+            (SheetEntry::BracedDefences, true) => "Défenses en Garde (tenues / tombées)",
+            (SheetEntry::BracedDefences, false) => "Defences in Stance (held / fell)",
+            (SheetEntry::OpenDefences, true) => "Défenses sans Garde (tenues / tombées)",
+            (SheetEntry::OpenDefences, false) => "Defences without Stance (held / fell)",
+            (SheetEntry::Dodges, true) => "Esquives (réussies / ratées)",
+            (SheetEntry::Dodges, false) => "Dodges (made / failed)",
+            (SheetEntry::Passes, true) => "Passes (réussies / ratées)",
+            (SheetEntry::Passes, false) => "Passes (completed / failed)",
+            (SheetEntry::Catches, true) => "Réceptions (réussies / ratées)",
+            (SheetEntry::Catches, false) => "Catches (held / dropped)",
+            (SheetEntry::Pickups, true) => "Ramassages (réussis / ratés)",
+            (SheetEntry::Pickups, false) => "Pick-ups (made / failed)",
+            (SheetEntry::Interceptions, true) => "Interceptions (réussies / ratées)",
+            (SheetEntry::Interceptions, false) => "Interceptions (made / missed)",
+            (SheetEntry::StepsWithTheBall, true) => "Cases courues avec la balle",
+            (SheetEntry::StepsWithTheBall, false) => "Squares run with the ball",
+            (SheetEntry::LongestPass, true) => "Plus longue passe réussie (cases)",
+            (SheetEntry::LongestPass, false) => "Longest completed pass (squares)",
+            (SheetEntry::PassDistance, true) => "Distance des passes réussies (cases)",
+            (SheetEntry::PassDistance, false) => "Completed pass distance (squares)",
+            (SheetEntry::KnockOuts, true) => "Gobelins KO",
+            (SheetEntry::KnockOuts, false) => "Goblins knocked out",
+            (SheetEntry::TurnEndings, true) => "Fins de tour (choix · temps · chute · fumble)",
+            (SheetEntry::TurnEndings, false) => {
+                "Turn endings (choice · clock · knockdown · fumble)"
+            }
+        }
+    }
+
+    /// Label of the button starting a new match.
+    pub fn play_again_button(&self) -> &'static str {
+        if self.french() {
+            "Rejouer"
+        } else {
+            "Play again"
+        }
+    }
+
+    /// Label of the button closing the game.
+    pub fn quit_button(&self) -> &'static str {
+        if self.french() { "Quitter" } else { "Quit" }
+    }
+
     /// Final line once the match is over.
     pub fn final_whistle(&self, home_score: u8, away_score: u8) -> String {
         if self.french() {
@@ -1020,6 +1108,24 @@ mod tests {
             reason: TurnEndReason::EndTurn,
         };
         assert_eq!(FRENCH.headline(&event), None);
+    }
+
+    #[test]
+    fn given_an_away_win_when_giving_the_result_in_french_then_the_winner_and_the_score() {
+        assert_eq!(FRENCH.final_result(1, 2), "Victoire des Leprechauns, 1 à 2");
+    }
+
+    #[test]
+    fn given_a_level_score_when_giving_the_result_in_english_then_a_draw() {
+        assert_eq!(ENGLISH.final_result(0, 0), "Draw, 0 to 0");
+    }
+
+    #[test]
+    fn given_french_when_labelling_braced_defences_then_held_and_fell() {
+        assert_eq!(
+            FRENCH.sheet_label(SheetEntry::BracedDefences),
+            "Défenses en Garde (tenues / tombées)"
+        );
     }
 
     #[test]

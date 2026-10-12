@@ -22,7 +22,7 @@ use goblins_rules::validation::validate_activation;
 use crate::bowl_view::{BoardClick, square_centre};
 use crate::goblin_view::GoblinFigure;
 use crate::hud::{BOLD_FONT, READING_FONT, button, human_team_in_control, text_bundle};
-use crate::local_match::{MatchOrder, MatchSystems, MatchView};
+use crate::local_match::{MatchOrder, MatchRestarted, MatchSystems, MatchView};
 use crate::texts::Texts;
 
 const MARK_LIFT: f32 = 0.012;
@@ -386,6 +386,7 @@ impl Plugin for OrdersPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PreparedOrder>()
             .add_message::<BoardClick>()
+            .add_message::<MatchRestarted>()
             .add_systems(
                 Startup,
                 (spawn_marks, spawn_selection_ring, spawn_order_bar),
@@ -393,6 +394,7 @@ impl Plugin for OrdersPlugin {
             .add_systems(
                 Update,
                 (
+                    forget_the_last_match,
                     react_to_board_clicks,
                     release_on_escape,
                     keep_prepared_order,
@@ -558,6 +560,15 @@ fn react_to_board_clicks(
             });
         }
         prepared.0 = prepared_after(reaction, prepared.0.take());
+    }
+}
+
+fn forget_the_last_match(
+    mut restarts: MessageReader<MatchRestarted>,
+    mut prepared: ResMut<PreparedOrder>,
+) {
+    if restarts.read().count() > 0 {
+        prepared.0 = None;
     }
 }
 
