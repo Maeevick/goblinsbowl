@@ -639,7 +639,7 @@ mod tests {
         let scenario = Scenario::new()
             .goblin("H9", Thrower, 4, 7)
             .goblin("H5", Sprinter, 9, 7)
-            .edit("H5", |goblin| goblin.has_acted = true)
+            .edit("H5", Goblin::spend_its_turn)
             .ball_carried_by("H9");
         assert_eq!(
             activation(choose(scenario)),
@@ -671,7 +671,7 @@ mod tests {
         let scenario = Scenario::new()
             .goblin("H1", Bruiser, 9, 7)
             .goblin("H5", Sprinter, 7, 7)
-            .edit("H5", |goblin| goblin.has_acted = true)
+            .edit("H5", Goblin::spend_its_turn)
             .ball_carried_by("H5");
         let chosen = activation(choose(scenario));
         assert!(
@@ -689,7 +689,7 @@ mod tests {
         let scenario = Scenario::new()
             .goblin("H1", Bruiser, 4, 7)
             .goblin("H5", Sprinter, 7, 7)
-            .edit("H5", |goblin| goblin.has_acted = true)
+            .edit("H5", Goblin::spend_its_turn)
             .ball_carried_by("H5");
         let chosen = activation(choose(scenario));
         assert_eq!(
@@ -727,7 +727,7 @@ mod tests {
     fn given_every_goblin_already_acted_when_choosing_then_the_turn_ends() {
         let scenario = Scenario::new()
             .goblin("H5", Sprinter, 7, 7)
-            .edit("H5", |goblin| goblin.has_acted = true)
+            .edit("H5", Goblin::spend_its_turn)
             .ball_loose_at(9, 7);
         assert_eq!(choose(scenario), Command::EndTurn);
     }

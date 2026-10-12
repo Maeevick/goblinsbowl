@@ -74,7 +74,7 @@ impl<D: DiceRoller> Game<D> {
             goblin.health = health;
             goblin.presence = Presence::Standing(square);
             goblin.in_stance = false;
-            goblin.has_acted = false;
+            goblin.refresh_its_turn();
         }
     }
 

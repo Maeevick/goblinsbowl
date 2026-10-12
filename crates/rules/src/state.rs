@@ -49,8 +49,10 @@ pub struct Goblin {
     pub presence: Presence,
     /// Whether it braced in Stance since its team's last turn started.
     pub in_stance: bool,
-    /// Whether it already used its activation this turn.
-    pub has_acted: bool,
+    /// Steps it may still take this turn.
+    pub steps_left: u8,
+    /// Whether it may still Assault, brace in Stance or Throw this turn.
+    pub has_action_left: bool,
 }
 
 impl Goblin {
@@ -69,9 +71,21 @@ impl Goblin {
         self.presence.is_standing()
     }
 
-    /// Whether it may still be activated this turn.
+    /// Whether it may still be ordered this turn: standing, with steps or its action left.
     pub fn can_act(&self) -> bool {
-        self.is_standing() && !self.has_acted
+        self.is_standing() && (self.steps_left > 0 || self.has_action_left)
+    }
+
+    /// Gives it a whole turn: every step of its Move and its action.
+    pub fn refresh_its_turn(&mut self) {
+        self.steps_left = self.characteristics.movement;
+        self.has_action_left = true;
+    }
+
+    /// Spends whatever is left of its turn: no step, no action.
+    pub fn spend_its_turn(&mut self) {
+        self.steps_left = 0;
+        self.has_action_left = false;
     }
 }
 
@@ -230,7 +244,8 @@ mod tests {
             health: 6,
             presence,
             in_stance: false,
-            has_acted: false,
+            steps_left: 3,
+            has_action_left: true,
         }
     }
 
@@ -285,12 +300,37 @@ mod tests {
     }
 
     #[test]
-    fn given_goblin_that_acted_when_asking_if_it_can_act_then_no() {
-        let tired = Goblin {
-            has_acted: true,
+    fn given_goblin_that_spent_its_turn_when_asking_if_it_can_act_then_no() {
+        let mut tired = standing("H1", 3, 4);
+        tired.spend_its_turn();
+        assert!(!tired.can_act());
+    }
+
+    #[test]
+    fn given_goblin_with_steps_but_no_action_left_when_asking_if_it_can_act_then_yes() {
+        let runner = Goblin {
+            has_action_left: false,
             ..standing("H1", 3, 4)
         };
-        assert!(!tired.can_act());
+        assert!(runner.can_act());
+    }
+
+    #[test]
+    fn given_goblin_with_its_action_but_no_step_left_when_asking_if_it_can_act_then_yes() {
+        let hitter = Goblin {
+            steps_left: 0,
+            ..standing("H1", 3, 4)
+        };
+        assert!(hitter.can_act());
+    }
+
+    #[test]
+    fn given_goblin_that_spent_its_turn_when_its_turn_is_refreshed_then_its_whole_move_and_action_are_back()
+     {
+        let mut rested = standing("H1", 3, 4);
+        rested.spend_its_turn();
+        rested.refresh_its_turn();
+        assert_eq!((rested.steps_left, rested.has_action_left), (3, true));
     }
 
     #[test]

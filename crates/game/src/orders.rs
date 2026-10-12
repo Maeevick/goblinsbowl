@@ -710,7 +710,7 @@ mod tests {
         .state;
         for goblin in &mut state.goblins {
             goblin.presence = Presence::KnockedOut;
-            goblin.has_acted = false;
+            goblin.refresh_its_turn();
             goblin.in_stance = false;
         }
         for (name, x, y) in standing {
@@ -784,7 +784,7 @@ mod tests {
     #[test]
     fn given_a_draft_for_a_goblin_that_acted_when_keeping_it_then_it_is_dropped() {
         let mut state = board(&[("H5", 7, 7)], None);
-        state.goblins[4].has_acted = true;
+        state.goblins[4].spend_its_turn();
         assert_eq!(
             keep_draft(
                 &Arena::bowl_15(),
@@ -847,7 +847,7 @@ mod tests {
     #[test]
     fn given_nothing_selected_when_clicking_a_goblin_that_already_acted_then_nothing_happens() {
         let mut state = board(&[("H5", 7, 7)], None);
-        state.goblins[4].has_acted = true;
+        state.goblins[4].spend_its_turn();
         assert_eq!(
             react(&state, None, BoardClick::Goblin(id("H5"))),
             Reaction::Ignore

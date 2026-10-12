@@ -46,7 +46,8 @@ impl Scenario {
             health: characteristics.health,
             presence: Presence::Standing(Square::new(x, y)),
             in_stance: false,
-            has_acted: false,
+            steps_left: characteristics.movement,
+            has_action_left: true,
         });
         self
     }

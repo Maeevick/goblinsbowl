@@ -51,7 +51,7 @@ impl<D: DiceRoller> Game<D> {
             }
         }
         if let Some(goblin) = self.state.goblin_mut(id) {
-            goblin.has_acted = true;
+            goblin.spend_its_turn();
         }
         let turn_ending = match activation.action {
             None => None,
@@ -90,7 +90,7 @@ impl<D: DiceRoller> Game<D> {
             return true;
         }
         if let Some(picker) = self.state.goblin_mut(id) {
-            picker.has_acted = true;
+            picker.spend_its_turn();
         }
         self.bounce_ball(at, events);
         false
@@ -120,7 +120,7 @@ impl<D: DiceRoller> Game<D> {
         }
         let damage = contest.margin.unsigned_abs().saturating_sub(1);
         if let Some(dodger) = self.state.goblin_mut(id) {
-            dodger.has_acted = true;
+            dodger.spend_its_turn();
         }
         self.knock_down(id, damage, events);
         false
@@ -210,10 +210,10 @@ mod tests {
     }
 
     #[test]
-    fn given_an_empty_path_when_a_goblin_acts_then_it_stays_and_has_acted() {
+    fn given_an_empty_path_when_a_goblin_acts_then_it_stays_and_cannot_act_again() {
         let mut game = two_sprinters_apart().game([]);
         game.apply(TeamId::HOME, act("H1", &[])).unwrap();
-        assert!(game.state().goblin(id("H1")).unwrap().has_acted);
+        assert!(!game.state().goblin(id("H1")).unwrap().can_act());
     }
 
     #[test]

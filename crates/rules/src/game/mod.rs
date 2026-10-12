@@ -92,7 +92,8 @@ impl<D: DiceRoller> Game<D> {
                             health: characteristics.health,
                             presence: Presence::Standing(square),
                             in_stance: false,
-                            has_acted: false,
+                            steps_left: characteristics.movement,
+                            has_action_left: true,
                         }
                     })
                     .collect::<Vec<_>>()

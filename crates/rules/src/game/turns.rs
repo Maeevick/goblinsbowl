@@ -25,11 +25,11 @@ impl<D: DiceRoller> Game<D> {
             .iter_mut()
             .filter(|goblin| goblin.team() == team)
         {
-            goblin.has_acted = false;
+            goblin.refresh_its_turn();
             goblin.in_stance = false;
             if let Presence::Down(square) = goblin.presence {
                 goblin.presence = Presence::Standing(square);
-                goblin.has_acted = true;
+                goblin.spend_its_turn();
                 stood_up.push(goblin.id);
             }
         }

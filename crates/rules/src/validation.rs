@@ -29,7 +29,7 @@ pub fn validate_activation(
     let Presence::Standing(start) = goblin.presence else {
         return Err(RuleViolation::NotStanding { goblin: id });
     };
-    if goblin.has_acted {
+    if !goblin.can_act() {
         return Err(RuleViolation::AlreadyActed { goblin: id });
     }
     let movement = goblin.characteristics.movement;
