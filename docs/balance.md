@@ -56,3 +56,32 @@ Both help and they add up, but the game stays low-scoring, and a capped Stance t
 4. **Make Stance cost something**, for example no Stance after moving, or a Stance bonus for neighbours only when the braced goblin did not move.
 
 For the agent assessment this matters too: under rules 0.1 agents will rarely score, so risk shows mostly in fights and pick-ups. Running the assessment on the 0.2 candidate would give more decisions with real stakes.
+
+## Rules 0.2, 12 Oct 2026
+
+Rules 0.2 as shipped in `rules.toml`: the 21 × 21 bowl with 11-square dens, 12 turns per half, the scrimmage kick-off formation, goblins that keep moving after their action, and turns that wait for their coach; `kickoff_depth` and `stance_bonus_cap` keep their 0.1 values. Same coaches, seeds 1 to 1,000.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Stances per team turn | Knock-outs per match |
+|---|---|---|---|---|---|---|
+| cautious vs cautious | 2.8 % | 1.8 % | 95.4 % | 0.05 | 3.71 | 0.23 |
+| bold vs bold | 30.8 % | 18.3 % | 50.9 % | 0.70 | 2.35 | 5.86 |
+| cautious vs bold | 15.6 % | 7.8 % | 76.6 % | 0.26 | 3.19 | 4.04 |
+| bold vs cautious | 11.1 % | 9.9 % | 79.0 % | 0.23 | 3.04 | 3.66 |
+| cautious vs random | 93.4 % | 0 % | 6.6 % | 1.84 | 1.73 | 2.24 |
+| bold vs random | 99.1 % | 0 % | 0.9 % | 2.75 | 1.13 | 1.77 |
+
+What the numbers say:
+
+- **More goals, but careful coaches still wall up.** Goals per match rise in every pairing, from 0.25 to 0.70 in the bold mirror, whose draws fall from 77.5 % to 50.9 %. Two cautious coaches still draw 95.4 % of their matches with 3.7 stances per team turn: room to run does not break a Stance wall on its own.
+- **A bigger risk appetite still does not pay against a careful opponent.** Over both seats, cautious wins 25.5 % of its matches against bold, bold 18.9 % against cautious.
+- **A home edge appears** (30.8 % against 18.3 % in the bold mirror, home ahead in both mixed pairings) where rules 0.1 showed none, while receiving the opening kick-off still gives nothing. The rules are symmetric under the east-west mirror, the scripted coaches are not: they break ties by square order, which picks different moves for a team attacking east than for one attacking west. Worth checking before reading it as a bias of the rules.
+- **Fights rather than passes.** The bold mirror makes 35.6 assaults and 1.0 throw per match, and no pass is ever intercepted.
+
+The two knobs on top of rules 0.2 (`kickoff_depth = 3`, `stance_bonus_cap = 1`), same seeds:
+
+| Variant | Cautious mirror: draws, goals per match | Bold mirror: draws, goals per match | Bold mirror: knock-outs per match |
+|---|---|---|---|
+| rules 0.2 | 95.4 %, 0.05 | 50.9 %, 0.70 | 5.86 |
+| rules 0.2 with both knobs | 53.5 %, 0.72 | 35.4 %, 1.27 | 8.05 |
+
+With both knobs the cautious mirror ends level in only half of its matches and scores fourteen times as often, the largest shift measured so far, while bold matches get bloodier (8 knock-outs per match).
