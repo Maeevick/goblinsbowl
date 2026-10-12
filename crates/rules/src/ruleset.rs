@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use crate::arena::{Arena, ArenaError, BOWL_15_MASK};
 use crate::characteristics::{Archetype, Characteristics};
+use crate::formation::{Formation, FormationError};
 use crate::roster::{CountLimit, Roster, RosterError, RosterLimits};
 
 /// Characteristics of each archetype.
@@ -66,6 +67,9 @@ pub struct Ruleset {
     pub turn_ends_when_no_goblin_can_act: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
+    /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
+    #[serde(default, skip_serializing_if = "Formation::is_den_lines")]
+    pub formation: Formation,
     /// Characteristics per archetype.
     pub archetypes: ArchetypeCharacteristics,
     /// Allowed count per archetype in a roster.
@@ -92,6 +96,9 @@ pub enum RulesetError {
     /// A match without halves or turns cannot be played.
     #[error("a match needs at least one half and one turn per half")]
     NoTurns,
+    /// The kick-off formation cannot line a team up.
+    #[error(transparent)]
+    Formation(#[from] FormationError),
 }
 
 fn uncapped_stance_bonus() -> u8 {
@@ -118,6 +125,7 @@ impl Default for Ruleset {
             keeps_moving_after_action: false,
             turn_ends_when_no_goblin_can_act: turns_end_on_their_own(),
             arena: BOWL_15_MASK.iter().map(|row| (*row).to_string()).collect(),
+            formation: Formation::DenLines,
             archetypes: ArchetypeCharacteristics {
                 bruiser: Characteristics {
                     attack: 4,
@@ -168,12 +176,12 @@ impl Ruleset {
     ///
     /// # Errors
     /// A [`RulesetError`] naming the first problem found: no turns, invalid arena,
-    /// unplayable archetype, then invalid default roster.
+    /// unplayable archetype, invalid default roster, then a formation that cannot line a team up.
     pub fn validate(&self) -> Result<(), RulesetError> {
         if self.halves == 0 || self.turns_per_half == 0 {
             return Err(RulesetError::NoTurns);
         }
-        self.build_arena()?;
+        let arena = self.build_arena()?;
         if let Some(archetype) = Archetype::ALL
             .into_iter()
             .find(|archetype| !self.archetypes.of(*archetype).is_playable())
@@ -182,6 +190,7 @@ impl Ruleset {
         }
         self.default_roster
             .validate(self.team_size, &self.roster_limits)?;
+        self.formation.validate(&arena, self.team_size)?;
         Ok(())
     }
 
@@ -247,6 +256,20 @@ mod tests {
             ..Ruleset::default()
         };
         assert!(matches!(ruleset.validate(), Err(RulesetError::Arena(_))));
+    }
+
+    #[test]
+    fn given_a_formation_too_short_for_the_team_when_validated_then_formation_error() {
+        let ruleset = Ruleset {
+            formation: Formation::Lines(Vec::new()),
+            ..Ruleset::default()
+        };
+        assert!(matches!(
+            ruleset.validate(),
+            Err(RulesetError::Formation(
+                FormationError::TooFewSquares { .. }
+            ))
+        ));
     }
 
     #[test]

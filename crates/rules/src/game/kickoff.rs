@@ -20,7 +20,7 @@ impl<D: DiceRoller> Game<D> {
         events.push(GameEvent::KickedOff { receiving_team });
         for team in TeamId::DUEL {
             let roster = self.state.rosters[team.index()];
-            let lineup = kickoff_squares(&self.arena, team, &roster);
+            let lineup = kickoff_squares(&self.arena, &self.ruleset.formation, team, &roster);
             let ids: Vec<GoblinId> = self
                 .state
                 .goblins_of(team)

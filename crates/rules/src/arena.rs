@@ -26,6 +26,32 @@ pub const BOWL_15_MASK: [&str; 15] = [
     "xxxOOOOOOOOOxxx",
 ];
 
+/// Mask of the large bowl: a 21 × 21 grid with its four 5 × 5 corners cut out (341 squares),
+/// each den 11 squares long.
+pub const BOWL_21_MASK: [&str; 21] = [
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+];
+
 /// Mask of the compact bowl: a 12 × 12 grid with its four 3 × 3 corners cut out (108 squares).
 pub const BOWL_12_MASK: [&str; 12] = [
     "xxxOOOOOOxxx",
@@ -220,6 +246,22 @@ mod tests {
     #[test]
     fn given_bowl_15_mask_when_parsed_then_189_squares_are_in_bounds() {
         assert_eq!(Arena::bowl_15().in_bounds_squares().count(), 189);
+    }
+
+    #[test]
+    fn given_bowl_21_mask_when_parsed_then_341_squares_are_in_bounds() {
+        let arena = Arena::from_mask(&BOWL_21_MASK).unwrap();
+        assert_eq!(arena.in_bounds_squares().count(), 341);
+    }
+
+    #[test]
+    fn given_bowl_21_mask_when_listing_the_away_den_then_eleven_squares_on_the_east_edge() {
+        let arena = Arena::from_mask(&BOWL_21_MASK).unwrap();
+        let den: Vec<Square> = arena.den_squares(TeamId::AWAY).collect();
+        assert_eq!(
+            den,
+            (5..=15).map(|y| Square::new(20, y)).collect::<Vec<_>>()
+        );
     }
 
     #[test]

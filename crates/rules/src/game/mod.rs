@@ -79,7 +79,7 @@ impl<D: DiceRoller> Game<D> {
             .into_iter()
             .zip(&rosters)
             .flat_map(|(team, roster)| {
-                let lineup = kickoff_squares(&arena, team, roster);
+                let lineup = kickoff_squares(&arena, &ruleset.formation, team, roster);
                 roster
                     .archetypes_by_number()
                     .into_iter()
