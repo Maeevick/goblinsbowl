@@ -1,10 +1,10 @@
-# Goblins Bowl, règles 0.1
+# Goblins Bowl, règles 0.2
 
 *English version below.*
 
 ## Le bowl
 
-Un grand bol en forme de croix : 15 × 15 cases, sans les quatre coins de 3 × 3 (189 cases). Chaque branche se termine par une rangée de 9 cases, la **tanière**. Les gobelins de gauche (domicile) défendent la tanière ouest, ceux de droite (visiteurs) la tanière est. Les branches nord et sud sont des recoins pour se cacher ou contourner.
+Un grand bol en forme de croix : 21 × 21 cases, sans les quatre coins de 5 × 5 (341 cases). Chaque branche se termine par une rangée de 11 cases, la **tanière**. Les gobelins de gauche (domicile) défendent la tanière ouest, ceux de droite (visiteurs) la tanière est. Les branches nord et sud sont des recoins pour se cacher ou contourner.
 
 On se déplace et on est voisin **en ligne droite seulement** (haut, bas, gauche, droite), jamais en diagonale.
 
@@ -20,7 +20,9 @@ On se déplace et on est voisin **en ligne droite seulement** (haut, bas, gauche
 
 ## Un tour
 
-Chaque équipe a **60 secondes** par tour et **10 tours par mi-temps**, deux mi-temps. Pendant son tour, chaque gobelin peut agir **une fois** : il avance de cases (jusqu'à son Mouvement, sans traverser personne), puis fait au plus une action, qui termine son activation : **Assaut**, **Garde** ou **Lancer**.
+Chaque équipe a **60 secondes** par tour et **12 tours par mi-temps**, deux mi-temps. Pendant son tour, chaque gobelin a son **Mouvement** en cases et **une action** : **Assaut**, **Garde** ou **Lancer**. Il les dépense en autant d'ordres que tu veux, quand tu veux : il peut avancer, agir, laisser jouer un coéquipier, puis repartir avec les cases qui lui restent, sans jamais traverser personne.
+
+Le tour s'arrête quand tu appuies sur **Fin du tour**, quand le temps est écoulé, quand une équipe marque ou quand une action rate, même si plus aucun gobelin ne peut jouer.
 
 **Si une action rate, le tour s'arrête tout de suite.** C'est tout le jeu : fais d'abord ce qui est sûr, garde le risqué pour la fin.
 
@@ -51,11 +53,21 @@ Un gobelin à terre ne bloque plus personne, perd sa Garde, lâche la balle et p
 
 ## Marquer
 
-Un gobelin debout avec la balle dans la tanière ennemie marque 1 point, même pendant le tour adverse. Ensuite, **coup d'envoi** : tout le monde reprend sa place, tous les gobelins retrouvent leur Santé (sauf les KO, qui lancent leur dé de Santé), la balle tombe au centre et rebondit une fois, et l'équipe qui vient d'encaisser joue en premier.
+Un gobelin debout avec la balle dans la tanière ennemie marque 1 point, même pendant le tour adverse. Ensuite, **coup d'envoi** : tout le monde reprend sa place de départ, tous les gobelins retrouvent leur Santé (sauf les KO, qui lancent leur dé de Santé), la balle tombe au centre et rebondit une fois, et l'équipe qui vient d'encaisser joue en premier.
+
+## Le coup d'envoi
+
+Chaque équipe se place dans sa moitié, en miroir de l'autre. On compte les colonnes depuis la colonne du centre vers sa tanière, et les rangées depuis la rangée du centre.
+
+- **Ligne de mêlée**, 1 colonne derrière le centre, rangées −1, 0 et +1 : les Cogneurs d'abord, puis les Sprinteurs, puis le Lanceur.
+- **Ailes**, 3 colonnes derrière, rangées −5, −4, +4 et +5 : les Sprinteurs d'abord.
+- **Fond**, 8 colonnes derrière, à deux pas de sa tanière, rangées −2 et +2 : le Lanceur d'abord.
+
+Avec l'équipe de base : 3 Cogneurs sur la ligne de mêlée, les 4 Sprinteurs sur les ailes, le Lanceur et le 4e Cogneur au fond.
 
 ## Pour jouer sur papier
 
-Un quadrillage 15 × 15 (on raye les coins de 3 × 3), des jetons avec les numéros, une pièce pour le dé à 2 faces, un dé à 6 faces pour le dé à 3 faces (1-2 = 1, 3-4 = 2, 5-6 = 3), un dé à 4 faces et un dé à 6 faces. Le chronomètre du téléphone pour les 60 secondes (ou 90 pour commencer).
+Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numéros, une pièce pour le dé à 2 faces, un dé à 6 faces pour le dé à 3 faces (1-2 = 1, 3-4 = 2, 5-6 = 3), un dé à 4 faces et un dé à 6 faces. Le chronomètre du téléphone pour les 60 secondes (ou 90 pour commencer).
 
 ## Quelques chances
 
@@ -71,11 +83,11 @@ Un quadrillage 15 × 15 (on raye les coins de 3 × 3), des jetons avec les numé
 
 ---
 
-# Goblins Bowl, rules 0.1
+# Goblins Bowl, rules 0.2
 
 ## The bowl
 
-A cross-shaped bowl: 15 × 15 squares without its four 3 × 3 corners (189 squares). Each arm ends in a 9-square **den**. Home defends the west den, away the east den; the north and south arms are side pockets.
+A cross-shaped bowl: 21 × 21 squares without its four 5 × 5 corners (341 squares). Each arm ends in an 11-square **den**. Home defends the west den, away the east den; the north and south arms are side pockets.
 
 Moves and adjacency are **orthogonal only**, never diagonal.
 
@@ -91,7 +103,9 @@ Moves and adjacency are **orthogonal only**, never diagonal.
 
 ## A turn
 
-**60 seconds** per turn, **10 turns per team per half**, two halves. Each goblin acts **once** per turn: it moves up to its Move (never through a goblin), then takes at most one action, which ends its activation: **Assault**, **Stance** or **Throw**.
+**60 seconds** per turn, **12 turns per team per half**, two halves. In its team's turn each goblin has its **Move** in steps and **one action**: **Assault**, **Stance** or **Throw**. It spends them over as many orders as its coach likes, in any order: it may walk, act, let a teammate play, then walk on with the steps it has left, never through a goblin.
+
+A turn ends when its coach ends it, when its clock runs out, when a team scores or when an action fails, even once no goblin can act.
 
 **Any failed action ends the turn at once.** Play safe actions first, risky ones last.
 
@@ -120,10 +134,20 @@ A downed goblin has no reach, loses its Stance, drops the ball and can still be 
 
 ## Scoring
 
-A standing goblin holding the ball in the enemy den scores, in either team's turn. Then the **kick-off**: formations reset, everyone heals (KO goblins roll their Health die), the ball drops on the centre square and bounces once, and the team that conceded plays first.
+A standing goblin holding the ball in the enemy den scores, in either team's turn. Then the **kick-off**: everyone goes back to the kick-off formation, everyone heals (KO goblins roll their Health die), the ball drops on the centre square and bounces once, and the team that conceded plays first.
+
+## Kick-off formation
+
+Each team lines up in its own half, mirroring the other. Columns are counted from the centre column towards the team's den, rows from the centre row.
+
+- **Scrimmage line**, 1 column behind the centre, rows −1, 0 and +1: Bruisers first, then Sprinters, then Throwers.
+- **Wings**, 3 columns behind, rows −5, −4, +4 and +5: Sprinters first.
+- **Back**, 8 columns behind, two steps from the team's den, rows −2 and +2: Throwers first.
+
+With the default team: 3 Bruisers on the scrimmage line, the 4 Sprinters on the wings, the Thrower and the 4th Bruiser at the back.
 
 ## Paper playtest kit
 
-A 15 × 15 grid with the 3 × 3 corners crossed out, numbered tokens, a coin for the d2, a d6 for the d3 (1-2, 3-4, 5-6), a d4 and a d6, and a phone timer (90 s for the first games).
+A 21 × 21 grid with the 5 × 5 corners crossed out, numbered tokens, a coin for the d2, a d6 for the d3 (1-2, 3-4, 5-6), a d4 and a d6, and a phone timer (90 s for the first games).
 
 Every number above is tunable in `rules.toml`.

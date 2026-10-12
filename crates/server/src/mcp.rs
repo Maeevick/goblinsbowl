@@ -39,15 +39,26 @@ use crate::view::{CoachView, OddsHints, coach_view, odds_lines};
 const LONGEST_WAIT_SECONDS: u64 = 50;
 const DEFAULT_WAIT_SECONDS: u64 = 45;
 const RULES: &str = include_str!("../../../docs/rules.md");
-const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.1";
+const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.2";
 
 const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based goblin football game played with dice. \
-Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several activations per call, \
+Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
 resolved in order; add end_turn=true on your last call), then wait again, until status is game_over. \
-Any failed dodge, assault, pick, throw or catch ends your turn at once, so order safe activations first and keep \
-risky ones for last. Each turn has a clock (time_left_ms): when it runs out the turn ends. Use play with \
-dry_run=true to get exact odds without rolling. Squares are [x, y]; goblins are H1..H9 (home, west den) and \
-A1..A9 (away, east den). Call get_rules once for the full rules.";
+Each goblin has its movement in steps and one action (assault, stance or throw) per turn, spent over as many \
+orders as you like, even after other goblins played (steps_left, has_action_left). \
+Any failed dodge, assault, pick, throw or catch ends your turn at once, so order safe moves first and keep \
+risky ones for last. Otherwise your turn ends only with end_turn=true, a score, or its clock (time_left_ms) \
+running out. Use play with dry_run=true to get exact odds without rolling. Squares are [x, y]; goblins are \
+H1..H9 (home, west den) and A1..A9 (away, east den). Call get_rules once for the full rules.";
+
+/// The English half of `docs/rules.md`, from its heading on, as agents read it.
+fn english_rules() -> String {
+    RULES
+        .split_once(ENGLISH_RULES_HEADING)
+        .map_or(RULES.to_string(), |(_, english)| {
+            format!("{ENGLISH_RULES_HEADING}{english}")
+        })
+}
 
 /// A fresh seat secret, unpredictable enough for a match on the local machine.
 pub fn random_token() -> String {
@@ -113,7 +124,7 @@ pub struct WaitArgs {
     pub max_wait_seconds: Option<u64>,
 }
 
-/// An action that ends an activation.
+/// A goblin's action, one per turn.
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(transform = drop_integer_formats)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -144,7 +155,7 @@ pub struct PlannedActivation {
     pub path: Option<Vec<[u8; 2]>>,
     /// Action after moving.
     pub action: Option<PlannedAction>,
-    /// Your own estimate (0 to 1) of this activation's chance to succeed, used to measure calibration.
+    /// Your own estimate (0 to 1) of this order's chance to succeed, used to measure calibration.
     pub estimate: Option<f64>,
 }
 
@@ -152,9 +163,10 @@ pub struct PlannedActivation {
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(transform = drop_integer_formats)]
 pub struct PlayArgs {
-    /// Activations resolved in this order; resolution stops at the first that ends your turn.
+    /// Orders resolved in this order, a goblin as often as its steps and action left allow;
+    /// resolution stops at the first that ends your turn.
     pub activations: Vec<PlannedActivation>,
-    /// End your turn after the activations.
+    /// End your turn after the orders; otherwise it lasts until a failed roll, a score or its clock.
     #[serde(default)]
     pub end_turn: bool,
     /// Only compute exact odds; nothing is rolled or changed.
@@ -255,20 +267,16 @@ impl CoachServer {
         .await
     }
 
-    #[tool(description = "The full rules of Goblins Bowl 0.1 (read once).")]
+    #[tool(description = "The full rules of Goblins Bowl 0.2 (read once).")]
     async fn get_rules(&self, context: RequestContext<RoleServer>) -> Result<String, String> {
         self.logged(&context, "get_rules", serde_json::json!({}), async |_| {
-            Ok(RULES
-                .split_once(ENGLISH_RULES_HEADING)
-                .map_or(RULES.to_string(), |(_, english)| {
-                    format!("{ENGLISH_RULES_HEADING}{english}")
-                }))
+            Ok(english_rules())
         })
         .await
     }
 
     #[tool(
-        description = "Play activations in order during your turn: each moves one goblin (to a destination via the safest path, or along an exact path) then optionally assaults, braces in stance or throws. Stops at the first activation that ends your turn. end_turn=true hands over after them; dry_run=true only returns exact odds."
+        description = "Play orders in order during your turn: each moves one goblin with its steps left (to a destination via the safest path, or along an exact path) then optionally assaults, braces in stance or throws if its action is left. A goblin may take several orders a turn. Stops at the first order that ends your turn. end_turn=true hands over after them; dry_run=true only returns exact odds."
     )]
     async fn play(
         &self,
@@ -630,6 +638,13 @@ mod tests {
     fn has_integer_width_format<T: JsonSchema>() -> bool {
         let schema = serde_json::to_string(&schemars::schema_for!(T)).unwrap_or_default();
         schema.contains("\"format\":\"uint") || schema.contains("\"format\":\"int")
+    }
+
+    #[test]
+    fn given_the_rules_document_when_sent_to_agents_then_only_its_english_half_from_the_0_2_heading()
+     {
+        let rules = english_rules();
+        assert!(rules.starts_with("# Goblins Bowl, rules 0.2") && !rules.contains("règles"));
     }
 
     #[test]
