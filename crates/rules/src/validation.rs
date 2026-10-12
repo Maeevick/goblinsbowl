@@ -32,13 +32,15 @@ pub fn validate_activation(
     if !goblin.can_act() {
         return Err(RuleViolation::AlreadyActed { goblin: id });
     }
-    let movement = goblin.characteristics.movement;
-    if activation.path.len() > usize::from(movement) {
+    if activation.path.len() > usize::from(goblin.steps_left) {
         return Err(RuleViolation::PathTooLong {
             goblin: id,
-            movement,
+            steps_left: goblin.steps_left,
             steps: activation.path.len(),
         });
+    }
+    if activation.action.is_some() && !goblin.has_action_left {
+        return Err(RuleViolation::ActionAlreadyUsed { goblin: id });
     }
     let mut visited = vec![start];
     for (index, square) in activation.path.iter().copied().enumerate() {

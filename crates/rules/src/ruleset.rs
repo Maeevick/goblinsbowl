@@ -56,6 +56,10 @@ pub struct Ruleset {
     /// Most a Stance bonus adds to one roll; 5, a goblin and its four neighbours, means no cap.
     #[serde(default = "uncapped_stance_bonus")]
     pub stance_bonus_cap: u8,
+    /// Whether a goblin keeps the steps it did not walk after its action: its Move and one action
+    /// per turn, spent over as many orders as its coach likes; otherwise its first order ends its turn.
+    #[serde(default)]
+    pub keeps_moving_after_action: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Characteristics per archetype.
@@ -103,6 +107,7 @@ impl Default for Ruleset {
             downed_defense_malus: 2,
             kickoff_depth: 0,
             stance_bonus_cap: uncapped_stance_bonus(),
+            keeps_moving_after_action: false,
             arena: BOWL_15_MASK.iter().map(|row| (*row).to_string()).collect(),
             archetypes: ArchetypeCharacteristics {
                 bruiser: Characteristics {

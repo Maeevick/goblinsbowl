@@ -20,6 +20,8 @@ mod fight;
 mod fight_tests;
 mod kickoff;
 #[cfg(test)]
+mod moving_after_action_tests;
+#[cfg(test)]
 mod property_tests;
 #[cfg(test)]
 pub(crate) mod scenario;

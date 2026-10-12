@@ -22,6 +22,9 @@ impl<D: DiceRoller> Game<D> {
         let Some(team) = self.state.goblin(id).map(|goblin| goblin.team()) else {
             return;
         };
+        let steps = u8::try_from(activation.path.len()).unwrap_or(u8::MAX);
+        let keeps_the_rest_of_its_turn =
+            self.ruleset.keeps_moving_after_action && (steps > 0 || activation.action.is_some());
         for to in activation.path {
             let Some(Presence::Standing(from)) =
                 self.state.goblin(id).map(|goblin| goblin.presence)
@@ -51,7 +54,12 @@ impl<D: DiceRoller> Game<D> {
             }
         }
         if let Some(goblin) = self.state.goblin_mut(id) {
-            goblin.spend_its_turn();
+            if keeps_the_rest_of_its_turn {
+                goblin.steps_left = goblin.steps_left.saturating_sub(steps);
+                goblin.has_action_left &= activation.action.is_none();
+            } else {
+                goblin.spend_its_turn();
+            }
         }
         let turn_ending = match activation.action {
             None => None,
@@ -235,7 +243,7 @@ mod tests {
             refusal,
             Err(RuleViolation::PathTooLong {
                 goblin: id("H1"),
-                movement: 5,
+                steps_left: 5,
                 steps: 6
             })
         );

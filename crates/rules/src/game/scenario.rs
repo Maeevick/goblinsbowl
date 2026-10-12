@@ -36,6 +36,11 @@ impl Scenario {
         Self { ruleset, state }
     }
 
+    pub(crate) fn rules(mut self, change: impl FnOnce(&mut Ruleset)) -> Self {
+        change(&mut self.ruleset);
+        self
+    }
+
     pub(crate) fn goblin(mut self, id: &str, archetype: Archetype, x: u8, y: u8) -> Self {
         let id: GoblinId = id.parse().expect("scenario goblin id");
         let characteristics = self.ruleset.archetypes.of(archetype);

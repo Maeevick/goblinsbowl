@@ -44,15 +44,21 @@ pub enum RuleViolation {
         /// The goblin.
         goblin: GoblinId,
     },
-    /// The path has more steps than the goblin's movement.
-    #[error("{goblin} can move {movement} squares, the path has {steps}")]
+    /// The path has more steps than the goblin has left this turn.
+    #[error("{goblin} has {steps_left} steps left this turn, the path has {steps}")]
     PathTooLong {
         /// The goblin.
         goblin: GoblinId,
-        /// Its movement.
-        movement: u8,
+        /// Steps it may still take this turn.
+        steps_left: u8,
         /// Steps in the path.
         steps: usize,
+    },
+    /// The goblin already assaulted, braced or threw this turn.
+    #[error("{goblin} already used its action this turn")]
+    ActionAlreadyUsed {
+        /// The goblin.
+        goblin: GoblinId,
     },
     /// A step is not orthogonally next to the previous square.
     #[error("step {index} to [{}, {}] is not next to the previous square", square.x, square.y)]

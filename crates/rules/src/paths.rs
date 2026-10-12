@@ -1,4 +1,4 @@
-//! Where a goblin can go this activation, and the safest way to get there.
+//! Where a goblin can go with the steps it has left this turn, and the safest way to get there.
 
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
@@ -26,7 +26,7 @@ pub struct PlannedPath {
     pub success: Probability,
 }
 
-/// The safest path to every square `goblin` can reach this activation, sorted by destination.
+/// The safest path to every square `goblin` can reach with its steps left, sorted by destination.
 ///
 /// Among paths to the same square the highest chance wins, then the fewest steps, then the
 /// smallest squares in order. A carrier's path stops on the first enemy den square, where it scores.
@@ -51,7 +51,7 @@ pub fn reachable_squares(
             arena,
             state,
             start,
-            movement: usize::from(mover.characteristics.movement),
+            steps_left: usize::from(mover.steps_left),
             scoring_stops_the_walk: carries_the_ball,
             team,
         },
@@ -90,13 +90,13 @@ struct PathSearch<'a> {
     arena: &'a Arena,
     state: &'a GameState,
     start: Square,
-    movement: usize,
+    steps_left: usize,
     scoring_stops_the_walk: bool,
     team: TeamId,
 }
 
 fn collect_paths(search: &PathSearch<'_>, prefix: &mut Vec<Square>, found: &mut Vec<Vec<Square>>) {
-    if prefix.len() == search.movement {
+    if prefix.len() == search.steps_left {
         return;
     }
     let here = prefix.last().copied().unwrap_or(search.start);
@@ -124,7 +124,7 @@ fn ranking(path: &PlannedPath) -> (Probability, Reverse<usize>, Reverse<Vec<Squa
     )
 }
 
-/// The safest path from `goblin`'s square to `destination`, if it can get there this activation.
+/// The safest path from `goblin`'s square to `destination`, if its steps left get it there.
 pub fn safest_path(
     arena: &Arena,
     ruleset: &Ruleset,
@@ -169,6 +169,15 @@ mod tests {
             .goblin("H1", Sprinter, 7, 7)
             .ball_loose_at(0, 3);
         assert_eq!(reachable(scenario, "H1").len(), 60);
+    }
+
+    #[test]
+    fn given_a_sprinter_with_two_steps_left_when_listing_destinations_then_twelve_squares() {
+        let scenario = Scenario::new()
+            .goblin("H1", Sprinter, 7, 7)
+            .edit("H1", |goblin| goblin.steps_left = 2)
+            .ball_loose_at(0, 3);
+        assert_eq!(reachable(scenario, "H1").len(), 12);
     }
 
     #[test]

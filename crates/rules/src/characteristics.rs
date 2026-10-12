@@ -20,7 +20,7 @@ impl Archetype {
 }
 
 /// What a goblin is made of. Attack, defense and agility (and health when returning from a knock-out)
-/// are rolled as a die with that many faces; movement counts squares per activation.
+/// are rolled as a die with that many faces; movement counts squares per turn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Characteristics {
     /// Faces of the die rolled to assault.
@@ -31,7 +31,7 @@ pub struct Characteristics {
     pub agility: u8,
     /// Health pool; the goblin is knocked out when it reaches 0.
     pub health: u8,
-    /// Orthogonal steps allowed per activation.
+    /// Orthogonal steps allowed per turn.
     pub movement: u8,
 }
 
