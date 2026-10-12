@@ -756,7 +756,8 @@ mod tests {
                     malus: 0,
                     target: 2,
                     success: true
-                }
+                },
+                distance: 4
             })
         );
     }

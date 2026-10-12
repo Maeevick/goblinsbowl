@@ -367,6 +367,7 @@ impl Texts {
                 thrower,
                 receiver,
                 roll,
+                ..
             } => pick(
                 french,
                 if roll.success {
@@ -415,6 +416,7 @@ impl Texts {
                 attacker,
                 defender,
                 contest,
+                ..
             } => {
                 let winner = if contest.actor_won() {
                     attacker
@@ -791,6 +793,7 @@ mod tests {
                 opponent_modifier: 1,
                 margin: 2,
             },
+            defender_braced: true,
         };
         assert_eq!(
             FRENCH.describe_event(&event),

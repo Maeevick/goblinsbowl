@@ -317,6 +317,7 @@ mod tests {
                 thrower: goblin("H9"),
                 receiver: goblin("H5"),
                 roll: roll(true),
+                distance: 5,
             },
             GameEvent::CatchAttempted {
                 goblin: goblin("H5"),
@@ -349,6 +350,7 @@ mod tests {
                 thrower: goblin("H9"),
                 receiver: goblin("H5"),
                 roll: roll(true),
+                distance: 5,
             },
             GameEvent::InterceptAttempted {
                 goblin: goblin("A2"),
@@ -406,6 +408,7 @@ mod tests {
             attacker: goblin("H1"),
             defender: goblin("A1"),
             contest: contest(-2),
+            defender_braced: false,
         }];
         assert_eq!(
             beats_from_events(&events),

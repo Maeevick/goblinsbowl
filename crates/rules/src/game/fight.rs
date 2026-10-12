@@ -115,10 +115,16 @@ impl<D: DiceRoller> Game<D> {
             dice.opponent_faces,
             dice.opponent_modifier,
         );
+        let defender_braced = self
+            .state
+            .stance_bonus(defender)
+            .min(self.ruleset.stance_bonus_cap)
+            > 0;
         events.push(GameEvent::AssaultResolved {
             attacker,
             defender,
             contest,
+            defender_braced,
         });
         if !contest.actor_won() {
             let damage = contest.margin.unsigned_abs().saturating_sub(1);

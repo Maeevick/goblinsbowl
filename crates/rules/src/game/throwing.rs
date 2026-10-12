@@ -36,6 +36,7 @@ impl<D: DiceRoller> Game<D> {
             thrower,
             receiver,
             roll,
+            distance,
         });
         if !roll.success {
             self.state.ball = Ball::Loose { at: thrower_square };

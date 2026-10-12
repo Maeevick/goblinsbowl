@@ -150,6 +150,8 @@ pub enum GameEvent {
         receiver: GoblinId,
         /// The throw roll (adjacent enemies and distance beyond the free range as malus).
         roll: BallRoll,
+        /// Orthogonal steps between the thrower and the receiver.
+        distance: u8,
     },
     /// An opponent standing on the flight line tried to snatch the ball.
     InterceptAttempted {
@@ -166,6 +168,8 @@ pub enum GameEvent {
         defender: GoblinId,
         /// Attack die against the defense die, Stance walls and the downed malus.
         contest: ContestRoll,
+        /// Whether a Stance bonus, its own or a braced neighbour's, raised the defender's roll.
+        defender_braced: bool,
     },
     /// A goblin braced in Stance until its team's next turn.
     StanceTaken {

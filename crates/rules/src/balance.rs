@@ -287,6 +287,7 @@ mod tests {
                 thrower: id("H9"),
                 receiver: id("H5"),
                 roll: roll(true),
+                distance: 5,
             },
             GameEvent::CatchAttempted {
                 goblin: id("H5"),

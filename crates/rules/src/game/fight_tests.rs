@@ -66,7 +66,8 @@ fn given_an_assault_when_resolved_then_the_contest_is_reported() {
                 opponent_rolled: 2,
                 opponent_modifier: 0,
                 margin: 2
-            }
+            },
+            defender_braced: false
         })
     );
 }
@@ -112,6 +113,21 @@ fn given_a_defender_in_stance_when_assaulted_then_its_defense_gets_one() {
     assert!(matches!(
         events.first(),
         Some(GameEvent::AssaultResolved { contest, .. }) if contest.opponent_modifier == 1
+    ));
+}
+
+#[test]
+fn given_a_defender_in_stance_when_assaulted_then_the_assault_reports_it_braced() {
+    let mut game = bruisers_face_to_face()
+        .edit("A1", |goblin| goblin.in_stance = true)
+        .game([4, 2]);
+    let events = game.apply(TeamId::HOME, assault("H1", &[], "A1")).unwrap();
+    assert!(matches!(
+        events.first(),
+        Some(GameEvent::AssaultResolved {
+            defender_braced: true,
+            ..
+        })
     ));
 }
 
