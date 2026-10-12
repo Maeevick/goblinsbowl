@@ -244,6 +244,24 @@ fn aim_assault(
     })
 }
 
+/// What is prepared once `reaction` happened: a goblin sent off stays selected, so it can keep
+/// moving or act while its steps or its action are left.
+pub fn prepared_after(reaction: Reaction, current: Option<Draft>) -> Option<Draft> {
+    match reaction {
+        Reaction::Ignore => current,
+        Reaction::Prepare(draft) => Some(draft),
+        Reaction::Release => None,
+        Reaction::Send(activation) => Some(Draft::selecting(activation.goblin)),
+    }
+}
+
+/// Whether `goblin` may still brace in Stance this turn.
+pub fn can_still_brace(state: &GameState, goblin: GoblinId) -> bool {
+    state
+        .goblin(goblin)
+        .is_some_and(|goblin| goblin.is_standing() && goblin.has_action_left)
+}
+
 /// The drafted walk followed by a Stance.
 pub fn stance_order(draft: &Draft) -> Activation {
     Activation {
@@ -335,6 +353,9 @@ struct ConfirmLine;
 struct StanceLabel;
 
 #[derive(Component)]
+struct StanceButton;
+
+#[derive(Component)]
 struct CancelLabel;
 
 #[derive(Resource)]
@@ -378,6 +399,7 @@ impl Plugin for OrdersPlugin {
                     refresh_marks,
                     follow_selected_goblin,
                     refresh_order_bar,
+                    refresh_stance_button,
                 )
                     .chain()
                     .in_set(MatchSystems::Present),
@@ -474,6 +496,7 @@ fn spawn_order_bar(mut commands: Commands, assets: Res<AssetServer>, texts: Res<
                 children![
                     (
                         button(texts.stance_button(), &bold, StanceLabel),
+                        StanceButton,
                         observe(stance_pressed)
                     ),
                     (
@@ -496,9 +519,11 @@ fn stance_pressed(
         return;
     };
     if let Some(team) = coach_giving_orders(&view.snapshot) {
+        let order = stance_order(&draft);
+        prepared.0 = prepared_after(Reaction::Send(order.clone()), None);
         orders.write(MatchOrder::Command {
             team,
-            command: Command::Act(stance_order(&draft)),
+            command: Command::Act(order),
         });
     }
 }
@@ -526,18 +551,13 @@ fn react_to_board_clicks(
             prepared.0.as_ref(),
             *click,
         );
-        match reaction {
-            Reaction::Ignore => {}
-            Reaction::Prepare(draft) => prepared.0 = Some(draft),
-            Reaction::Release => prepared.0 = None,
-            Reaction::Send(activation) => {
-                prepared.0 = None;
-                orders.write(MatchOrder::Command {
-                    team,
-                    command: Command::Act(activation),
-                });
-            }
+        if let Reaction::Send(activation) = &reaction {
+            orders.write(MatchOrder::Command {
+                team,
+                command: Command::Act(activation.clone()),
+            });
         }
+        prepared.0 = prepared_after(reaction, prepared.0.take());
     }
 }
 
@@ -630,6 +650,22 @@ fn follow_selected_goblin(
             visibility.set_if_neq(Visibility::Hidden);
         }
     }
+}
+
+fn refresh_stance_button(
+    view: Res<MatchView>,
+    prepared: Res<PreparedOrder>,
+    mut stance_button: Single<&mut Visibility, With<StanceButton>>,
+) {
+    let braces = prepared
+        .0
+        .as_ref()
+        .is_some_and(|draft| can_still_brace(&view.snapshot.state, draft.activation.goblin));
+    stance_button.set_if_neq(if braces {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    });
 }
 
 fn refresh_order_bar(
@@ -1023,6 +1059,46 @@ mod tests {
                 action: Some(Action::Stance),
             }
         );
+    }
+
+    #[test]
+    fn given_an_order_sent_when_preparing_what_comes_next_then_its_goblin_stays_selected() {
+        let walk = aimed("H5", &[(8, 7)], None, BoardClick::Square(square(8, 7)));
+
+        let next = prepared_after(Reaction::Send(walk.activation.clone()), Some(walk));
+
+        assert_eq!(next, Some(Draft::selecting(id("H5"))));
+    }
+
+    #[test]
+    fn given_a_released_goblin_when_preparing_what_comes_next_then_nothing_is_selected() {
+        let next = prepared_after(Reaction::Release, Some(Draft::selecting(id("H5"))));
+
+        assert_eq!(next, None);
+    }
+
+    #[test]
+    fn given_an_ignored_click_when_preparing_what_comes_next_then_the_draft_is_kept() {
+        let draft = Draft::selecting(id("H5"));
+
+        let next = prepared_after(Reaction::Ignore, Some(draft.clone()));
+
+        assert_eq!(next, Some(draft));
+    }
+
+    #[test]
+    fn given_a_goblin_that_already_used_its_action_when_asking_if_it_may_brace_then_no() {
+        let mut state = board(&[("H5", 7, 7)], None);
+        state.goblins[4].has_action_left = false;
+
+        assert!(!can_still_brace(&state, id("H5")));
+    }
+
+    #[test]
+    fn given_a_goblin_with_its_action_left_when_asking_if_it_may_brace_then_yes() {
+        let state = board(&[("H5", 7, 7)], None);
+
+        assert!(can_still_brace(&state, id("H5")));
     }
 
     #[test]
