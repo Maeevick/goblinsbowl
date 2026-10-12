@@ -2,7 +2,7 @@
 
 Goblin football in a bowl: a minimalist, turn-based tactics game played with dice, built in Rust with Bevy. Two teams of goblins from folklore (dokkaebi, leprechauns, nisser, korrigans…) fight for a ball in a cross-shaped arena; every failed risky action ends your turn, so the game is about managing risk.
 
-- Hot-seat: two humans on one machine, 60-second turns, 2 halves of 10 turns per team.
+- Hot-seat: two humans on one machine, 60-second turns, 2 halves of 12 turns per team, on a 21 × 21 bowl.
 - End goal: AI agents coach a team through an MCP server, to assess how well an agent manages risk.
 
 ## Quick start
@@ -15,15 +15,18 @@ make check                            # lint + unit + integrated tests
 make balance ARGS="--games 1000 --home cautious --away bold"
 ```
 
-Rules 0.1 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`; how they play out between bots: [`docs/balance.md`](docs/balance.md).
+Rules 0.2 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`; how they play out between bots: [`docs/balance.md`](docs/balance.md).
 
 ## How to play
 
-- Press **Prêts !** when your turn comes: the camera swings behind your team and the clock starts.
-- Click one of your goblins (green ring: it can still act). The squares it can reach light up: green needs no dice, yellow, orange and red are riskier.
+- Between turns the bowl finishes playing out the last moves and their headlines, then announces the next team with a goblin aside. Press **Prêts !** when it shows: the camera swings behind your team and the clock starts.
+- A green tile under one of your goblins means it can still play, a dark tile that it is done for the turn. Click a goblin to select it: the squares it can reach light up, green needs no dice, yellow, orange and red are riskier.
+- The pointer shows what a click would do, coloured by its risk: an arrow to walk, a lightning bolt to dodge, an up arrow to pick up the ball, a star to score, a burst to assault, a ball to throw.
 - Click a square to aim a walk, an enemy to aim an assault (your goblin walks next to it first), or a teammate to aim a throw when you hold the ball. The chance of success shows at the bottom left; click the same square or goblin again to go.
-- **Garde** braces in Stance after the aimed walk, or in place. **Annuler** or Escape lets the goblin go.
-- **Fin du tour** ends the turn early (a second click confirms while goblins can still act).
+- Each goblin has its Move and one action per turn: after an order it stays selected, so it can act and walk on with the squares it has left, now or later in the turn.
+- **Garde** braces in Stance after the aimed walk, or in place, while the goblin's action is left. **Annuler** or Escape lets the goblin go.
+- **Fin du tour** ends the turn, which no longer ends on its own: once no goblin can play, a reminder shows and the button pulses. A second click confirms while goblins can still play.
+- At the final whistle, a scoresheet shows what each team did; **Rejouer** starts a new match and **Quitter** closes the game.
 - Camera: Q/E or right-drag to turn, WASD/arrows or middle-drag to pan, the wheel to zoom, R to reset. P pauses a match between humans.
 
 ## Agents
