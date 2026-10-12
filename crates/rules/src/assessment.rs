@@ -484,16 +484,25 @@ mod tests {
         );
     }
 
-    #[test]
-    fn given_the_golden_record_when_replayed_into_rows_then_one_row_per_activation() {
-        let record =
-            MatchRecord::from_json_lines(include_str!("../tests/fixtures/golden_match.jsonl"))
-                .unwrap();
+    fn one_row_per_activation(record_text: &str) {
+        let record = MatchRecord::from_json_lines(record_text).unwrap();
         let activations = record
             .entries
             .iter()
             .filter(|entry| matches!(entry.command, Command::Act(_)))
             .count();
         assert_eq!(activation_rows(&record).unwrap().len(), activations);
+    }
+
+    #[test]
+    fn given_the_golden_record_when_replayed_into_rows_then_one_row_per_activation() {
+        one_row_per_activation(include_str!("../tests/fixtures/golden_match.jsonl"));
+    }
+
+    #[test]
+    fn given_the_golden_record_of_rules_0_1_when_replayed_into_rows_then_one_row_per_activation() {
+        one_row_per_activation(include_str!(
+            "../tests/fixtures/golden_match_rules_0_1.jsonl"
+        ));
     }
 }
