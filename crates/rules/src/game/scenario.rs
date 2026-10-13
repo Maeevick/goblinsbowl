@@ -30,6 +30,7 @@ fn rules_0_1() -> Ruleset {
         kickoff_bounces: 1,
         stance_bonus_cap: 5,
         neighbour_stance_bonus_cap: 4,
+        dodges_test_agility: false,
         keeps_moving_after_action: false,
         turn_ends_when_no_goblin_can_act: true,
         default_roster: Roster {

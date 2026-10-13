@@ -159,7 +159,7 @@ impl Default for Ruleset {
             kickoff_bounces: 3,
             stance_bonus_cap: 2,
             neighbour_stance_bonus_cap: 1,
-            dodges_test_agility: false,
+            dodges_test_agility: true,
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),
