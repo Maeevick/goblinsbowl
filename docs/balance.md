@@ -85,3 +85,36 @@ The two knobs on top of rules 0.2 (`kickoff_depth = 3`, `stance_bonus_cap = 1`),
 | rules 0.2 with both knobs | 53.5 %, 0.72 | 35.4 %, 1.27 | 8.05 |
 
 With both knobs the cautious mirror ends level in only half of its matches and scores fourteen times as often, the largest shift measured so far, while bold matches get bloodier (8 knock-outs per match).
+
+## Rules 0.3, 13 Oct 2026
+
+Rules 0.3 as shipped in `rules.toml`: the kick-off drops the ball 4 to 7 squares into the receiving half and up to 5 rows to either side, then bounces three times; teams are 3 Bruisers, 4 Sprinters and 2 Throwers; a Stance bonus counts at most +1 for the goblin itself and +1 for its braced neighbours; a dodge is an agility test, minus 1 per adjacent enemy and 2 per braced one, against 2. Same coaches, seeds 1 to 1,000.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Stances per team turn | Knock-outs per match |
+|---|---|---|---|---|---|---|
+| cautious vs cautious | 10.7 % | 3.7 % | 85.6 % | 0.16 | 4.64 | 0.99 |
+| bold vs bold | 37.1 % | 21.3 % | 41.6 % | 0.95 | 1.79 | 6.29 |
+| cautious vs bold | 24.7 % | 8.4 % | 66.9 % | 0.44 | 3.21 | 4.09 |
+| bold vs cautious | 20.2 % | 13.2 % | 66.6 % | 0.44 | 3.28 | 3.76 |
+| cautious vs random | 99.8 % | 0 % | 0.2 % | 3.32 | 1.44 | 3.35 |
+| bold vs random | 99.8 % | 0 % | 0.2 % | 3.20 | 1.01 | 3.03 |
+
+What the numbers say:
+
+- **More goals, but less open than the two knobs were.** The cautious mirror scores three times as often as under 0.2 (0.16 goals per match) and still draws 85.6 % of its matches; the bold mirror scores 0.95 goals and draws 41.6 %. Rules 0.2 with `kickoff_depth = 3` and `stance_bonus_cap = 1` had gone further (53.5 % and 35.4 % draws).
+- **Careful coaches no longer dodge.** An order with a dodge now hardly ever clears the cautious coach's thresholds (a Sprinter leaving one enemy has 50 %, a Bruiser none), so the cautious mirror makes no dodge at all and braces more than ever (4.6 stances per team turn, 3.7 under 0.2): a marked goblin stays marked. The bold mirror tries 2.0 dodges per match and makes half of them; matches against the random coach, which dodges at any odds, see 10 or 11 dodges, 12 to 21 % of them made.
+- **A bigger risk appetite still does not pay against a careful opponent.** Over both seats, cautious wins 19.0 % of its 2,000 matches against bold, bold 14.3 % against cautious.
+- **The home edge grows**: home wins more than away in every pairing of scripted coaches (37.1 % against 21.3 % in the bold mirror, 10.7 % against 3.7 % in the cautious one), while receiving the opening kick-off still gives nothing (the receiver wins about half of the decided matches). The scripted coaches' tie-breaks by square order remain the suspect, still unchecked.
+- **Still fights rather than passes.** The bold mirror makes 44.0 assaults and 3.5 throws per match, against 35.6 and 1.0 under 0.2, and no pass is ever intercepted.
+
+Two of the 0.3 choices undone one at a time, same seeds:
+
+| Variant | Cautious mirror: draws, goals per match | Bold mirror: draws, goals per match | Bold mirror: knock-outs per match |
+|---|---|---|---|
+| rules 0.3 | 85.6 %, 0.16 | 41.6 %, 0.95 | 6.29 |
+| rules 0.3 with contest dodges (`dodges_test_agility = false`) | 79.6 %, 0.25 | 37.3 %, 1.21 | 5.50 |
+| rules 0.3 with a Stance bonus of +1 at most (`stance_bonus_cap = 1`) | 70.0 %, 0.38 | 34.1 %, 1.22 | 7.62 |
+| rules 0.2 with both knobs, for reference | 53.5 %, 0.72 | 35.4 %, 1.27 | 8.05 |
+
+Both choices hold the game back, the Stance cap more than the dodge: with +1 at most, the cautious mirror scores more than twice as often, while bold matches get bloodier (54.5 assaults and 7.6 knock-outs per match). With contest dodges, careful coaches dodge again (0.6 per match, 85 % made). Neither variant opens the game as far as rules 0.2 with both knobs did; the kick-off, which now drops the ball deep in the receiving half rather than three squares in front of its line, may account for the rest, not measured.
+
