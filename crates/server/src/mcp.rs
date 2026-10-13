@@ -46,7 +46,7 @@ const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.4";
 const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based goblin football game played with dice. \
 Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
 resolved in order; add end_turn=true on your last call), then wait again, until status is game_over. \
-Each goblin has its movement in steps and one action (assault, stance or throw) per turn, spent over as many \
+Each goblin has its movement in steps and one action (assault or throw) per turn, spent over as many \
 orders as you like, even after other goblins played (steps_left, has_action_left). \
 Any failed dodge, assault, pick, throw or catch ends your turn at once, so order safe moves first and keep \
 risky ones for last. Otherwise your turn ends only with end_turn=true, a score, or its clock (time_left_ms) \
@@ -138,8 +138,6 @@ pub enum PlannedAction {
         /// Enemy id such as A3.
         target: String,
     },
-    /// Brace: +1 defense to this goblin and each adjacent teammate until your next turn.
-    Stance,
     /// Throw the ball (held now or picked up on the path) to a standing teammate.
     Throw {
         /// Teammate id such as H5.
@@ -318,7 +316,7 @@ impl CoachServer {
     }
 
     #[tool(
-        description = "Play orders in order during your turn: each moves one goblin with its steps left (to a destination via the safest path, or along an exact path) then optionally assaults, braces in stance or throws if its action is left. A goblin may take several orders a turn. Stops at the first order that ends your turn. end_turn=true hands over after them; dry_run=true only previews them as one plan, each from where the previous ones leave the board, with the chance that the whole plan goes through."
+        description = "Play orders in order during your turn: each moves one goblin with its steps left (to a destination via the safest path, or along an exact path) then optionally assaults or throws if its action is left. A goblin may take several orders a turn. Stops at the first order that ends your turn. end_turn=true hands over after them; dry_run=true only previews them as one plan, each from where the previous ones leave the board, with the chance that the whole plan goes through."
     )]
     async fn play(
         &self,
@@ -614,7 +612,6 @@ fn parse_action(planned: &PlannedAction) -> Result<Action, String> {
         PlannedAction::Assault { target } => Action::Assault {
             target: goblin(target)?,
         },
-        PlannedAction::Stance => Action::Stance,
         PlannedAction::Throw { target } => Action::Throw {
             receiver: goblin(target)?,
         },
@@ -757,6 +754,13 @@ mod tests {
      {
         let rules = english_rules();
         assert!(rules.starts_with("# Goblins Bowl, rules 0.4") && !rules.contains("règles"));
+    }
+
+    #[test]
+    fn given_an_order_to_brace_when_read_then_refused_since_the_rules_have_no_stance() {
+        assert!(
+            serde_json::from_value::<PlannedAction>(serde_json::json!({"type": "stance"})).is_err()
+        );
     }
 
     #[test]

@@ -162,7 +162,7 @@ Each entry of `activations` is an order: a goblin, where it goes with the steps 
 
 ```json
 {"activations": [
-   {"goblin": "A6", "to": [12, 8], "action": {"type": "stance"}, "estimate": 1.0},
+   {"goblin": "A6", "to": [12, 8], "estimate": 1.0},
    {"goblin": "A2", "path": [[10, 10]], "action": {"type": "assault", "target": "H2"}, "estimate": 0.62},
    {"goblin": "A2", "to": [11, 10], "estimate": 1.0},
    {"goblin": "A9", "action": {"type": "throw", "target": "A5"}}

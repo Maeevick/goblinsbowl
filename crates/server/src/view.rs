@@ -72,14 +72,12 @@ pub struct GoblinView {
     pub health: u8,
     /// Full health.
     pub max_health: u8,
-    /// Braced in Stance (+1 defense to itself and adjacent teammates).
-    pub in_stance: bool,
     /// May still be ordered this turn: it has steps or its action left (only meaningful for the
     /// team playing).
     pub can_act: bool,
     /// Steps it may still take this turn (only meaningful for the team playing).
     pub steps_left: u8,
-    /// May still assault, brace in Stance or throw this turn (only meaningful for the team playing).
+    /// May still assault or throw this turn (only meaningful for the team playing).
     pub has_action_left: bool,
     /// Faces of the attack die.
     pub attack: u8,
@@ -141,7 +139,7 @@ pub struct CoachView {
     pub score: PerTeam,
     /// Where the ball is.
     pub ball: String,
-    /// The bowl as text: H1 standing, h1 down, H1* carrier, H1# in Stance, o loose ball, : den.
+    /// The bowl as text: H1 standing, h1 down, H1* carrier, o loose ball, : den.
     pub board: Vec<String>,
     /// Every goblin.
     pub goblins: Vec<GoblinView>,
@@ -440,7 +438,6 @@ fn goblin_view(goblin: &Goblin) -> GoblinView {
         condition: condition.to_string(),
         health: goblin.health,
         max_health: goblin.characteristics.health,
-        in_stance: goblin.in_stance,
         can_act: goblin.can_act(),
         steps_left: goblin.steps_left,
         has_action_left: goblin.has_action_left,
