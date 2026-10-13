@@ -124,7 +124,7 @@ fn text_of(result: &CallToolResult) -> String {
 }
 
 #[tokio::test]
-async fn given_a_coach_when_listing_tools_then_wait_state_rules_and_play() -> Outcome<()> {
+async fn given_a_coach_when_listing_tools_then_wait_state_rules_play_and_compare() -> Outcome<()> {
     let server = start_server().await?;
     let coach = coach(&server.url, HOME_TOKEN).await?;
     let mut names: Vec<String> = coach
@@ -136,7 +136,13 @@ async fn given_a_coach_when_listing_tools_then_wait_state_rules_and_play() -> Ou
     names.sort();
     assert_eq!(
         names,
-        ["get_rules", "get_state", "play", "wait_for_my_turn"]
+        [
+            "compare_plans",
+            "get_rules",
+            "get_state",
+            "play",
+            "wait_for_my_turn"
+        ]
     );
     Ok(())
 }
@@ -260,6 +266,111 @@ async fn given_a_dry_run_when_planning_a_stance_then_certain_odds_and_nothing_ch
             report["view"]["version"].clone()
         ),
         (json!(["no knockdown nor fumble: 100.0 % (1/1)"]), json!(0))
+    );
+    Ok(())
+}
+
+struct Wing {
+    sprinter: &'static str,
+    column: i16,
+    towards_own_den: i16,
+}
+
+fn wing_sprinter_of(team: TeamId) -> Wing {
+    if team == TeamId::HOME {
+        Wing {
+            sprinter: "H5",
+            column: 7,
+            towards_own_den: -1,
+        }
+    } else {
+        Wing {
+            sprinter: "A5",
+            column: 13,
+            towards_own_den: 1,
+        }
+    }
+}
+
+fn walk(goblin: &str, columns_away: i16, wing: &Wing) -> Value {
+    json!({"goblin": goblin, "to": [wing.column + wing.towards_own_den * columns_away, 5]})
+}
+
+#[tokio::test]
+async fn given_a_dry_run_of_two_walks_of_one_sprinter_when_previewed_then_the_second_walks_on_from_where_the_first_ends()
+-> Outcome<()> {
+    let server = start_server().await?;
+    let team = server.client.latest().state.active_team().unwrap();
+    let wing = wing_sprinter_of(team);
+    let coach = coach(&server.url, token_of(team)).await?;
+    let report = structured(
+        &call(
+            &coach,
+            "play",
+            json!({"activations": [walk(wing.sprinter, 2, &wing), walk(wing.sprinter, 4, &wing)], "dry_run": true}),
+        )
+        .await?,
+    );
+    let second_path = report["activations"][1]["path"].clone();
+    let expected = json!([
+        [wing.column + wing.towards_own_den * 3, 5],
+        [wing.column + wing.towards_own_den * 4, 5]
+    ]);
+    assert_eq!(
+        (second_path, report["plan_chance"].clone()),
+        (expected, json!("100.0 % (1/1)"))
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn given_a_dry_run_whose_second_walk_needs_more_steps_than_the_first_left_when_previewed_then_it_is_refused()
+-> Outcome<()> {
+    let server = start_server().await?;
+    let team = server.client.latest().state.active_team().unwrap();
+    let wing = wing_sprinter_of(team);
+    let coach = coach(&server.url, token_of(team)).await?;
+    let report = structured(
+        &call(
+            &coach,
+            "play",
+            json!({"activations": [walk(wing.sprinter, 3, &wing), walk(wing.sprinter, -1, &wing)], "dry_run": true}),
+        )
+        .await?,
+    );
+    let second_outcome = report["activations"][1]["outcome"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    assert!(second_outcome.starts_with("refused") && report["plan_chance"] == json!("0.0 % (0/1)"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn given_two_plans_when_compared_then_each_is_previewed_from_the_board_as_it_stands()
+-> Outcome<()> {
+    let server = start_server().await?;
+    let team = server.client.latest().state.active_team().unwrap();
+    let wing = wing_sprinter_of(team);
+    let coach = coach(&server.url, token_of(team)).await?;
+    let back = walk(wing.sprinter, 2, &wing);
+    let forward = walk(wing.sprinter, -2, &wing);
+    let report = structured(
+        &call(
+            &coach,
+            "compare_plans",
+            json!({"plans": [{"orders": [back]}, {"orders": [forward]}]}),
+        )
+        .await?,
+    );
+    let forward_path = report["plans"][1]["orders"][0]["path"].clone();
+    let expected = json!([
+        [wing.column - wing.towards_own_den, 5],
+        [wing.column - wing.towards_own_den * 2, 5]
+    ]);
+    assert_eq!(
+        (forward_path, report["plans"][1]["chance"].clone()),
+        (expected, json!("100.0 % (1/1)"))
     );
     Ok(())
 }

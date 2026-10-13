@@ -15,10 +15,12 @@ use axum::response::Response;
 use goblins_rules::command::{Action, Activation, Command};
 use goblins_rules::event::{GameEvent, TurnEndReason};
 use goblins_rules::host::MatchSnapshot;
+use goblins_rules::odds::Probability;
 use goblins_rules::paths::safest_path;
-use goblins_rules::preview::activation_odds;
+use goblins_rules::preview::{activation_odds, board_after_success};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::square::Square;
+use goblins_rules::state::GameState;
 use goblins_rules::team::TeamId;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
@@ -34,7 +36,7 @@ use serde::{Deserialize, Serialize};
 use crate::call_log::{CallEntry, CallLog};
 use crate::match_server::MatchClient;
 use crate::view::drop_integer_formats;
-use crate::view::{CoachView, OddsHints, coach_view, odds_lines};
+use crate::view::{CoachView, OddsHints, coach_view, describe_chance, odds_lines};
 
 const LONGEST_WAIT_SECONDS: u64 = 50;
 const DEFAULT_WAIT_SECONDS: u64 = 45;
@@ -48,8 +50,10 @@ Each goblin has its movement in steps and one action (assault, stance or throw) 
 orders as you like, even after other goblins played (steps_left, has_action_left). \
 Any failed dodge, assault, pick, throw or catch ends your turn at once, so order safe moves first and keep \
 risky ones for last. Otherwise your turn ends only with end_turn=true, a score, or its clock (time_left_ms) \
-running out. Use play with dry_run=true to get exact odds without rolling. Squares are [x, y]; goblins are \
-H1..H9 (home, west den) and A1..A9 (away, east den). Call get_rules once for the full rules.";
+running out. To get exact odds without rolling, play with dry_run=true previews its orders as one plan, each \
+from where the previous ones leave the board, and compare_plans weighs alternative plans side by side. \
+Squares are [x, y]; goblins are H1..H9 (home, west den) and A1..A9 (away, east den). Call get_rules once \
+for the full rules.";
 
 /// The English half of `docs/rules.md`, from its heading on, as agents read it.
 fn english_rules() -> String {
@@ -169,7 +173,8 @@ pub struct PlayArgs {
     /// End your turn after the orders; otherwise it lasts until a failed roll, a score or its clock.
     #[serde(default)]
     pub end_turn: bool,
-    /// Only compute exact odds; nothing is rolled or changed.
+    /// Only preview the orders as one plan, each from where the previous ones leave the board if
+    /// their rolls succeed; nothing is rolled or changed.
     #[serde(default)]
     pub dry_run: bool,
     /// The version from your last result; the call is refused if the match moved on since.
@@ -198,8 +203,45 @@ pub struct ActivationReport {
 pub struct PlayReport {
     /// One report per planned activation, in order.
     pub activations: Vec<ActivationReport>,
+    /// For a dry run, the chance that every order goes through (full hints only).
+    pub plan_chance: Option<String>,
     /// The match after the call.
     pub view: CoachView,
+}
+
+/// One alternative to weigh: orders previewed one after the other.
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
+pub struct PlanToCompare {
+    /// Orders previewed in sequence, each from where the previous ones leave the board if their
+    /// rolls succeed.
+    pub orders: Vec<PlannedActivation>,
+}
+
+/// Arguments of compare_plans.
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
+pub struct CompareArgs {
+    /// Alternative plans, each previewed from the board as it stands now.
+    pub plans: Vec<PlanToCompare>,
+}
+
+/// One plan as previewed, without rolling.
+#[derive(Debug, Serialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
+pub struct PlanReport {
+    /// One report per order, in order; previewing stops at a refused order or at a score.
+    pub orders: Vec<ActivationReport>,
+    /// Chance that every order goes through (full hints only), 0 % when an order is refused.
+    pub chance: Option<String>,
+}
+
+/// Result of compare_plans.
+#[derive(Debug, Serialize, JsonSchema)]
+#[schemars(transform = drop_integer_formats)]
+pub struct ComparisonReport {
+    /// One preview per plan, in the order given.
+    pub plans: Vec<PlanReport>,
 }
 
 /// The tools of one coach, built for every request.
@@ -276,7 +318,7 @@ impl CoachServer {
     }
 
     #[tool(
-        description = "Play orders in order during your turn: each moves one goblin with its steps left (to a destination via the safest path, or along an exact path) then optionally assaults, braces in stance or throws if its action is left. A goblin may take several orders a turn. Stops at the first order that ends your turn. end_turn=true hands over after them; dry_run=true only returns exact odds."
+        description = "Play orders in order during your turn: each moves one goblin with its steps left (to a destination via the safest path, or along an exact path) then optionally assaults, braces in stance or throws if its action is left. A goblin may take several orders a turn. Stops at the first order that ends your turn. end_turn=true hands over after them; dry_run=true only previews them as one plan, each from where the previous ones leave the board, with the chance that the whole plan goes through."
     )]
     async fn play(
         &self,
@@ -303,10 +345,18 @@ impl CoachServer {
                         .to_string(),
                 );
             }
+            if arguments.dry_run {
+                let plan = self.preview_plan(&snapshot.state, seat, &arguments.activations);
+                return Ok(Json(PlayReport {
+                    activations: plan.orders,
+                    plan_chance: plan.chance,
+                    view: self.view_for(seat).await?,
+                }));
+            }
             let mut reports = Vec::new();
             for (index, planned) in arguments.activations.iter().enumerate() {
                 let snapshot = self.client.latest();
-                let activation = match self.to_activation(planned, &snapshot) {
+                let activation = match self.to_activation(planned, &snapshot.state) {
                     Ok(activation) => activation,
                     Err(reason) if index == 0 => return Err(reason),
                     Err(reason) => {
@@ -315,10 +365,6 @@ impl CoachServer {
                     }
                 };
                 let odds = self.describe_odds(&snapshot, seat, &activation);
-                if arguments.dry_run {
-                    reports.push(report(&activation, odds, "dry run".to_string(), Vec::new()));
-                    continue;
-                }
                 match self
                     .client
                     .submit(seat, Command::Act(activation.clone()))
@@ -340,7 +386,7 @@ impl CoachServer {
                 }
             }
             let still_my_turn = self.client.latest().state.active_team() == Some(seat);
-            if arguments.end_turn && !arguments.dry_run && still_my_turn {
+            if arguments.end_turn && still_my_turn {
                 self.client
                     .submit(seat, Command::EndTurn)
                     .await
@@ -348,7 +394,30 @@ impl CoachServer {
             }
             Ok(Json(PlayReport {
                 activations: reports,
+                plan_chance: None,
                 view: self.view_for(seat).await?,
+            }))
+        })
+        .await
+    }
+
+    #[tool(
+        description = "Compare plans without rolling any die: each plan is a sequence of orders previewed from the board as it stands now, each order from where the previous ones leave it if their rolls succeed. Returns each order's odds and the chance that the whole plan goes through, so that a dodge then a throw can be weighed against a riskier throw from where the goblin stands."
+    )]
+    async fn compare_plans(
+        &self,
+        context: RequestContext<RoleServer>,
+        Parameters(arguments): Parameters<CompareArgs>,
+    ) -> Result<Json<ComparisonReport>, String> {
+        let logged = serde_json::to_value(&arguments).unwrap_or_default();
+        self.logged(&context, "compare_plans", logged, async |seat| {
+            let snapshot = self.client.latest();
+            Ok(Json(ComparisonReport {
+                plans: arguments
+                    .plans
+                    .iter()
+                    .map(|plan| self.preview_plan(&snapshot.state, seat, &plan.orders))
+                    .collect(),
             }))
         })
         .await
@@ -435,27 +504,70 @@ impl CoachServer {
         ))
     }
 
+    fn preview_plan(
+        &self,
+        state: &GameState,
+        seat: TeamId,
+        orders: &[PlannedActivation],
+    ) -> PlanReport {
+        let arena = self.client.arena();
+        let ruleset = self.client.ruleset();
+        let mut board = state.clone();
+        let mut chance = Probability::CERTAIN;
+        let mut reports = Vec::new();
+        for planned in orders {
+            let previewed = self.to_activation(planned, &board).and_then(|activation| {
+                activation_odds(arena, ruleset, &board, seat, &activation)
+                    .map(|odds| (activation, odds))
+                    .map_err(|violation| violation.to_string())
+            });
+            let (activation, odds) = match previewed {
+                Ok(previewed) => previewed,
+                Err(reason) => {
+                    reports.push(refused(planned, reason));
+                    chance = Probability::IMPOSSIBLE;
+                    break;
+                }
+            };
+            chance = chance.and(odds.overall_success);
+            reports.push(report(
+                &activation,
+                odds_lines(&odds, self.hints),
+                "dry run".to_string(),
+                Vec::new(),
+            ));
+            if odds.scores_on_the_way {
+                break;
+            }
+            match board_after_success(arena, ruleset, &board, seat, &activation) {
+                Ok(next) => board = next,
+                Err(_) => break,
+            }
+        }
+        PlanReport {
+            orders: reports,
+            chance: describe_chance(chance, self.hints),
+        }
+    }
+
     fn to_activation(
         &self,
         planned: &PlannedActivation,
-        snapshot: &MatchSnapshot,
+        state: &GameState,
     ) -> Result<Activation, String> {
         let goblin: GoblinId = planned.goblin.parse().map_err(|error| format!("{error}"))?;
         let path = match (&planned.path, planned.to) {
             (Some(path), _) => path.iter().copied().map(Square::from).collect(),
             (None, Some(to)) => {
                 let destination = Square::from(to);
-                let current = snapshot
-                    .state
-                    .goblin(goblin)
-                    .and_then(|found| found.square());
+                let current = state.goblin(goblin).and_then(|found| found.square());
                 if current == Some(destination) {
                     Vec::new()
                 } else {
                     safest_path(
                         self.client.arena(),
                         self.client.ruleset(),
-                        &snapshot.state,
+                        state,
                         goblin,
                         destination,
                     )
@@ -665,5 +777,15 @@ mod tests {
     #[test]
     fn given_the_wait_arguments_schema_when_generated_then_no_integer_width_format_remains() {
         assert!(!has_integer_width_format::<WaitArgs>());
+    }
+
+    #[test]
+    fn given_the_comparison_arguments_schema_when_generated_then_no_integer_width_format_remains() {
+        assert!(!has_integer_width_format::<CompareArgs>());
+    }
+
+    #[test]
+    fn given_the_comparison_report_schema_when_generated_then_no_integer_width_format_remains() {
+        assert!(!has_integer_width_format::<ComparisonReport>());
     }
 }
