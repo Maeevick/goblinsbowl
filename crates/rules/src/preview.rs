@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::arena::Arena;
 use crate::command::{Action, Activation};
 use crate::flight::squares_crossed;
-use crate::odds::{ContestDice, Probability, ball_roll_success};
+use crate::odds::{ContestDice, Probability, agility_success};
 use crate::roster::GoblinId;
 use crate::ruleset::Ruleset;
 use crate::square::Square;
@@ -184,7 +184,7 @@ pub fn activation_odds(
         }
         if sketch.ball == (Ball::Loose { at: to }) {
             let malus = adjacent_opponent_count(&sketch, to, team);
-            let pick = ball_roll_success(agility, malus, ruleset.ball_roll_target);
+            let pick = agility_success(agility, malus, ruleset.ball_roll_target);
             risky_steps.push(RiskyStep::Pick {
                 at: to,
                 success: pick,
@@ -317,7 +317,7 @@ fn throw_odds(
     let distance_malus = thrower_square
         .orthogonal_distance(receiver_square)
         .saturating_sub(ruleset.throw_free_range);
-    let throw = ball_roll_success(
+    let throw = agility_success(
         thrower_goblin.map_or(1, |goblin| goblin.characteristics.agility),
         adjacent_opponent_count(sketch, thrower_square, team).saturating_add(distance_malus),
         target,
@@ -336,11 +336,11 @@ fn throw_odds(
                 .saturating_add(ruleset.interception_surprise_malus);
                 (
                     interceptor.id,
-                    ball_roll_success(interceptor.characteristics.agility, malus, target),
+                    agility_success(interceptor.characteristics.agility, malus, target),
                 )
             })
             .collect();
-    let catch = ball_roll_success(
+    let catch = agility_success(
         receiver_goblin.map_or(1, |goblin| goblin.characteristics.agility),
         adjacent_opponent_count(sketch, receiver_square, team),
         target,

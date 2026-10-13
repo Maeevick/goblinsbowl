@@ -43,7 +43,7 @@ pub struct Ruleset {
     pub turn_seconds: u16,
     /// Goblins per team.
     pub team_size: u8,
-    /// Value a ball roll must reach after its maluses.
+    /// Value an agility test must reach after its maluses.
     pub ball_roll_target: u8,
     /// Orthogonal steps a throw covers without malus.
     pub throw_free_range: u8,

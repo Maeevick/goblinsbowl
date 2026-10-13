@@ -3,7 +3,7 @@
 use std::collections::VecDeque;
 
 use crate::dice::DiceRoller;
-use crate::event::{BallRoll, GameEvent};
+use crate::event::{AgilityRoll, GameEvent};
 use crate::formation::kickoff_squares;
 use crate::roster::GoblinId;
 use crate::square::{Direction, Square};
@@ -130,7 +130,7 @@ impl<D: DiceRoller> Game<D> {
         extra_malus: u8,
         events: &mut Vec<GameEvent>,
     ) -> bool {
-        let roll = self.ball_roll(catcher, extra_malus);
+        let roll = self.agility_roll(catcher, extra_malus);
         events.push(GameEvent::CatchAttempted {
             goblin: catcher,
             roll,
@@ -141,7 +141,7 @@ impl<D: DiceRoller> Game<D> {
         roll.success
     }
 
-    pub(super) fn ball_roll(&mut self, goblin: GoblinId, extra_malus: u8) -> BallRoll {
+    pub(super) fn agility_roll(&mut self, goblin: GoblinId, extra_malus: u8) -> AgilityRoll {
         let (faces, adjacent_opponents) = self
             .state
             .goblin(goblin)
@@ -161,7 +161,7 @@ impl<D: DiceRoller> Game<D> {
             .saturating_add(extra_malus);
         let rolled = self.dice.roll(faces);
         let target = self.ruleset.ball_roll_target;
-        BallRoll {
+        AgilityRoll {
             faces,
             rolled,
             malus,

@@ -6,7 +6,7 @@ halves = 2
 turn_seconds = 60
 team_size = 9
 
-# A ball roll (Pick, Throw, Catch, Intercept) must reach this value after its maluses.
+# An agility test (Pick, Throw, Catch, Intercept) must reach this value after its maluses.
 ball_roll_target = 2
 # Orthogonal steps a throw covers before losing 1 per extra step.
 throw_free_range = 6

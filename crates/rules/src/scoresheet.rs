@@ -195,15 +195,15 @@ impl Scoresheet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::event::{BallRoll, ContestRoll};
+    use crate::event::{AgilityRoll, ContestRoll};
     use crate::square::Square;
 
     fn id(text: &str) -> GoblinId {
         text.parse().unwrap()
     }
 
-    fn roll(success: bool) -> BallRoll {
-        BallRoll {
+    fn roll(success: bool) -> AgilityRoll {
+        AgilityRoll {
             faces: 4,
             rolled: if success { 3 } else { 1 },
             malus: 0,

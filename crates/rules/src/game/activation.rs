@@ -86,7 +86,7 @@ impl<D: DiceRoller> Game<D> {
     }
 
     fn pick_succeeds(&mut self, id: GoblinId, at: Square, events: &mut Vec<GameEvent>) -> bool {
-        let roll = self.ball_roll(id, 0);
+        let roll = self.agility_roll(id, 0);
         events.push(GameEvent::PickAttempted { goblin: id, roll });
         if roll.success {
             self.state.ball = Ball::Carried { by: id };
@@ -134,7 +134,7 @@ impl<D: DiceRoller> Game<D> {
 mod tests {
     use crate::characteristics::Archetype::{Bruiser, Sprinter, Thrower};
     use crate::command::{Action, Activation, Command};
-    use crate::event::{BallRoll, ContestRoll, GameEvent, TurnEndReason};
+    use crate::event::{AgilityRoll, ContestRoll, GameEvent, TurnEndReason};
     use crate::game::scenario::Scenario;
     use crate::roster::GoblinId;
     use crate::square::Square;
@@ -643,7 +643,7 @@ mod tests {
             events.get(1),
             Some(&GameEvent::PickAttempted {
                 goblin: id("H1"),
-                roll: BallRoll {
+                roll: AgilityRoll {
                     faces: 4,
                     rolled: 3,
                     malus: 0,
@@ -663,7 +663,7 @@ mod tests {
         let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
         assert!(events.contains(&GameEvent::PickAttempted {
             goblin: id("H1"),
-            roll: BallRoll {
+            roll: AgilityRoll {
                 faces: 4,
                 rolled: 2,
                 malus: 1,
@@ -743,7 +743,7 @@ mod tests {
             Some(&GameEvent::ThrowAttempted {
                 thrower: id("H1"),
                 receiver: id("H2"),
-                roll: BallRoll {
+                roll: AgilityRoll {
                     faces: 4,
                     rolled: 3,
                     malus: 0,
@@ -830,7 +830,7 @@ mod tests {
             events.get(1),
             Some(&GameEvent::InterceptAttempted {
                 goblin: id("A2"),
-                roll: BallRoll {
+                roll: AgilityRoll {
                     faces: 4,
                     rolled: 4,
                     malus: 1,

@@ -6,9 +6,9 @@ use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::team::TeamId;
 
-/// A ball roll (Pick, Throw, Catch, Intercept): the die minus its maluses against the target.
+/// An agility test (Pick, Throw, Catch, Intercept): the die minus its maluses against the target.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BallRoll {
+pub struct AgilityRoll {
     /// Faces of the die (the goblin's agility).
     pub faces: u8,
     /// Face shown.
@@ -101,7 +101,7 @@ pub enum GameEvent {
         /// The catcher.
         goblin: GoblinId,
         /// Its roll.
-        roll: BallRoll,
+        roll: AgilityRoll,
     },
     /// A team's turn began.
     TurnStarted {
@@ -140,7 +140,7 @@ pub enum GameEvent {
         /// The goblin.
         goblin: GoblinId,
         /// Its roll.
-        roll: BallRoll,
+        roll: AgilityRoll,
     },
     /// A goblin threw the ball to a teammate.
     ThrowAttempted {
@@ -149,7 +149,7 @@ pub enum GameEvent {
         /// The intended receiver.
         receiver: GoblinId,
         /// The throw roll (adjacent enemies and distance beyond the free range as malus).
-        roll: BallRoll,
+        roll: AgilityRoll,
         /// Orthogonal steps between the thrower and the receiver.
         distance: u8,
     },
@@ -158,7 +158,7 @@ pub enum GameEvent {
         /// The would-be interceptor.
         goblin: GoblinId,
         /// Its catch roll, with the surprise malus.
-        roll: BallRoll,
+        roll: AgilityRoll,
     },
     /// A goblin assaulted an adjacent enemy.
     AssaultResolved {

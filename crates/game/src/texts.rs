@@ -262,11 +262,15 @@ impl Texts {
                 if self.french() {
                     format!(
                         "{}, il faut {}",
-                        describe_ball_roll(ball, "sur"),
+                        describe_agility_roll(ball, "sur"),
                         ball.target
                     )
                 } else {
-                    format!("{}, needs {}", describe_ball_roll(ball, "on"), ball.target)
+                    format!(
+                        "{}, needs {}",
+                        describe_agility_roll(ball, "on"),
+                        ball.target
+                    )
                 }
             }
         }
@@ -336,23 +340,23 @@ impl Texts {
                 if roll.success {
                     format!(
                         "{goblin} attrape la balle : {}",
-                        describe_ball_roll(roll, "sur")
+                        describe_agility_roll(roll, "sur")
                     )
                 } else {
                     format!(
                         "{goblin} laisse échapper la balle : {}",
-                        describe_ball_roll(roll, "sur")
+                        describe_agility_roll(roll, "sur")
                     )
                 },
                 if roll.success {
                     format!(
                         "{goblin} catches the ball: {}",
-                        describe_ball_roll(roll, "on")
+                        describe_agility_roll(roll, "on")
                     )
                 } else {
                     format!(
                         "{goblin} drops the ball: {}",
-                        describe_ball_roll(roll, "on")
+                        describe_agility_roll(roll, "on")
                     )
                 },
             ),
@@ -400,24 +404,24 @@ impl Texts {
                 if roll.success {
                     format!(
                         "{goblin} ramasse la balle : {}",
-                        describe_ball_roll(roll, "sur")
+                        describe_agility_roll(roll, "sur")
                     )
                 } else {
                     format!(
                         "{goblin} rate la balle : {}, il fallait {}",
-                        describe_ball_roll(roll, "sur"),
+                        describe_agility_roll(roll, "sur"),
                         roll.target
                     )
                 },
                 if roll.success {
                     format!(
                         "{goblin} picks up the ball: {}",
-                        describe_ball_roll(roll, "on")
+                        describe_agility_roll(roll, "on")
                     )
                 } else {
                     format!(
                         "{goblin} misses the ball: {}, needed {}",
-                        describe_ball_roll(roll, "on"),
+                        describe_agility_roll(roll, "on"),
                         roll.target
                     )
                 },
@@ -432,42 +436,45 @@ impl Texts {
                 if roll.success {
                     format!(
                         "{thrower} lance vers {receiver} à {distance} cases : {}",
-                        describe_ball_roll(roll, "sur")
+                        describe_agility_roll(roll, "sur")
                     )
                 } else {
                     format!(
                         "{thrower} rate son lancer vers {receiver} : {}",
-                        describe_ball_roll(roll, "sur")
+                        describe_agility_roll(roll, "sur")
                     )
                 },
                 if roll.success {
                     format!(
                         "{thrower} throws to {receiver}, {distance} squares away: {}",
-                        describe_ball_roll(roll, "on")
+                        describe_agility_roll(roll, "on")
                     )
                 } else {
                     format!(
                         "{thrower} fumbles the throw to {receiver}: {}",
-                        describe_ball_roll(roll, "on")
+                        describe_agility_roll(roll, "on")
                     )
                 },
             ),
             GameEvent::InterceptAttempted { goblin, roll } => pick(
                 french,
                 if roll.success {
-                    format!("{goblin} intercepte ! {}", describe_ball_roll(roll, "sur"))
+                    format!(
+                        "{goblin} intercepte ! {}",
+                        describe_agility_roll(roll, "sur")
+                    )
                 } else {
                     format!(
                         "{goblin} rate l'interception : {}",
-                        describe_ball_roll(roll, "sur")
+                        describe_agility_roll(roll, "sur")
                     )
                 },
                 if roll.success {
-                    format!("{goblin} intercepts! {}", describe_ball_roll(roll, "on"))
+                    format!("{goblin} intercepts! {}", describe_agility_roll(roll, "on"))
                 } else {
                     format!(
                         "{goblin} misses the interception: {}",
-                        describe_ball_roll(roll, "on")
+                        describe_agility_roll(roll, "on")
                     )
                 },
             ),
@@ -716,7 +723,7 @@ fn pick(french: bool, in_french: String, in_english: String) -> String {
     if french { in_french } else { in_english }
 }
 
-fn describe_ball_roll(roll: &goblins_rules::event::BallRoll, on: &str) -> String {
+fn describe_agility_roll(roll: &goblins_rules::event::AgilityRoll, on: &str) -> String {
     if roll.malus == 0 {
         format!("{} {on} d{}", roll.rolled, roll.faces)
     } else {
@@ -751,7 +758,7 @@ fn describe_contest(contest: &goblins_rules::event::ContestRoll, versus: &str) -
 #[cfg(test)]
 mod tests {
     use super::*;
-    use goblins_rules::event::{BallRoll, ContestRoll};
+    use goblins_rules::event::{AgilityRoll, ContestRoll};
     use goblins_rules::roster::GoblinId;
 
     const FRENCH: Texts = Texts {
@@ -907,7 +914,7 @@ mod tests {
 
     #[test]
     fn given_french_when_detailing_a_pick_with_a_malus_then_the_face_the_malus_and_the_target() {
-        let roll = BallRoll {
+        let roll = AgilityRoll {
             faces: 4,
             rolled: 4,
             malus: 1,
@@ -1004,7 +1011,7 @@ mod tests {
     fn given_a_failed_pick_when_described_in_french_then_the_roll_and_the_target() {
         let event = GameEvent::PickAttempted {
             goblin: id("A5"),
-            roll: BallRoll {
+            roll: AgilityRoll {
                 faces: 4,
                 rolled: 2,
                 malus: 1,
@@ -1047,7 +1054,7 @@ mod tests {
         let event = GameEvent::ThrowAttempted {
             thrower: id("H9"),
             receiver: id("H5"),
-            roll: BallRoll {
+            roll: AgilityRoll {
                 faces: 4,
                 rolled: 3,
                 malus: 1,
@@ -1090,7 +1097,7 @@ mod tests {
     fn given_a_missed_interception_when_headlined_then_no_headline() {
         let event = GameEvent::InterceptAttempted {
             goblin: id("A2"),
-            roll: BallRoll {
+            roll: AgilityRoll {
                 faces: 4,
                 rolled: 1,
                 malus: 1,
@@ -1147,7 +1154,7 @@ mod tests {
     fn given_english_when_describing_a_catch_then_the_roll_reads_on_the_die() {
         let event = GameEvent::CatchAttempted {
             goblin: id("H2"),
-            roll: BallRoll {
+            roll: AgilityRoll {
                 faces: 4,
                 rolled: 3,
                 malus: 0,

@@ -31,7 +31,7 @@ impl<D: DiceRoller> Game<D> {
         };
         let distance = thrower_square.orthogonal_distance(receiver_square);
         let distance_malus = distance.saturating_sub(self.ruleset.throw_free_range);
-        let roll = self.ball_roll(thrower, distance_malus);
+        let roll = self.agility_roll(thrower, distance_malus);
         events.push(GameEvent::ThrowAttempted {
             thrower,
             receiver,
@@ -50,7 +50,7 @@ impl<D: DiceRoller> Game<D> {
                 .filter(|goblin| goblin.is_standing() && goblin.team() != team)
                 .map(|goblin| goblin.id);
             if let Some(interceptor) = interceptor {
-                let roll = self.ball_roll(interceptor, self.ruleset.interception_surprise_malus);
+                let roll = self.agility_roll(interceptor, self.ruleset.interception_surprise_malus);
                 events.push(GameEvent::InterceptAttempted {
                     goblin: interceptor,
                     roll,

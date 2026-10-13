@@ -1,7 +1,7 @@
 //! What the bowl shows of the match, beat by beat: steps, falls, ball flights, played in order.
 
 use bevy::prelude::Message;
-use goblins_rules::event::{BallRoll, ContestRoll, GameEvent};
+use goblins_rules::event::{AgilityRoll, ContestRoll, GameEvent};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::square::Square;
 
@@ -59,13 +59,13 @@ pub enum ShownRoll {
     /// Hitting an opponent.
     Assault(ContestRoll),
     /// Picking up the loose ball.
-    Pick(BallRoll),
+    Pick(AgilityRoll),
     /// Throwing the ball.
-    Throw(BallRoll),
+    Throw(AgilityRoll),
     /// Catching the ball.
-    Catch(BallRoll),
+    Catch(AgilityRoll),
     /// Snatching a ball thrown by the other team.
-    Intercept(BallRoll),
+    Intercept(AgilityRoll),
 }
 
 impl ShownRoll {
@@ -154,8 +154,8 @@ mod tests {
     use super::*;
     use goblins_rules::team::TeamId;
 
-    fn roll(success: bool) -> goblins_rules::event::BallRoll {
-        goblins_rules::event::BallRoll {
+    fn roll(success: bool) -> goblins_rules::event::AgilityRoll {
+        goblins_rules::event::AgilityRoll {
             faces: 4,
             rolled: if success { 3 } else { 1 },
             malus: 0,

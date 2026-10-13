@@ -125,8 +125,8 @@ pub fn contest_success(actor_faces: u8, opponent_faces: u8, opponent_modifier: i
     )
 }
 
-/// Chance that a d`faces` ball roll minus `malus` reaches `target`.
-pub fn ball_roll_success(faces: u8, malus: u8, target: u8) -> Probability {
+/// Chance that a d`faces` agility test minus `malus` reaches `target`.
+pub fn agility_success(faces: u8, malus: u8, target: u8) -> Probability {
     let faces = faces.max(1);
     let successful_faces = (1..=faces)
         .filter(|face| i16::from(*face) - i16::from(malus) >= i16::from(target))
@@ -241,17 +241,17 @@ mod tests {
     }
 
     #[test]
-    fn given_agility_four_without_malus_when_computing_a_ball_roll_then_three_quarters() {
-        assert_eq!(ball_roll_success(4, 0, 2), Probability::new(3, 4));
+    fn given_agility_four_without_malus_when_computing_an_agility_test_then_three_quarters() {
+        assert_eq!(agility_success(4, 0, 2), Probability::new(3, 4));
     }
 
     #[test]
-    fn given_agility_four_with_one_malus_when_computing_a_ball_roll_then_one_half() {
-        assert_eq!(ball_roll_success(4, 1, 2), Probability::new(1, 2));
+    fn given_agility_four_with_one_malus_when_computing_an_agility_test_then_one_half() {
+        assert_eq!(agility_success(4, 1, 2), Probability::new(1, 2));
     }
 
     #[test]
-    fn given_agility_two_with_one_malus_when_computing_a_ball_roll_then_impossible() {
-        assert_eq!(ball_roll_success(2, 1, 2), Probability::IMPOSSIBLE);
+    fn given_agility_two_with_one_malus_when_computing_an_agility_test_then_impossible() {
+        assert_eq!(agility_success(2, 1, 2), Probability::IMPOSSIBLE);
     }
 }
