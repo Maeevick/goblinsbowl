@@ -73,7 +73,7 @@ Rules 0.2 as shipped in `rules.toml`: the 21 × 21 bowl with 11-square dens, 12 
 What the numbers say:
 
 - **More goals, but careful coaches still wall up.** Goals per match rise in every pairing, from 0.25 to 0.70 in the bold mirror, whose draws fall from 77.5 % to 50.9 %. Two cautious coaches still draw 95.4 % of their matches with 3.7 stances per team turn: room to run does not break a Stance wall on its own.
-- **A bigger risk appetite still does not pay against a careful opponent.** Over both seats, cautious wins 25.5 % of its matches against bold, bold 18.9 % against cautious.
+- **A bigger risk appetite still does not pay against a careful opponent.** Over both seats, cautious wins 12.8 % of its 2,000 matches against bold, bold 9.5 % against cautious.
 - **A home edge appears** (30.8 % against 18.3 % in the bold mirror, home ahead in both mixed pairings) where rules 0.1 showed none, while receiving the opening kick-off still gives nothing. The rules are symmetric under the east-west mirror, the scripted coaches are not: they break ties by square order, which picks different moves for a team attacking east than for one attacking west. Worth checking before reading it as a bias of the rules.
 - **Fights rather than passes.** The bold mirror makes 35.6 assaults and 1.0 throw per match, and no pass is ever intercepted.
 
