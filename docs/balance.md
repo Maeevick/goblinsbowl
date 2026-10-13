@@ -118,3 +118,24 @@ Two of the 0.3 choices undone one at a time, same seeds:
 
 Both choices hold the game back, the Stance cap more than the dodge: with +1 at most, the cautious mirror scores more than twice as often, while bold matches get bloodier (54.5 assaults and 7.6 knock-outs per match). With contest dodges, careful coaches dodge again (0.6 per match, 85 % made). Neither variant opens the game as far as rules 0.2 with both knobs did; the kick-off, which now drops the ball deep in the receiving half rather than three squares in front of its line, may account for the rest, not measured.
 
+## Rules 0.4, 13 Oct 2026
+
+Rules 0.3 with the 22-point archetypes: Bruiser Attack 4, Defense 4, Agility 3, Health 7, Move 4; Sprinter 3, 2, 6, 5, 6; Thrower 3, 3, 6, 6, 4. Same coaches, seeds 1 to 1,000.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Stances per team turn | Knock-outs per match |
+|---|---|---|---|---|---|---|
+| cautious vs cautious | 13.9 % | 13.9 % | 72.2 % | 0.36 | 4.29 | 0.73 |
+| bold vs bold | 38.6 % | 29.7 % | 31.7 % | 1.61 | 1.58 | 2.97 |
+| cautious vs bold | 38.1 % | 16.7 % | 45.2 % | 0.97 | 2.63 | 2.38 |
+| bold vs cautious | 22.8 % | 33.3 % | 43.9 % | 0.95 | 2.65 | 2.26 |
+| cautious vs random | 99.9 % | 0 % | 0.1 % | 4.34 | 1.37 | 1.35 |
+| bold vs random | 100.0 % | 0 % | 0 % | 4.62 | 1.10 | 1.22 |
+
+What the numbers say:
+
+- **Goals double, knock-outs halve.** The cautious mirror scores 0.36 goals per match (0.16 under 0.3) and draws 72.2 % of its matches; the bold mirror scores 1.61 and draws 31.7 %. A single won assault can no longer knock a goblin out, so the bold mirror loses 3.0 goblins per match instead of 6.3.
+- **The ball moves.** With d6 agility, an open throw and its catch succeed 69 % of the time (56 % before): the bold mirror throws 6.5 times per match (3.5 under 0.3), the cautious mirror 2.2 (0.5). No pass is ever intercepted yet, although a Sprinter or a Thrower under the flight line now snatches it two times in three.
+- **A bigger risk appetite pays even less against a careful opponent.** Over both seats, cautious wins 35.7 % of its 2,000 matches against bold, bold 19.8 % against cautious.
+- **The home edge shrinks**: none in the cautious mirror (13.9 % each), 38.6 % against 29.7 % in the bold mirror (37.1 % against 21.3 % under 0.3).
+- **Still more closed than 0.2 with both knobs** (53.5 % draws in the cautious mirror): careful coaches keep bracing (4.3 stances per team turn) and hardly dodge (0.2 per match).
+
