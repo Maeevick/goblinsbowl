@@ -1,4 +1,4 @@
-# Goblins Bowl, règles 0.2
+# Goblins Bowl, règles 0.3
 
 *English version below.*
 
@@ -10,7 +10,7 @@ On se déplace et on est voisin **en ligne droite seulement** (haut, bas, gauche
 
 ## Les équipes
 
-9 gobelins par équipe : 4 Cogneurs, 4 Sprinteurs, 1 Lanceur. Chaque gobelin peut tout faire, seuls ses chiffres changent. Un chiffre comme Attaque 4 veut dire « lance un dé à 4 faces ».
+9 gobelins par équipe : 3 Cogneurs, 4 Sprinteurs, 2 Lanceurs. Chaque gobelin peut tout faire, seuls ses chiffres changent. Un chiffre comme Attaque 4 veut dire « lance un dé à 4 faces ».
 
 | Gobelin | Rôle | Attaque | Défense | Agilité | Santé | Mouvement |
 |---|---|---|---|---|---|---|
@@ -33,12 +33,12 @@ Le chiffre Δ = mon dé moins le dé adverse. **En cas d'égalité, celui qui ag
 - **Assaut** sur un ennemi voisin : je lance mon dé d'Attaque, il lance son dé de Défense.
   - Je gagne : il tombe, lâche la balle et perd Δ points de Santé (rien si égalité).
   - Je perds : c'est moi qui tombe, je perds Δ − 1 points de Santé (rien si je perds de 1), et **le tour s'arrête**.
-- **Garde** : jusqu'au prochain tour de mon équipe, +1 à ma Défense et +1 à chaque coéquipier voisin. Ça s'additionne : trois gobelins en Garde côte à côte font un vrai mur.
-- **Esquive** : quand je quitte une case à côté d'un ennemi debout, je lance mon dé d'Agilité contre le dé de Défense de l'ennemi le plus dangereux (avec sa Garde). Si je perds, je tombe sur place, je perds Δ − 1 points de Santé et **le tour s'arrête**.
+- **Garde** : jusqu'au prochain tour de mon équipe, +1 à ma Défense et +1 à chaque coéquipier voisin. Les voisins ne comptent qu'une fois : un gobelin reçoit au plus +1 de sa propre Garde et +1 de ses voisins en Garde, donc +2 au maximum. Deux gobelins en Garde côte à côte sont déjà à +2 chacun.
+- **Esquive** : quand je quitte une case à côté d'un ennemi debout, je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi, 2 s'il est en Garde, et il faut faire **2 ou plus**. Si je rate, je tombe sur place, je perds en Santé ce qui me manquait moins 1 (rien s'il ne manquait que 1) et **le tour s'arrête**. Un Cogneur (dé à 2 faces) collé à un ennemi ne peut donc plus s'esquiver.
 
 ## La balle
 
-Lancer de balle : je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi, et il faut faire **2 ou plus** (un 1 rate toujours).
+Lancer de balle : je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi (en Garde ou non), et il faut faire **2 ou plus** (un 1 rate toujours).
 
 - **Ramasser** : obligatoire quand j'entre sur la case de la balle.
 - **Lancer** (c'est mon action) : vers un coéquipier debout, à n'importe quelle distance, avec −1 par case au-delà de 6. Chaque ennemi debout sous la trajectoire tente une **interception** (encore −1 pour la surprise). Sinon, mon coéquipier doit **attraper**.
@@ -53,7 +53,7 @@ Un gobelin à terre ne bloque plus personne, perd sa Garde, lâche la balle et p
 
 ## Marquer
 
-Un gobelin debout avec la balle dans la tanière ennemie marque 1 point, même pendant le tour adverse. Ensuite, **coup d'envoi** : tout le monde reprend sa place de départ, tous les gobelins retrouvent leur Santé (sauf les KO, qui lancent leur dé de Santé), la balle tombe au centre et rebondit une fois, et l'équipe qui vient d'encaisser joue en premier.
+Un gobelin debout avec la balle dans la tanière ennemie marque 1 point, même pendant le tour adverse. Ensuite, **coup d'envoi** : tout le monde reprend sa place de départ, tous les gobelins retrouvent leur Santé (sauf les KO, qui lancent leur dé de Santé), la balle tombe chez l'équipe qui vient d'encaisser, et c'est elle qui joue en premier.
 
 ## Le coup d'envoi
 
@@ -63,11 +63,13 @@ Chaque équipe se place dans sa moitié, en miroir de l'autre. On compte les col
 - **Ailes**, 3 colonnes derrière, rangées −5, −4, +4 et +5 : les Sprinteurs d'abord.
 - **Fond**, 8 colonnes derrière, à deux pas de sa tanière, rangées −2 et +2 : le Lanceur d'abord.
 
-Avec l'équipe de base : 3 Cogneurs sur la ligne de mêlée, les 4 Sprinteurs sur les ailes, le Lanceur et le 4e Cogneur au fond.
+Avec l'équipe de base : les 3 Cogneurs sur la ligne de mêlée, les 4 Sprinteurs sur les ailes, les 2 Lanceurs au fond.
+
+Puis la balle tombe dans la moitié de l'équipe qui reçoit : 4 à 7 colonnes derrière le centre (un dé à 4 faces, plus 3) et jusqu'à 5 rangées d'un côté ou de l'autre (un dé à 12 faces, on relance le 12, moins 6). Elle rebondit ensuite trois fois, sauf si un gobelin debout l'attrape en route.
 
 ## Pour jouer sur papier
 
-Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numéros, une pièce pour le dé à 2 faces, un dé à 6 faces pour le dé à 3 faces (1-2 = 1, 3-4 = 2, 5-6 = 3), un dé à 4 faces et un dé à 6 faces. Le chronomètre du téléphone pour les 60 secondes (ou 90 pour commencer).
+Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numéros, une pièce pour le dé à 2 faces, un dé à 6 faces pour le dé à 3 faces (1-2 = 1, 3-4 = 2, 5-6 = 3), un dé à 4 faces, un dé à 6 faces et un dé à 12 faces pour le coup d'envoi. Le chronomètre du téléphone pour les 60 secondes (ou 90 pour commencer).
 
 ## Quelques chances
 
@@ -75,15 +77,17 @@ Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numé
 |---|---|
 | Cogneur contre Cogneur | 62 % |
 | Cogneur contre Cogneur en Garde | 38 % |
-| Cogneur contre un mur de deux Gardes | 19 % |
+| Cogneur contre un Cogneur en Garde à côté d'un autre (+2, le plus possible) | 19 % |
 | Cogneur contre Sprinteur | 88 % |
 | Cogneur contre un Cogneur à terre | 94 % |
-| Sprinteur qui esquive un Cogneur | 62 % |
+| Sprinteur qui quitte 1 / 2 ennemis | 50 / 25 % |
+| Sprinteur qui quitte 1 ennemi en Garde | 25 % |
+| Cogneur qui quitte un ennemi | 0 % |
 | Balle avec Agilité 4, 0 / 1 / 2 ennemis à côté | 75 / 50 / 25 % |
 
 ---
 
-# Goblins Bowl, rules 0.2
+# Goblins Bowl, rules 0.3
 
 ## The bowl
 
@@ -93,7 +97,7 @@ Moves and adjacency are **orthogonal only**, never diagonal.
 
 ## Teams
 
-9 goblins: 4 Bruisers, 4 Sprinters, 1 Thrower (rosters allow 0-8 / 0-8 / 1-2). Every goblin can do everything; only its characteristics differ. Attack, Defense and Agility are dice with that many faces.
+9 goblins: 3 Bruisers, 4 Sprinters, 2 Throwers (rosters allow 0-8 / 0-8 / 1-2). Every goblin can do everything; only its characteristics differ. Attack, Defense and Agility are dice with that many faces.
 
 | Archetype | Role | Attack | Defense | Agility | Health | Move |
 |---|---|---|---|---|---|---|
@@ -114,12 +118,12 @@ A turn ends when its coach ends it, when its clock runs out, when a team scores 
 Δ = actor's roll − opponent's roll. **Ties go to the actor.**
 
 - **Assault** an adjacent enemy: d(Attack) vs d(Defense). Win: it falls, drops the ball, loses Δ Health (nothing on a tie). Lose: the attacker falls, loses |Δ| − 1 Health (nothing when losing by 1), and the turn ends.
-- **Stance**: until the team's next turn, +1 Defense to itself and +1 to each adjacent teammate, stacking: a line of Stance goblins is a wall.
-- **Dodge**, each step out of a square next to a standing enemy: d(Agility) vs the Defense die (plus Stance bonus) of the enemy most likely to stop it. Lose: it falls where it stands, loses |Δ| − 1 Health, and the turn ends.
+- **Stance**: until the team's next turn, +1 Defense to itself and +1 to each adjacent teammate. Braced neighbours count once: a goblin gets at most +1 from its own Stance and +1 from its braced neighbours, +2 in all, so two braced goblins side by side already stand at +2 each.
+- **Dodge**, each step out of a square next to a standing enemy: d(Agility) minus 1 per adjacent standing enemy, 2 for one in Stance, must reach **2**. Miss: it falls where it stands, loses its shortfall minus 1 in Health (nothing when 1 short), and the turn ends. A Bruiser (d2) next to an enemy can no longer dodge.
 
 ## Ball actions
 
-d(Agility) minus 1 per adjacent standing enemy must reach **2** (a 1 always fails).
+d(Agility) minus 1 per adjacent standing enemy, braced or not, must reach **2** (a 1 always fails).
 
 - **Pick**: forced when entering the ball's square.
 - **Throw** (the action): to a standing teammate at any distance, −1 per step beyond 6. Each standing opponent under the flight line tries to **intercept** (extra −1 for surprise); otherwise the receiver must **catch**.
@@ -134,7 +138,7 @@ A downed goblin has no reach, loses its Stance, drops the ball and can still be 
 
 ## Scoring
 
-A standing goblin holding the ball in the enemy den scores, in either team's turn. Then the **kick-off**: everyone goes back to the kick-off formation, everyone heals (KO goblins roll their Health die), the ball drops on the centre square and bounces once, and the team that conceded plays first.
+A standing goblin holding the ball in the enemy den scores, in either team's turn. Then the **kick-off**: everyone goes back to the kick-off formation, everyone heals (KO goblins roll their Health die), the ball drops in the half of the team that conceded, and that team plays first.
 
 ## Kick-off formation
 
@@ -144,10 +148,12 @@ Each team lines up in its own half, mirroring the other. Columns are counted fro
 - **Wings**, 3 columns behind, rows −5, −4, +4 and +5: Sprinters first.
 - **Back**, 8 columns behind, two steps from the team's den, rows −2 and +2: Throwers first.
 
-With the default team: 3 Bruisers on the scrimmage line, the 4 Sprinters on the wings, the Thrower and the 4th Bruiser at the back.
+With the default team: the 3 Bruisers on the scrimmage line, the 4 Sprinters on the wings, the 2 Throwers at the back.
+
+Then the ball drops in the receiving team's half, 4 to 7 columns behind the centre (d4 + 3) and up to 5 rows to either side (d11 − 6), and bounces three times unless a standing goblin catches it on the way.
 
 ## Paper playtest kit
 
-A 21 × 21 grid with the 5 × 5 corners crossed out, numbered tokens, a coin for the d2, a d6 for the d3 (1-2, 3-4, 5-6), a d4 and a d6, and a phone timer (90 s for the first games).
+A 21 × 21 grid with the 5 × 5 corners crossed out, numbered tokens, a coin for the d2, a d6 for the d3 (1-2, 3-4, 5-6), a d4, a d6 and a d12 for the kick-off (reroll the 12), and a phone timer (90 s for the first games).
 
 Every number above is tunable in `rules.toml`.

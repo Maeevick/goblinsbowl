@@ -158,7 +158,7 @@ The coach follows the loop in `prompts/coach.md`: read the rules once, wait for 
 | `play` | `activations`, `end_turn`, `dry_run`, `expected_version` | one report per order, the plan's chance for a dry run, then the view |
 | `compare_plans` | `plans`, each a list of `orders` | for each plan, one report per order and the chance that the whole plan goes through |
 
-Each entry of `activations` is an order: a goblin, where it goes with the steps it has left this turn, and optionally its action. Under rules 0.2 a goblin has its Move and one action per turn, spent over as many orders as the coach likes, so it can walk, act, and walk on later in the turn:
+Each entry of `activations` is an order: a goblin, where it goes with the steps it has left this turn, and optionally its action. Since rules 0.2 a goblin has its Move and one action per turn, spent over as many orders as the coach likes, so it can walk, act, and walk on later in the turn:
 
 ```json
 {"activations": [
