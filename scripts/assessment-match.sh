@@ -6,7 +6,9 @@
 # When a coach hits the account's session or usage limit, the match is abandoned without a
 # match.json (a later run replays it) and <batch-dir>/LIMIT_HIT tells the other jobs to stand down.
 # Settings: GB_BOT (cautious), GB_TURN_SECONDS (60), GB_HINTS (full), GB_RULES (rules.toml),
-# GB_BUDGET (6 USD per coach run), GB_RESUMES (1), GB_MATCH_TIMEOUT (3600 s after the coach ends).
+# GB_BUDGET (10 USD per coach run, a 24-turn match), GB_RESUMES (1), GB_MATCH_TIMEOUT (seconds
+# allowed after the coach ends; by default every turn of the coach's team running out, 15 s of
+# readiness grace included, plus 20 minutes for the bot's turns, from GB_TURN_SECONDS and GB_RULES).
 set -uo pipefail
 
 batch_dir="$1"; model="$2"; seed="$3"; seat="$4"; port="$5"
@@ -43,7 +45,7 @@ abandon_if_limited() {
   fi
 }
 coach_runs=1
-"$root/scripts/coach.sh" "$seat" "$url" "$agent_token" "$dir" --model "$model" --max-budget-usd "${GB_BUDGET:-6}"
+"$root/scripts/coach.sh" "$seat" "$url" "$agent_token" "$dir" --model "$model" --max-budget-usd "${GB_BUDGET:-10}"
 abandon_if_limited
 while ! grep -q "Final whistle" "$dir/server.log" && [ "$coach_runs" -le "${GB_RESUMES:-1}" ]; do
   grep -q '"subtype":"error_max_budget_usd"' "$dir/$seat-transcript.jsonl" && break
@@ -51,11 +53,15 @@ while ! grep -q "Final whistle" "$dir/server.log" && [ "$coach_runs" -le "${GB_R
   [ -n "$session" ] || break
   coach_runs=$((coach_runs + 1))
   GB_RESUME_SESSION="$session" "$root/scripts/coach.sh" "$seat" "$url" "$agent_token" "$dir" \
-    --model "$model" --max-budget-usd "${GB_BUDGET:-6}"
+    --model "$model" --max-budget-usd "${GB_BUDGET:-10}"
   abandon_if_limited
 done
 coach_seconds=$(( $(date +%s) - started ))
-deadline=$(( $(date +%s) + ${GB_MATCH_TIMEOUT:-3600} ))
+rules="${GB_RULES:-$root/rules.toml}"
+team_turns=$(awk -F= '/^turns_per_half/ { turns = $2 } /^halves/ { halves = $2 } END { print turns * halves }' "$rules")
+[ "${team_turns:-0}" -gt 0 ] 2>/dev/null || team_turns=24
+match_timeout=$(( team_turns * (${GB_TURN_SECONDS:-60} + 15) + 1200 ))
+deadline=$(( $(date +%s) + ${GB_MATCH_TIMEOUT:-$match_timeout} ))
 until grep -q "Final whistle" "$dir/server.log" || [ "$(date +%s)" -ge "$deadline" ]; do sleep 5; done
 finished=$(grep -q "Final whistle" "$dir/server.log" && echo true || echo false)
 kill "$server" 2>/dev/null; wait "$server" 2>/dev/null

@@ -3,7 +3,7 @@
 # Starts a headless match between two Claude Code coaches and stores everything in runs/<timestamp>/.
 set -euo pipefail
 
-budget="${1:-3}"; shift || true
+budget="${1:-4}"; shift || true
 root="$(cd "$(dirname "$0")/.." && pwd)"
 run_dir="$root/runs/$(date +%Y%m%d-%H%M%S)"
 port="${GB_PORT:-7878}"

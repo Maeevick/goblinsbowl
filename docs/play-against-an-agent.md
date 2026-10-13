@@ -214,7 +214,7 @@ GB_PARALLEL=1 GB_TURN_SECONDS=300 GB_BUDGET=1000 scripts/assessment-batch.sh loc
 make assess ARGS="--batch runs/local-qwen"
 ```
 
-It plays seeds 1 to 5 from each seat against the cautious bot, one match at a time on a local model. `GB_BUDGET` caps the cost Claude Code counts per coach run (6 USD by default); a local model costs nothing, so lift the cap rather than let an estimate stop the coach. The report has three tables: the model's measures, the bot's measures in the same matches as a yardstick, and the pass or fail of each criterion fixed in [`assessment.md`](assessment.md). Results compare fairly between models run through the same client with the same turn time; note both next to any comparison.
+It plays seeds 1 to 5 from each seat against the cautious bot, one match at a time on a local model. `GB_BUDGET` caps the cost Claude Code counts per coach run (10 USD by default, sized for a 24-turn match); a local model costs nothing, so lift the cap rather than let an estimate stop the coach. The report has three tables: the model's measures, the bot's measures in the same matches as a yardstick, and the pass or fail of each criterion fixed in [`assessment.md`](assessment.md). Results compare fairly between models run through the same client with the same turn time; note both next to any comparison.
 
 ## Troubleshooting
 
