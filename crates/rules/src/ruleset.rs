@@ -153,10 +153,10 @@ impl Default for Ruleset {
             throw_free_range: 6,
             interception_surprise_malus: 1,
             downed_defense_malus: 2,
-            kickoff_depth: 0,
-            kickoff_depth_spread: 0,
-            kickoff_across_spread: 0,
-            kickoff_bounces: one_kickoff_bounce(),
+            kickoff_depth: 4,
+            kickoff_depth_spread: 3,
+            kickoff_across_spread: 5,
+            kickoff_bounces: 3,
             stance_bonus_cap: uncapped_stance_bonus(),
             neighbour_stance_bonus_cap: every_braced_neighbour(),
             dodges_test_agility: false,
@@ -365,6 +365,7 @@ mod tests {
         let ruleset = Ruleset {
             kickoff_depth: 8,
             kickoff_depth_spread: 5,
+            kickoff_across_spread: 0,
             ..Ruleset::default()
         };
         assert_eq!(

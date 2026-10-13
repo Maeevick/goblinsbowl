@@ -207,9 +207,19 @@ mod tests {
     const BOUNCE_EAST: u8 = 2;
     const BOUNCE_NORTH: u8 = 1;
 
+    fn centre_kick_off() -> Ruleset {
+        Ruleset {
+            kickoff_depth: 0,
+            kickoff_depth_spread: 0,
+            kickoff_across_spread: 0,
+            kickoff_bounces: 1,
+            ..Ruleset::default()
+        }
+    }
+
     fn started(rolls: impl IntoIterator<Item = u8>) -> (Game<ScriptedDice>, Vec<GameEvent>) {
         Game::start(
-            Ruleset::default(),
+            centre_kick_off(),
             [Roster::DEFAULT, Roster::DEFAULT],
             ScriptedDice::new(rolls),
         )
@@ -221,7 +231,7 @@ mod tests {
      {
         let ruleset = Ruleset {
             kickoff_depth: 3,
-            ..Ruleset::default()
+            ..centre_kick_off()
         };
         let (_, events) = Game::start(
             ruleset,
@@ -241,7 +251,7 @@ mod tests {
             kickoff_depth: 4,
             kickoff_depth_spread: 3,
             kickoff_across_spread: 5,
-            ..Ruleset::default()
+            ..centre_kick_off()
         };
         let depth_five = 2;
         let five_rows_north = 1;
@@ -260,7 +270,7 @@ mod tests {
     fn given_three_kick_off_bounces_when_nobody_catches_then_the_ball_bounces_three_times() {
         let ruleset = Ruleset {
             kickoff_bounces: 3,
-            ..Ruleset::default()
+            ..centre_kick_off()
         };
         let (game, events) = Game::start(
             ruleset,

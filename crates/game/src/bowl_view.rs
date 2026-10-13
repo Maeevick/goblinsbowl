@@ -240,6 +240,9 @@ mod tests {
         let ruleset = Ruleset {
             arena: arena_mask.iter().map(|row| row.to_string()).collect(),
             formation: Formation::DenLines,
+            kickoff_depth: 0,
+            kickoff_depth_spread: 0,
+            kickoff_across_spread: 0,
             ..Ruleset::default()
         };
         let (host, opening_events) = MatchHost::start(MatchSetup {

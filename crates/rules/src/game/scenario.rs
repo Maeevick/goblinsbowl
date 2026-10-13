@@ -24,6 +24,10 @@ fn rules_0_1() -> Ruleset {
         turns_per_half: 10,
         arena: BOWL_15_MASK.iter().map(|row| (*row).to_string()).collect(),
         formation: Formation::DenLines,
+        kickoff_depth: 0,
+        kickoff_depth_spread: 0,
+        kickoff_across_spread: 0,
+        kickoff_bounces: 1,
         keeps_moving_after_action: false,
         turn_ends_when_no_goblin_can_act: true,
         ..Ruleset::default()

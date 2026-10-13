@@ -67,11 +67,13 @@ mod tests {
     use crate::roster::Roster;
     use crate::ruleset::Ruleset;
 
+    const HOME_RECEIVES_FIVE_DEEP_THEN_THREE_BOUNCES_NORTH: [u8; 6] = [1, 2, 6, 1, 1, 1];
+
     fn kick_off_board() -> Vec<String> {
         let (game, _) = Game::start(
             Ruleset::default(),
             [Roster::DEFAULT, Roster::DEFAULT],
-            ScriptedDice::new([1, 1]),
+            ScriptedDice::new(HOME_RECEIVES_FIVE_DEEP_THEN_THREE_BOUNCES_NORTH),
         )
         .unwrap();
         render_board(game.arena(), game.state())
@@ -92,7 +94,7 @@ mod tests {
         let (mut game, _) = Game::start(
             Ruleset::default(),
             [Roster::DEFAULT, Roster::DEFAULT],
-            ScriptedDice::new([1, 1]),
+            ScriptedDice::new(HOME_RECEIVES_FIVE_DEEP_THEN_THREE_BOUNCES_NORTH),
         )
         .unwrap();
         let mut state = game.state().clone();
