@@ -142,6 +142,24 @@ pub fn kickoff_squares(
     }
 }
 
+/// The square where the kick-off ball drops for `receiving_team`, `depth` columns into its half from
+/// the centre and `across` rows from the centre row (negative: north), if it lies on the bowl.
+pub fn kickoff_drop_square(
+    arena: &Arena,
+    receiving_team: TeamId,
+    depth: u8,
+    across: i8,
+) -> Option<Square> {
+    let centre = arena.centre();
+    let x = if receiving_team == TeamId::HOME {
+        centre.x.checked_sub(depth)?
+    } else {
+        centre.x.checked_add(depth)?
+    };
+    let y = u8::try_from(i16::from(centre.y) + i16::from(across)).ok()?;
+    Some(Square::new(x, y)).filter(|square| arena.is_in_bounds(*square))
+}
+
 fn den_lines(arena: &Arena, team: TeamId, roster: &Roster) -> Vec<Square> {
     let den_rows: Vec<u8> = arena.den_squares(team).map(|square| square.y).collect();
     let front_column = (arena.width().saturating_sub(1) / 2).saturating_sub(1);

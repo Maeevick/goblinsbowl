@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 
 use crate::dice::DiceRoller;
 use crate::event::{AgilityRoll, GameEvent};
-use crate::formation::kickoff_squares;
+use crate::formation::{kickoff_drop_square, kickoff_squares};
 use crate::roster::GoblinId;
 use crate::square::{Direction, Square};
 use crate::state::{Ball, Presence};
@@ -33,29 +33,38 @@ impl<D: DiceRoller> Game<D> {
         let drop = self.kickoff_drop(receiving_team);
         self.state.ball = Ball::Loose { at: drop };
         events.push(GameEvent::BallDropped { at: drop });
-        self.bounce_ball(drop, events);
+        for _ in 0..self.ruleset.kickoff_bounces {
+            let Ball::Loose { at } = self.state.ball else {
+                break;
+            };
+            self.bounce_ball(at, events);
+        }
     }
 
-    fn kickoff_drop(&self, receiving_team: TeamId) -> Square {
-        let den_distance = |square: Square| {
-            self.arena
-                .den_squares(receiving_team)
-                .map(|den| den.orthogonal_distance(square))
-                .min()
-        };
-        let mut drop = self.arena.centre();
-        for _ in 0..self.ruleset.kickoff_depth {
-            let deeper = Direction::ALL
-                .into_iter()
-                .filter_map(|direction| direction.step_from(drop))
-                .filter(|square| self.arena.is_in_bounds(*square))
-                .min_by_key(|square| den_distance(*square));
-            match deeper {
-                Some(square) if den_distance(square) < den_distance(drop) => drop = square,
-                _ => break,
-            }
+    fn kickoff_drop(&mut self, receiving_team: TeamId) -> Square {
+        let depth = self
+            .ruleset
+            .kickoff_depth
+            .saturating_add(self.roll_from_zero(self.ruleset.kickoff_depth_spread));
+        let across = self.roll_around_zero(self.ruleset.kickoff_across_spread);
+        kickoff_drop_square(&self.arena, receiving_team, depth, across)
+            .unwrap_or_else(|| self.arena.centre())
+    }
+
+    fn roll_from_zero(&mut self, spread: u8) -> u8 {
+        if spread == 0 {
+            return 0;
         }
-        drop
+        self.dice.roll(spread.saturating_add(1)).saturating_sub(1)
+    }
+
+    fn roll_around_zero(&mut self, spread: u8) -> i8 {
+        if spread == 0 {
+            return 0;
+        }
+        let faces = spread.saturating_mul(2).saturating_add(1);
+        let face = i16::from(self.dice.roll(faces));
+        i8::try_from(face - i16::from(spread) - 1).unwrap_or(0)
     }
 
     fn line_up(&mut self, id: GoblinId, square: Square, events: &mut Vec<GameEvent>) {

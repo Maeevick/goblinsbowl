@@ -13,8 +13,13 @@ throw_free_range = 6
 interception_surprise_malus = 1
 # Malus on the defense roll of a goblin assaulted while down.
 downed_defense_malus = 2
-# Squares the kick-off drops the ball into the receiving half (0: the centre square).
+# The kick-off drops the ball kickoff_depth squares into the receiving half (0: the centre square), plus a
+# die of 0 to kickoff_depth_spread more, up to kickoff_across_spread rows to either side (a die too), then
+# bounces kickoff_bounces times unless a goblin catches it.
 kickoff_depth = 0
+kickoff_depth_spread = 0
+kickoff_across_spread = 0
+kickoff_bounces = 1
 # Most a Stance bonus adds to one roll (5: a goblin and its four neighbours, so no cap).
 stance_bonus_cap = 5
 # Whether a goblin keeps the steps it did not walk after its action, its Move and one action

@@ -235,6 +235,55 @@ mod tests {
     }
 
     #[test]
+    fn given_a_kick_off_scattering_four_to_seven_deep_and_five_across_when_away_receives_then_the_ball_drops_where_the_dice_say()
+     {
+        let ruleset = Ruleset {
+            kickoff_depth: 4,
+            kickoff_depth_spread: 3,
+            kickoff_across_spread: 5,
+            ..Ruleset::default()
+        };
+        let depth_five = 2;
+        let five_rows_north = 1;
+        let (_, events) = Game::start(
+            ruleset,
+            [Roster::DEFAULT, Roster::DEFAULT],
+            ScriptedDice::new([COIN_AWAY, depth_five, five_rows_north, BOUNCE_NORTH]),
+        )
+        .unwrap();
+        assert!(events.contains(&GameEvent::BallDropped {
+            at: Square::new(15, 5)
+        }));
+    }
+
+    #[test]
+    fn given_three_kick_off_bounces_when_nobody_catches_then_the_ball_bounces_three_times() {
+        let ruleset = Ruleset {
+            kickoff_bounces: 3,
+            ..Ruleset::default()
+        };
+        let (game, events) = Game::start(
+            ruleset,
+            [Roster::DEFAULT, Roster::DEFAULT],
+            ScriptedDice::new([COIN_HOME, BOUNCE_NORTH, BOUNCE_NORTH, BOUNCE_NORTH]),
+        )
+        .unwrap();
+        let bounces = events
+            .iter()
+            .filter(|event| matches!(event, GameEvent::BallBounced { .. }))
+            .count();
+        assert_eq!(
+            (bounces, game.state().ball),
+            (
+                3,
+                Ball::Loose {
+                    at: Square::new(10, 7)
+                }
+            )
+        );
+    }
+
+    #[test]
     fn given_default_rosters_when_the_match_starts_then_eighteen_goblins_stand_on_the_bowl() {
         let (game, _) = started([COIN_HOME, BOUNCE_NORTH]);
         assert_eq!(

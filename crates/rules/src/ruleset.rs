@@ -5,8 +5,9 @@ use thiserror::Error;
 
 use crate::arena::{Arena, ArenaError, BOWL_21_MASK};
 use crate::characteristics::{Archetype, Characteristics};
-use crate::formation::{Formation, FormationError, FormationLine};
+use crate::formation::{Formation, FormationError, FormationLine, kickoff_drop_square};
 use crate::roster::{CountLimit, Roster, RosterError, RosterLimits};
+use crate::team::TeamId;
 
 /// Characteristics of each archetype.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,9 +52,18 @@ pub struct Ruleset {
     pub interception_surprise_malus: u8,
     /// Malus on the defense roll of a goblin assaulted while down.
     pub downed_defense_malus: u8,
-    /// Squares the kick-off drops the ball into the receiving team's half, from the centre.
+    /// Fewest squares the kick-off drops the ball into the receiving team's half, from the centre.
     #[serde(default)]
     pub kickoff_depth: u8,
+    /// Extra squares of kick-off depth rolled on a die, from 0 to this many.
+    #[serde(default)]
+    pub kickoff_depth_spread: u8,
+    /// Most rows the kick-off drops the ball to either side of the centre row, rolled on a die.
+    #[serde(default)]
+    pub kickoff_across_spread: u8,
+    /// Times the kick-off ball bounces after it drops, unless a goblin catches it first.
+    #[serde(default = "one_kickoff_bounce")]
+    pub kickoff_bounces: u8,
     /// Most a Stance bonus adds to one roll; 5, a goblin and its four neighbours, means no cap.
     #[serde(default = "uncapped_stance_bonus")]
     pub stance_bonus_cap: u8,
@@ -99,6 +109,14 @@ pub enum RulesetError {
     /// The kick-off formation cannot line a team up.
     #[error(transparent)]
     Formation(#[from] FormationError),
+    /// A kick-off could drop the ball off the bowl.
+    #[error("a kick-off {depth} squares deep and {across} rows across drops the ball off the bowl")]
+    KickOffOffTheBowl {
+        /// Squares into the receiving half.
+        depth: u8,
+        /// Rows from the centre row.
+        across: i8,
+    },
 }
 
 fn uncapped_stance_bonus() -> u8 {
@@ -107,6 +125,10 @@ fn uncapped_stance_bonus() -> u8 {
 
 fn turns_end_on_their_own() -> bool {
     true
+}
+
+fn one_kickoff_bounce() -> u8 {
+    1
 }
 
 impl Default for Ruleset {
@@ -121,6 +143,9 @@ impl Default for Ruleset {
             interception_surprise_malus: 1,
             downed_defense_malus: 2,
             kickoff_depth: 0,
+            kickoff_depth_spread: 0,
+            kickoff_across_spread: 0,
+            kickoff_bounces: one_kickoff_bounce(),
             stance_bonus_cap: uncapped_stance_bonus(),
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
@@ -192,7 +217,8 @@ impl Ruleset {
     ///
     /// # Errors
     /// A [`RulesetError`] naming the first problem found: no turns, invalid arena,
-    /// unplayable archetype, invalid default roster, then a formation that cannot line a team up.
+    /// unplayable archetype, invalid default roster, a formation that cannot line a team up, then a
+    /// kick-off that could drop the ball off the bowl.
     pub fn validate(&self) -> Result<(), RulesetError> {
         if self.halves == 0 || self.turns_per_half == 0 {
             return Err(RulesetError::NoTurns);
@@ -207,6 +233,22 @@ impl Ruleset {
         self.default_roster
             .validate(self.team_size, &self.roster_limits)?;
         self.formation.validate(&arena, self.team_size)?;
+        self.validate_kickoff(&arena)
+    }
+
+    fn validate_kickoff(&self, arena: &Arena) -> Result<(), RulesetError> {
+        let deepest = self.kickoff_depth.saturating_add(self.kickoff_depth_spread);
+        let widest = i8::try_from(self.kickoff_across_spread).unwrap_or(i8::MAX);
+        for depth in self.kickoff_depth..=deepest {
+            for across in -widest..=widest {
+                let on_the_bowl = TeamId::DUEL
+                    .into_iter()
+                    .all(|team| kickoff_drop_square(arena, team, depth, across).is_some());
+                if !on_the_bowl {
+                    return Err(RulesetError::KickOffOffTheBowl { depth, across });
+                }
+            }
+        }
         Ok(())
     }
 
@@ -303,6 +345,22 @@ mod tests {
                 FormationError::TooFewSquares { .. }
             ))
         ));
+    }
+
+    #[test]
+    fn given_a_kick_off_scattering_beyond_the_east_edge_when_validated_then_off_the_bowl() {
+        let ruleset = Ruleset {
+            kickoff_depth: 8,
+            kickoff_depth_spread: 5,
+            ..Ruleset::default()
+        };
+        assert_eq!(
+            ruleset.validate(),
+            Err(RulesetError::KickOffOffTheBowl {
+                depth: 11,
+                across: 0
+            })
+        );
     }
 
     #[test]
