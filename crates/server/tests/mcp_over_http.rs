@@ -247,17 +247,18 @@ async fn given_a_stale_version_when_playing_then_refused() -> Outcome<()> {
 }
 
 #[tokio::test]
-async fn given_a_dry_run_when_planning_a_stance_then_certain_odds_and_nothing_changes()
+async fn given_a_dry_run_when_planning_a_free_walk_then_certain_odds_and_nothing_changes()
 -> Outcome<()> {
     let server = start_server().await?;
-    let team = server.client.latest().state.active_team().unwrap();
-    let first_goblin = if team == TeamId::HOME { "H5" } else { "A5" };
+    let state = server.client.latest().state.clone();
+    let team = state.active_team().unwrap();
+    let wing = wing_sprinter_of(&state, team)?;
     let coach = coach(&server.url, token_of(team)).await?;
     let report = structured(
         &call(
             &coach,
             "play",
-            json!({"activations": [{"goblin": first_goblin, "action": {"type": "stance"}}], "dry_run": true}),
+            json!({"activations": [walk(&wing.sprinter, 1, &wing)], "dry_run": true}),
         )
         .await?,
     );

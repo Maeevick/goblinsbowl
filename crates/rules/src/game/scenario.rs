@@ -31,6 +31,7 @@ fn rules_0_1() -> Ruleset {
         stance_bonus_cap: 5,
         neighbour_stance_bonus_cap: 4,
         dodges_test_agility: false,
+        goblins_can_take_stance: true,
         keeps_moving_after_action: false,
         turn_ends_when_no_goblin_can_act: true,
         archetypes: ArchetypeCharacteristics {

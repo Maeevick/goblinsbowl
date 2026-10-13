@@ -1119,25 +1119,28 @@ mod tests {
         let mut state = board(&[("H5", 7, 7)], None);
         state.goblins[4].has_action_left = false;
 
-        assert!(!can_still_brace(&Ruleset::default(), &state, id("H5")));
+        assert!(!can_still_brace(&with_stance(), &state, id("H5")));
     }
 
     #[test]
     fn given_a_goblin_with_its_action_left_when_asking_if_it_may_brace_then_yes() {
         let state = board(&[("H5", 7, 7)], None);
 
-        assert!(can_still_brace(&Ruleset::default(), &state, id("H5")));
+        assert!(can_still_brace(&with_stance(), &state, id("H5")));
+    }
+
+    fn with_stance() -> Ruleset {
+        Ruleset {
+            goblins_can_take_stance: true,
+            ..Ruleset::default()
+        }
     }
 
     #[test]
-    fn given_rules_without_stance_when_asking_if_a_goblin_may_brace_then_no() {
+    fn given_the_shipped_rules_without_stance_when_asking_if_a_goblin_may_brace_then_no() {
         let state = board(&[("H5", 7, 7)], None);
-        let without_stance = Ruleset {
-            goblins_can_take_stance: false,
-            ..Ruleset::default()
-        };
 
-        assert!(!can_still_brace(&without_stance, &state, id("H5")));
+        assert!(!can_still_brace(&Ruleset::default(), &state, id("H5")));
     }
 
     #[test]
