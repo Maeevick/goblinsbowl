@@ -1,7 +1,7 @@
 //! What the bowl shows of the match, beat by beat: steps, falls, ball flights, played in order.
 
 use bevy::prelude::Message;
-use goblins_rules::event::{AgilityRoll, ContestRoll, GameEvent};
+use goblins_rules::event::{AgilityRoll, ContestRoll, DodgeRoll, GameEvent};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::square::Square;
 
@@ -54,8 +54,8 @@ pub enum Beat {
 /// A roll worth showing, by kind of action.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ShownRoll {
-    /// Slipping away from a tackler.
-    Dodge(ContestRoll),
+    /// Slipping out of the enemies' reach.
+    Dodge(DodgeRoll),
     /// Hitting an opponent.
     Assault(ContestRoll),
     /// Picking up the loose ball.
@@ -72,7 +72,8 @@ impl ShownRoll {
     /// Whether the goblin rolling got what it wanted.
     pub fn succeeded(&self) -> bool {
         match self {
-            ShownRoll::Dodge(contest) | ShownRoll::Assault(contest) => contest.actor_won(),
+            ShownRoll::Dodge(dodge) => dodge.succeeded(),
+            ShownRoll::Assault(contest) => contest.actor_won(),
             ShownRoll::Pick(roll)
             | ShownRoll::Throw(roll)
             | ShownRoll::Catch(roll)
@@ -102,11 +103,9 @@ pub fn beats_from_events(events: &[GameEvent]) -> Vec<Beat> {
             GameEvent::KickedOff { .. } => beats.push(Beat::LineUp),
             GameEvent::BallDropped { at } => beats.push(Beat::BallTo { square: at }),
             GameEvent::BallBounced { to, .. } => beats.push(Beat::BallTo { square: to }),
-            GameEvent::DodgeAttempted {
-                goblin, contest, ..
-            } => beats.push(Beat::Roll {
+            GameEvent::DodgeAttempted { goblin, roll } => beats.push(Beat::Roll {
                 goblin,
-                roll: ShownRoll::Dodge(contest),
+                roll: ShownRoll::Dodge(roll),
             }),
             GameEvent::AssaultResolved {
                 attacker, contest, ..
@@ -390,14 +389,13 @@ mod tests {
     fn given_a_dodge_when_turning_events_into_beats_then_its_roll_shows_on_the_dodger() {
         let events = [GameEvent::DodgeAttempted {
             goblin: goblin("H5"),
-            tackler: goblin("A1"),
-            contest: contest(1),
+            roll: contest_dodge(1),
         }];
         assert_eq!(
             beats_from_events(&events),
             vec![Beat::Roll {
                 goblin: goblin("H5"),
-                roll: ShownRoll::Dodge(contest(1))
+                roll: ShownRoll::Dodge(contest_dodge(1))
             }]
         );
     }
@@ -426,7 +424,26 @@ mod tests {
 
     #[test]
     fn given_a_tied_contest_when_asking_if_the_roll_succeeded_then_yes_for_the_actor() {
-        assert!(ShownRoll::Dodge(contest(0)).succeeded());
+        assert!(ShownRoll::Dodge(contest_dodge(0)).succeeded());
+    }
+
+    #[test]
+    fn given_an_agility_dodge_short_of_its_target_when_asking_if_the_roll_succeeded_then_no() {
+        let dodge = DodgeRoll::Agility(AgilityRoll {
+            faces: 4,
+            rolled: 3,
+            malus: 2,
+            target: 2,
+            success: false,
+        });
+        assert!(!ShownRoll::Dodge(dodge).succeeded());
+    }
+
+    fn contest_dodge(margin: i8) -> DodgeRoll {
+        DodgeRoll::Contest {
+            tackler: goblin("A1"),
+            contest: contest(margin),
+        }
     }
 
     #[test]

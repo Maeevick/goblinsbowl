@@ -3,9 +3,8 @@
 use crate::dice::DiceRoller;
 use crate::event::{ContestRoll, GameEvent, TurnEndReason};
 use crate::odds::ContestDice;
-use crate::preview::{assault_dice, most_dangerous_tackler, stance_bonus};
+use crate::preview::{assault_dice, stance_bonus};
 use crate::roster::GoblinId;
-use crate::square::Square;
 use crate::state::{Ball, Presence};
 
 use super::Game;
@@ -29,14 +28,6 @@ impl<D: DiceRoller> Game<D> {
             opponent_modifier,
             margin: i8::try_from(margin).unwrap_or(if margin < 0 { i8::MIN } else { i8::MAX }),
         }
-    }
-
-    pub(super) fn most_dangerous_tackler(
-        &self,
-        dodger: GoblinId,
-        from: Square,
-    ) -> Option<GoblinId> {
-        most_dangerous_tackler(&self.ruleset, &self.state, dodger, from).map(|(tackler, _)| tackler)
     }
 
     pub(super) fn knock_down(

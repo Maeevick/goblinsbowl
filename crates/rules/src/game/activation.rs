@@ -2,9 +2,8 @@
 
 use crate::command::{Action, Activation};
 use crate::dice::DiceRoller;
-use crate::event::{GameEvent, TurnEndReason};
-use crate::odds::ContestDice;
-use crate::preview::dodge_dice;
+use crate::event::{DodgeRoll, GameEvent, TurnEndReason};
+use crate::preview::{DodgeDice, dodge_dice};
 use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::state::{Ball, Presence};
@@ -100,41 +99,49 @@ impl<D: DiceRoller> Game<D> {
     }
 
     fn dodge_succeeds(&mut self, id: GoblinId, from: Square, events: &mut Vec<GameEvent>) -> bool {
-        let Some(tackler) = self.most_dangerous_tackler(id, from) else {
+        let Some(dice) = dodge_dice(&self.ruleset, &self.state, id, from) else {
             return true;
         };
-        let dice = dodge_dice(&self.ruleset, &self.state, id, tackler).unwrap_or(ContestDice {
-            actor_faces: 1,
-            opponent_faces: 1,
-            opponent_modifier: 0,
-        });
-        let contest = self.roll_contest(
-            dice.actor_faces,
-            dice.opponent_faces,
-            dice.opponent_modifier,
-        );
-        events.push(GameEvent::DodgeAttempted {
-            goblin: id,
-            tackler,
-            contest,
-        });
-        if contest.actor_won() {
+        let roll = match dice {
+            DodgeDice::Contest { tackler, contest } => DodgeRoll::Contest {
+                tackler,
+                contest: self.roll_contest(
+                    contest.actor_faces,
+                    contest.opponent_faces,
+                    contest.opponent_modifier,
+                ),
+            },
+            DodgeDice::Agility(dice) => DodgeRoll::Agility(self.roll_agility_test(dice)),
+        };
+        events.push(GameEvent::DodgeAttempted { goblin: id, roll });
+        if roll.succeeded() {
             return true;
         }
-        let damage = contest.margin.unsigned_abs().saturating_sub(1);
         if let Some(dodger) = self.state.goblin_mut(id) {
             dodger.spend_its_turn();
         }
-        self.knock_down(id, damage, events);
+        self.knock_down(id, failed_dodge_damage(&roll), events);
         false
     }
+}
+
+/// Health a failed dodge costs: how far the roll fell short, minus one.
+fn failed_dodge_damage(roll: &DodgeRoll) -> u8 {
+    let missed_by = match roll {
+        DodgeRoll::Contest { contest, .. } => contest.margin.unsigned_abs(),
+        DodgeRoll::Agility(roll) => {
+            let needed = u16::from(roll.target) + u16::from(roll.malus);
+            u8::try_from(needed.saturating_sub(u16::from(roll.rolled))).unwrap_or(u8::MAX)
+        }
+    };
+    missed_by.saturating_sub(1)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::characteristics::Archetype::{Bruiser, Sprinter, Thrower};
     use crate::command::{Action, Activation, Command};
-    use crate::event::{AgilityRoll, ContestRoll, GameEvent, TurnEndReason};
+    use crate::event::{AgilityRoll, ContestRoll, DodgeRoll, GameEvent, TurnEndReason};
     use crate::game::scenario::Scenario;
     use crate::roster::GoblinId;
     use crate::square::Square;
@@ -490,14 +497,16 @@ mod tests {
             events.first(),
             Some(&GameEvent::DodgeAttempted {
                 goblin: id("H1"),
-                tackler: id("A1"),
-                contest: ContestRoll {
-                    actor_faces: 4,
-                    actor_rolled: 3,
-                    opponent_faces: 4,
-                    opponent_rolled: 2,
-                    opponent_modifier: 0,
-                    margin: 1
+                roll: DodgeRoll::Contest {
+                    tackler: id("A1"),
+                    contest: ContestRoll {
+                        actor_faces: 4,
+                        actor_rolled: 3,
+                        opponent_faces: 4,
+                        opponent_rolled: 2,
+                        opponent_modifier: 0,
+                        margin: 1
+                    }
                 }
             })
         );
@@ -578,7 +587,8 @@ mod tests {
         let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
         assert!(matches!(
             events.first(),
-            Some(GameEvent::DodgeAttempted { tackler, .. }) if *tackler == id("A2")
+            Some(GameEvent::DodgeAttempted { roll: DodgeRoll::Contest { tackler, .. }, .. })
+                if *tackler == id("A2")
         ));
     }
 
@@ -598,7 +608,8 @@ mod tests {
         let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
         assert!(matches!(
             events.first(),
-            Some(GameEvent::DodgeAttempted { tackler, .. }) if *tackler == id("A1")
+            Some(GameEvent::DodgeAttempted { roll: DodgeRoll::Contest { tackler, .. }, .. })
+                if *tackler == id("A1")
         ));
     }
 
@@ -611,6 +622,68 @@ mod tests {
             .game([]);
         game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
         assert_eq!(game.dice().remaining(), 0);
+    }
+
+    fn sprinter_dodging_by_agility() -> Scenario {
+        sprinter_slipping_past_a_bruiser().rules(|ruleset| ruleset.dodges_test_agility = true)
+    }
+
+    #[test]
+    fn given_agility_dodges_when_a_sprinter_leaves_a_braced_bruiser_then_its_test_takes_two() {
+        let mut game = sprinter_dodging_by_agility()
+            .edit("A1", |goblin| goblin.in_stance = true)
+            .game([4]);
+
+        let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+
+        assert_eq!(
+            events.first(),
+            Some(&GameEvent::DodgeAttempted {
+                goblin: id("H1"),
+                roll: DodgeRoll::Agility(AgilityRoll {
+                    faces: 4,
+                    rolled: 4,
+                    malus: 2,
+                    target: 2,
+                    success: true
+                })
+            })
+        );
+    }
+
+    #[test]
+    fn given_agility_dodges_when_the_sprinter_reaches_two_after_its_malus_then_it_moves_on() {
+        let mut game = sprinter_dodging_by_agility().game([3]);
+
+        game.apply(TeamId::HOME, act("H1", &[(4, 7), (3, 7)]))
+            .unwrap();
+
+        assert_eq!(
+            game.state().goblin(id("H1")).unwrap().presence,
+            Presence::Standing(Square::new(3, 7))
+        );
+    }
+
+    #[test]
+    fn given_agility_dodges_when_the_sprinter_misses_by_one_then_it_falls_unhurt() {
+        let mut game = sprinter_dodging_by_agility().game([2]);
+
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+
+        let sprinter = game.state().goblin(id("H1")).unwrap();
+        assert_eq!(sprinter.presence, Presence::Down(Square::new(5, 7)));
+        assert_eq!(sprinter.health, 3);
+    }
+
+    #[test]
+    fn given_agility_dodges_when_the_sprinter_misses_by_three_then_it_loses_two_health() {
+        let mut game = sprinter_dodging_by_agility()
+            .edit("A1", |goblin| goblin.in_stance = true)
+            .game([1]);
+
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+
+        assert_eq!(game.state().goblin(id("H1")).unwrap().health, 1);
     }
 
     #[test]

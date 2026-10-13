@@ -112,11 +112,9 @@ impl Scoresheet {
                     defences.record(!attacker_won);
                 });
             }
-            GameEvent::DodgeAttempted {
-                goblin, contest, ..
-            } => self.update(goblin.team, |sheet| {
-                sheet.dodges.record(contest.actor_won());
-            }),
+            GameEvent::DodgeAttempted { goblin, roll } => {
+                self.update(goblin.team, |sheet| sheet.dodges.record(roll.succeeded()));
+            }
             GameEvent::PickAttempted { goblin, roll } => {
                 self.update(goblin.team, |sheet| sheet.pickups.record(roll.success));
                 if roll.success {
@@ -195,7 +193,7 @@ impl Scoresheet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::event::{AgilityRoll, ContestRoll};
+    use crate::event::{AgilityRoll, ContestRoll, DodgeRoll};
     use crate::square::Square;
 
     fn id(text: &str) -> GoblinId {
@@ -299,8 +297,7 @@ mod tests {
     fn given_a_failed_dodge_when_tallied_then_its_team_failed_one_dodge() {
         let events = [GameEvent::DodgeAttempted {
             goblin: id("A5"),
-            tackler: id("H2"),
-            contest: contest(-2),
+            roll: DodgeRoll::Agility(roll(false)),
         }];
 
         let away = sheet_of(TeamId::AWAY, &events);

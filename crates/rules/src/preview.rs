@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::arena::Arena;
 use crate::command::{Action, Activation};
 use crate::flight::squares_crossed;
-use crate::odds::{ContestDice, Probability, agility_success};
+use crate::odds::{AgilityDice, ContestDice, Probability, agility_success};
 use crate::roster::GoblinId;
 use crate::ruleset::Ruleset;
 use crate::square::Square;
@@ -13,6 +13,31 @@ use crate::state::{Ball, GameState, Presence};
 use crate::team::TeamId;
 use crate::validation::validate_activation;
 use crate::violation::RuleViolation;
+
+/// The dice of a dodge, as the ruleset decides.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "test", rename_all = "snake_case")]
+pub enum DodgeDice {
+    /// Agility die against the Defense die and Stance bonus of the enemy most likely to stop the goblin.
+    Contest {
+        /// That enemy.
+        tackler: GoblinId,
+        /// The dice facing off.
+        contest: ContestDice,
+    },
+    /// Agility test, each adjacent standing enemy a malus of one, two when it stands in Stance.
+    Agility(AgilityDice),
+}
+
+impl DodgeDice {
+    /// Chance to slip away.
+    pub fn success(self) -> Probability {
+        match self {
+            DodgeDice::Contest { contest, .. } => contest.success(),
+            DodgeDice::Agility(dice) => dice.success(),
+        }
+    }
+}
 
 /// A moment of an activation that can end the turn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,10 +47,8 @@ pub enum RiskyStep {
     Dodge {
         /// Square left.
         from: Square,
-        /// The enemy most likely to stop the goblin.
-        tackler: GoblinId,
-        /// The dice facing off.
-        dice: ContestDice,
+        /// The dice rolled.
+        dice: DodgeDice,
         /// Chance to slip away.
         success: Probability,
     },
@@ -116,8 +139,37 @@ pub fn assault_dice(
     })
 }
 
-/// The dice of `mover` slipping away from `tackler`: Agility against Defense plus the tackler's Stance bonus.
+/// The dice of `mover` leaving `from`, none when no standing enemy stands next to it.
 pub fn dodge_dice(
+    ruleset: &Ruleset,
+    state: &GameState,
+    mover: GoblinId,
+    from: Square,
+) -> Option<DodgeDice> {
+    let goblin = state.goblin(mover)?;
+    if ruleset.dodges_test_agility {
+        let malus = dodge_malus(state, from, goblin.team());
+        return (malus > 0).then_some(DodgeDice::Agility(AgilityDice {
+            faces: goblin.characteristics.agility,
+            malus,
+            target: ruleset.ball_roll_target,
+        }));
+    }
+    let (tackler, _) = most_dangerous_tackler(ruleset, state, mover, from)?;
+    tackle_dice(ruleset, state, mover, tackler)
+        .map(|contest| DodgeDice::Contest { tackler, contest })
+}
+
+/// Malus on an agility dodge out of `square`: one per adjacent standing enemy, two when it stands in Stance.
+fn dodge_malus(state: &GameState, square: Square, team: TeamId) -> u8 {
+    state
+        .standing_opponents_next_to(square, team)
+        .map(|enemy| 1 + u8::from(enemy.in_stance))
+        .fold(0, u8::saturating_add)
+}
+
+/// The dice of `mover` slipping away from `tackler`: Agility against Defense plus the tackler's Stance bonus.
+fn tackle_dice(
     ruleset: &Ruleset,
     state: &GameState,
     mover: GoblinId,
@@ -143,7 +195,7 @@ pub fn most_dangerous_tackler(
     state
         .standing_opponents_next_to(from, team)
         .filter_map(|tackler| {
-            dodge_dice(ruleset, state, mover, tackler.id).map(|dice| (dice.success(), tackler.id))
+            tackle_dice(ruleset, state, mover, tackler.id).map(|dice| (dice.success(), tackler.id))
         })
         .min()
         .map(|(escape, tackler)| (tackler, escape))
@@ -173,14 +225,10 @@ pub fn activation_odds(
         let Some(from) = sketch.goblin(id).and_then(|goblin| goblin.square()) else {
             break;
         };
-        let dodge =
-            most_dangerous_tackler(ruleset, &sketch, id, from).and_then(|(tackler, escape)| {
-                dodge_dice(ruleset, &sketch, id, tackler).map(|dice| (tackler, dice, escape))
-            });
-        if let Some((tackler, dice, escape)) = dodge {
+        if let Some(dice) = dodge_dice(ruleset, &sketch, id, from) {
+            let escape = dice.success();
             risky_steps.push(RiskyStep::Dodge {
                 from,
-                tackler,
                 dice,
                 success: escape,
             });
@@ -510,10 +558,10 @@ mod tests {
         )
     }
 
-    fn dice_of(
+    fn dice_of<Dice>(
         scenario: Scenario,
-        read: impl FnOnce(&Ruleset, &GameState) -> Option<ContestDice>,
-    ) -> Option<ContestDice> {
+        read: impl FnOnce(&Ruleset, &GameState) -> Option<Dice>,
+    ) -> Option<Dice> {
         let game = scenario.game([]);
         read(game.ruleset(), game.state())
     }
@@ -628,13 +676,56 @@ mod tests {
                 ruleset,
                 state,
                 id("H1"),
-                id("A1")
+                Square::new(5, 7)
             )),
-            Some(ContestDice {
-                actor_faces: 4,
-                opponent_faces: 4,
-                opponent_modifier: 1
+            Some(DodgeDice::Contest {
+                tackler: id("A1"),
+                contest: ContestDice {
+                    actor_faces: 4,
+                    opponent_faces: 4,
+                    opponent_modifier: 1
+                }
             })
+        );
+    }
+
+    #[test]
+    fn given_agility_dodges_when_a_sprinter_leaves_a_plain_and_a_braced_enemy_then_its_d4_takes_three()
+     {
+        let scenario = sprinter_next_to_a_bruiser()
+            .rules(|ruleset| ruleset.dodges_test_agility = true)
+            .goblin("A2", Sprinter, 5, 6)
+            .edit("A1", |goblin| goblin.in_stance = true);
+        assert_eq!(
+            dice_of(scenario, |ruleset, state| dodge_dice(
+                ruleset,
+                state,
+                id("H1"),
+                Square::new(5, 7)
+            )),
+            Some(DodgeDice::Agility(AgilityDice {
+                faces: 4,
+                malus: 3,
+                target: 2
+            }))
+        );
+    }
+
+    #[test]
+    fn given_agility_dodges_when_the_only_enemy_around_is_down_then_no_dodge() {
+        let scenario = sprinter_next_to_a_bruiser()
+            .rules(|ruleset| ruleset.dodges_test_agility = true)
+            .edit("A1", |goblin| {
+                goblin.presence = Presence::Down(Square::new(6, 7));
+            });
+        assert_eq!(
+            dice_of(scenario, |ruleset, state| dodge_dice(
+                ruleset,
+                state,
+                id("H1"),
+                Square::new(5, 7)
+            )),
+            None
         );
     }
 
@@ -666,13 +757,35 @@ mod tests {
             preview.risky_steps,
             vec![RiskyStep::Dodge {
                 from: Square::new(5, 7),
-                tackler: id("A1"),
-                dice: ContestDice {
-                    actor_faces: 4,
-                    opponent_faces: 4,
-                    opponent_modifier: 0
+                dice: DodgeDice::Contest {
+                    tackler: id("A1"),
+                    contest: ContestDice {
+                        actor_faces: 4,
+                        opponent_faces: 4,
+                        opponent_modifier: 0
+                    }
                 },
                 success: Probability::new(5, 8)
+            }]
+        );
+    }
+
+    #[test]
+    fn given_agility_dodges_when_a_sprinter_steps_away_from_a_bruiser_then_one_half() {
+        let walk = order("H1", &[(4, 7)], None);
+        let scenario =
+            sprinter_next_to_a_bruiser().rules(|ruleset| ruleset.dodges_test_agility = true);
+        let preview = odds(scenario, &walk).unwrap();
+        assert_eq!(
+            preview.risky_steps,
+            vec![RiskyStep::Dodge {
+                from: Square::new(5, 7),
+                dice: DodgeDice::Agility(AgilityDice {
+                    faces: 4,
+                    malus: 1,
+                    target: 2
+                }),
+                success: Probability::new(1, 2)
             }]
         );
     }

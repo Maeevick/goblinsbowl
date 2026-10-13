@@ -6,7 +6,7 @@ use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::team::TeamId;
 
-/// An agility test (Pick, Throw, Catch, Intercept): the die minus its maluses against the target.
+/// An agility test (Pick, Throw, Catch, Intercept, Dodge): the die minus its maluses against the target.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgilityRoll {
     /// Faces of the die (the goblin's agility).
@@ -42,6 +42,31 @@ impl ContestRoll {
     /// Whether the actor won the contest (ties go to the actor).
     pub fn actor_won(&self) -> bool {
         self.margin >= 0
+    }
+}
+
+/// How a dodge was rolled, as the ruleset decides.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "test", rename_all = "snake_case")]
+pub enum DodgeRoll {
+    /// Agility die against the Defense die and Stance bonus of the enemy most likely to stop the goblin.
+    Contest {
+        /// That enemy.
+        tackler: GoblinId,
+        /// The opposed roll.
+        contest: ContestRoll,
+    },
+    /// Agility test, each adjacent standing enemy a malus of one, two when it stands in Stance.
+    Agility(AgilityRoll),
+}
+
+impl DodgeRoll {
+    /// Whether the goblin slipped away.
+    pub fn succeeded(&self) -> bool {
+        match self {
+            DodgeRoll::Contest { contest, .. } => contest.actor_won(),
+            DodgeRoll::Agility(roll) => roll.success,
+        }
     }
 }
 
@@ -126,14 +151,12 @@ pub enum GameEvent {
         /// Square it entered.
         to: Square,
     },
-    /// A goblin tried to slip out of an enemy's reach.
+    /// A goblin tried to slip out of the reach of adjacent enemies.
     DodgeAttempted {
         /// The dodging goblin.
         goblin: GoblinId,
-        /// The adjacent enemy most likely to stop it.
-        tackler: GoblinId,
-        /// Agility die against the tackler's defense die and Stance bonus.
-        contest: ContestRoll,
+        /// Its roll.
+        roll: DodgeRoll,
     },
     /// A goblin tried to pick up the loose ball it stepped onto.
     PickAttempted {

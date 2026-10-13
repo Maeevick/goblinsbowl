@@ -3,9 +3,9 @@
 use clap::ValueEnum;
 use goblins_rules::characteristics::Archetype;
 use goblins_rules::command::{Action, Activation};
-use goblins_rules::event::{GameEvent, TurnEndReason};
-use goblins_rules::odds::{ContestDice, Probability};
-use goblins_rules::preview::{ActionOdds, ActivationOdds, RiskyStep};
+use goblins_rules::event::{DodgeRoll, GameEvent, TurnEndReason};
+use goblins_rules::odds::{AgilityDice, ContestDice, Probability};
+use goblins_rules::preview::{ActionOdds, ActivationOdds, DodgeDice, RiskyStep};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::team::TeamId;
 
@@ -199,10 +199,23 @@ impl Texts {
     pub fn dice_detail(&self, odds: &ActivationOdds) -> String {
         let versus = if self.french() { "contre" } else { "vs" };
         let dodges = odds.risky_steps.iter().filter_map(|step| match step {
-            RiskyStep::Dodge { tackler, dice, .. } => Some(if self.french() {
-                format!("Esquive de {tackler} : {}", describe_dice(dice, versus))
-            } else {
-                format!("Dodge past {tackler}: {}", describe_dice(dice, versus))
+            RiskyStep::Dodge { dice, .. } => Some(match (dice, self.french()) {
+                (DodgeDice::Contest { tackler, contest }, true) => {
+                    format!("Esquive de {tackler} : {}", describe_dice(contest, versus))
+                }
+                (DodgeDice::Contest { tackler, contest }, false) => {
+                    format!("Dodge past {tackler}: {}", describe_dice(contest, versus))
+                }
+                (DodgeDice::Agility(dice), true) => format!(
+                    "Esquive : {}, il faut {}",
+                    describe_agility_dice(dice),
+                    dice.target
+                ),
+                (DodgeDice::Agility(dice), false) => format!(
+                    "Dodge: {}, needs {}",
+                    describe_agility_dice(dice),
+                    dice.target
+                ),
             }),
             RiskyStep::Pick { .. } => None,
         });
@@ -252,10 +265,11 @@ impl Texts {
     /// The dice behind a roll, for example "4−1 sur d4, il faut 2" or "3 contre 2+1".
     pub fn roll_detail(&self, roll: &ShownRoll) -> String {
         match roll {
-            ShownRoll::Dodge(contest) | ShownRoll::Assault(contest) => {
+            ShownRoll::Dodge(DodgeRoll::Contest { contest, .. }) | ShownRoll::Assault(contest) => {
                 describe_contest(contest, if self.french() { "contre" } else { "vs" })
             }
-            ShownRoll::Pick(ball)
+            ShownRoll::Dodge(DodgeRoll::Agility(ball))
+            | ShownRoll::Pick(ball)
             | ShownRoll::Throw(ball)
             | ShownRoll::Catch(ball)
             | ShownRoll::Intercept(ball) => {
@@ -372,8 +386,34 @@ impl Texts {
             ),
             GameEvent::DodgeAttempted {
                 goblin,
-                tackler,
-                contest,
+                roll: DodgeRoll::Agility(roll),
+            } => pick(
+                french,
+                if roll.success {
+                    format!(
+                        "{goblin} se faufile : {}",
+                        describe_agility_roll(roll, "sur")
+                    )
+                } else {
+                    format!(
+                        "{goblin} trébuche : {}, il fallait {}",
+                        describe_agility_roll(roll, "sur"),
+                        roll.target
+                    )
+                },
+                if roll.success {
+                    format!("{goblin} slips away: {}", describe_agility_roll(roll, "on"))
+                } else {
+                    format!(
+                        "{goblin} trips: {}, needed {}",
+                        describe_agility_roll(roll, "on"),
+                        roll.target
+                    )
+                },
+            ),
+            GameEvent::DodgeAttempted {
+                goblin,
+                roll: DodgeRoll::Contest { tackler, contest },
             } => pick(
                 french,
                 if contest.actor_won() {
@@ -731,6 +771,14 @@ fn describe_agility_roll(roll: &goblins_rules::event::AgilityRoll, on: &str) -> 
     }
 }
 
+fn describe_agility_dice(dice: &AgilityDice) -> String {
+    if dice.malus == 0 {
+        format!("d{}", dice.faces)
+    } else {
+        format!("d{}−{}", dice.faces, dice.malus)
+    }
+}
+
 fn describe_dice(dice: &ContestDice, versus: &str) -> String {
     let modifier = match dice.opponent_modifier {
         0 => String::new(),
@@ -863,8 +911,10 @@ mod tests {
         let mut preview = odds(Probability::new(1, 2), false);
         preview.risky_steps = vec![RiskyStep::Dodge {
             from: goblins_rules::square::Square::new(5, 7),
-            tackler: id("A1"),
-            dice: dice(4, 4, 0),
+            dice: DodgeDice::Contest {
+                tackler: id("A1"),
+                contest: dice(4, 4, 0),
+            },
             success: Probability::new(5, 8),
         }];
         preview.action = Some(ActionOdds::Assault {
@@ -876,6 +926,21 @@ mod tests {
             ENGLISH.dice_detail(&preview),
             "Dodge past A1: d4 vs d4 · Assault: d3 vs d2−2"
         );
+    }
+
+    #[test]
+    fn given_french_when_detailing_an_agility_dodge_then_the_die_its_malus_and_the_target() {
+        let mut preview = odds(Probability::new(1, 4), false);
+        preview.risky_steps = vec![RiskyStep::Dodge {
+            from: goblins_rules::square::Square::new(5, 7),
+            dice: DodgeDice::Agility(AgilityDice {
+                faces: 4,
+                malus: 2,
+                target: 2,
+            }),
+            success: Probability::new(1, 4),
+        }];
+        assert_eq!(FRENCH.dice_detail(&preview), "Esquive : d4−2, il faut 2");
     }
 
     #[test]
@@ -899,7 +964,10 @@ mod tests {
     #[test]
     fn given_french_when_a_dodge_fails_then_the_goblin_is_tackled() {
         assert_eq!(
-            FRENCH.roll_headline(&ShownRoll::Dodge(contest_roll(1, 3, 0))),
+            FRENCH.roll_headline(&ShownRoll::Dodge(DodgeRoll::Contest {
+                tackler: id("A1"),
+                contest: contest_roll(1, 3, 0)
+            })),
             "Plaqué !"
         );
     }
@@ -1022,6 +1090,39 @@ mod tests {
         assert_eq!(
             FRENCH.describe_event(&event),
             Some("A5 rate la balle : 2−1 sur d4, il fallait 2".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_failed_agility_dodge_when_described_in_english_then_the_roll_and_the_target() {
+        let event = GameEvent::DodgeAttempted {
+            goblin: id("H4"),
+            roll: DodgeRoll::Agility(AgilityRoll {
+                faces: 4,
+                rolled: 3,
+                malus: 3,
+                target: 2,
+                success: false,
+            }),
+        };
+        assert_eq!(
+            ENGLISH.describe_event(&event),
+            Some("H4 trips: 3−3 on d4, needed 2".to_string())
+        );
+    }
+
+    #[test]
+    fn given_an_agility_dodge_when_its_roll_is_detailed_in_french_then_like_any_agility_test() {
+        let roll = DodgeRoll::Agility(AgilityRoll {
+            faces: 4,
+            rolled: 4,
+            malus: 1,
+            target: 2,
+            success: true,
+        });
+        assert_eq!(
+            FRENCH.roll_detail(&ShownRoll::Dodge(roll)),
+            "4−1 sur d4, il faut 2"
         );
     }
 

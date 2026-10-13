@@ -26,6 +26,24 @@ impl ContestDice {
     }
 }
 
+/// The die of an agility test: the goblin's Agility die minus a malus, against a target.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AgilityDice {
+    /// Faces of the goblin's Agility die.
+    pub faces: u8,
+    /// Subtracted from the face.
+    pub malus: u8,
+    /// Value to reach after the malus.
+    pub target: u8,
+}
+
+impl AgilityDice {
+    /// Chance that the face minus the malus reaches the target.
+    pub fn success(self) -> Probability {
+        agility_success(self.faces, self.malus, self.target)
+    }
+}
+
 /// A probability kept as a reduced fraction; comparisons never go through floating point.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Probability {
@@ -253,5 +271,15 @@ mod tests {
     #[test]
     fn given_agility_two_with_one_malus_when_computing_an_agility_test_then_impossible() {
         assert_eq!(agility_success(2, 1, 2), Probability::IMPOSSIBLE);
+    }
+
+    #[test]
+    fn given_a_d4_with_a_malus_of_one_against_two_when_reading_its_chance_then_one_half() {
+        let dice = AgilityDice {
+            faces: 4,
+            malus: 1,
+            target: 2,
+        };
+        assert_eq!(dice.success(), Probability::new(1, 2));
     }
 }

@@ -106,9 +106,7 @@ impl MatchStats {
                 GameEvent::AssaultResolved { contest, .. } => {
                     stats.assaults.record(contest.actor_won());
                 }
-                GameEvent::DodgeAttempted { contest, .. } => {
-                    stats.dodges.record(contest.actor_won());
-                }
+                GameEvent::DodgeAttempted { roll, .. } => stats.dodges.record(roll.succeeded()),
                 GameEvent::PickAttempted { roll, .. } => stats.picks.record(roll.success),
                 GameEvent::ThrowAttempted { receiver, roll, .. } => {
                     stats.throws.tried += 1;
@@ -247,7 +245,7 @@ impl BalanceSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::event::{AgilityRoll, ContestRoll};
+    use crate::event::{AgilityRoll, ContestRoll, DodgeRoll};
 
     fn id(text: &str) -> GoblinId {
         text.parse().unwrap()
@@ -321,14 +319,16 @@ mod tests {
     fn given_a_failed_dodge_when_counting_then_a_dodge_tried_but_not_made() {
         let events = [GameEvent::DodgeAttempted {
             goblin: id("H5"),
-            tackler: id("A1"),
-            contest: ContestRoll {
-                actor_faces: 4,
-                actor_rolled: 1,
-                opponent_faces: 4,
-                opponent_rolled: 3,
-                opponent_modifier: 0,
-                margin: -2,
+            roll: DodgeRoll::Contest {
+                tackler: id("A1"),
+                contest: ContestRoll {
+                    actor_faces: 4,
+                    actor_rolled: 1,
+                    opponent_faces: 4,
+                    opponent_rolled: 3,
+                    opponent_modifier: 0,
+                    margin: -2,
+                },
             },
         }];
         assert_eq!(

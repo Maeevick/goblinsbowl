@@ -5,6 +5,7 @@ use std::collections::VecDeque;
 use crate::dice::DiceRoller;
 use crate::event::{AgilityRoll, GameEvent};
 use crate::formation::{kickoff_drop_square, kickoff_squares};
+use crate::odds::AgilityDice;
 use crate::roster::GoblinId;
 use crate::square::{Direction, Square};
 use crate::state::{Ball, Presence};
@@ -168,14 +169,21 @@ impl<D: DiceRoller> Game<D> {
         let malus = u8::try_from(adjacent_opponents)
             .unwrap_or(u8::MAX)
             .saturating_add(extra_malus);
-        let rolled = self.dice.roll(faces);
-        let target = self.ruleset.ball_roll_target;
-        AgilityRoll {
+        self.roll_agility_test(AgilityDice {
             faces,
-            rolled,
             malus,
-            target,
-            success: i16::from(rolled) - i16::from(malus) >= i16::from(target),
+            target: self.ruleset.ball_roll_target,
+        })
+    }
+
+    pub(super) fn roll_agility_test(&mut self, dice: AgilityDice) -> AgilityRoll {
+        let rolled = self.dice.roll(dice.faces);
+        AgilityRoll {
+            faces: dice.faces,
+            rolled,
+            malus: dice.malus,
+            target: dice.target,
+            success: i16::from(rolled) - i16::from(dice.malus) >= i16::from(dice.target),
         }
     }
 

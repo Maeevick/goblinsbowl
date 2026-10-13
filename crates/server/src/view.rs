@@ -10,10 +10,10 @@ use goblins_rules::board::render_board;
 use goblins_rules::command::{Action, Activation};
 use goblins_rules::event::GameEvent;
 use goblins_rules::host::{MatchSnapshot, TurnClock};
-use goblins_rules::odds::{ContestDice, Probability};
+use goblins_rules::odds::{AgilityDice, ContestDice, Probability};
 use goblins_rules::paths::{PlannedPath, reachable_squares};
 use goblins_rules::preview::{
-    ActionOdds, ActivationOdds, RiskyStep, activation_odds, assault_dice,
+    ActionOdds, ActivationOdds, DodgeDice, RiskyStep, activation_odds, assault_dice,
 };
 use goblins_rules::roster::GoblinId;
 use goblins_rules::ruleset::Ruleset;
@@ -300,6 +300,15 @@ pub fn describe_dice(dice: &ContestDice) -> String {
     )
 }
 
+/// An agility test's die, for example "d4-3 needs 2".
+pub fn describe_agility_dice(dice: &AgilityDice) -> String {
+    if dice.malus == 0 {
+        format!("d{} needs {}", dice.faces, dice.target)
+    } else {
+        format!("d{}-{} needs {}", dice.faces, dice.malus, dice.target)
+    }
+}
+
 /// What an agent is told about a planned activation: every roll with its dice, and its chance
 /// when odds hints are full; nothing when hints are off.
 pub fn odds_lines(odds: &ActivationOdds, hints: OddsHints) -> Vec<String> {
@@ -321,14 +330,18 @@ pub fn odds_lines(odds: &ActivationOdds, hints: OddsHints) -> Vec<String> {
         .map(|step| match step {
             RiskyStep::Dodge {
                 from,
-                tackler,
                 dice,
                 success,
-            } => annotate(
-                format!("dodge out of [{}, {}] past {tackler}", from.x, from.y),
-                Some(describe_dice(dice)),
-                *success,
-            ),
+            } => {
+                let out_of = format!("dodge out of [{}, {}]", from.x, from.y);
+                let (text, dice) = match dice {
+                    DodgeDice::Contest { tackler, contest } => {
+                        (format!("{out_of} past {tackler}"), describe_dice(contest))
+                    }
+                    DodgeDice::Agility(dice) => (out_of, describe_agility_dice(dice)),
+                };
+                annotate(text, Some(dice), *success)
+            }
             RiskyStep::Pick { at, success } => {
                 annotate(format!("pick at [{}, {}]", at.x, at.y), None, *success)
             }
@@ -498,8 +511,10 @@ mod tests {
         ActivationOdds {
             risky_steps: vec![RiskyStep::Dodge {
                 from: goblins_rules::square::Square::new(5, 7),
-                tackler: "A1".parse().unwrap(),
-                dice,
+                dice: DodgeDice::Contest {
+                    tackler: "A1".parse().unwrap(),
+                    contest: dice,
+                },
                 success: Probability::new(3, 8),
             }],
             path_success: Probability::new(3, 8),
@@ -532,6 +547,29 @@ mod tests {
         assert_eq!(
             odds_lines(&walk_with_a_dodge_then_an_assault(), OddsHints::Full).first(),
             Some(&"dodge out of [5, 7] past A1: d4 vs d4+1, 37.5 % (3/8)".to_string())
+        );
+    }
+
+    #[test]
+    fn given_full_hints_when_describing_an_agility_dodge_then_its_die_malus_target_and_chance() {
+        let odds = ActivationOdds {
+            risky_steps: vec![RiskyStep::Dodge {
+                from: goblins_rules::square::Square::new(5, 7),
+                dice: DodgeDice::Agility(AgilityDice {
+                    faces: 4,
+                    malus: 3,
+                    target: 2,
+                }),
+                success: Probability::IMPOSSIBLE,
+            }],
+            path_success: Probability::IMPOSSIBLE,
+            scores_on_the_way: false,
+            action: None,
+            overall_success: Probability::IMPOSSIBLE,
+        };
+        assert_eq!(
+            odds_lines(&odds, OddsHints::Full).first(),
+            Some(&"dodge out of [5, 7]: d4-3 needs 2, 0.0 % (0/1)".to_string())
         );
     }
 

@@ -24,6 +24,9 @@ kickoff_bounces = 1
 stance_bonus_cap = 5
 # Most braced adjacent teammates a Stance bonus counts (4: every neighbour, so no cap).
 neighbour_stance_bonus_cap = 4
+# Whether a dodge is an agility test, each adjacent standing enemy a malus of 1 (2 in Stance)
+# (false: the Agility die against the Defense die and Stance bonus of the most dangerous enemy).
+dodges_test_agility = false
 # Whether a goblin keeps the steps it did not walk after its action, its Move and one action
 # per turn spent over several orders (false: its first order ends its turn).
 keeps_moving_after_action = true

@@ -70,6 +70,10 @@ pub struct Ruleset {
     /// Most braced adjacent teammates a Stance bonus counts; 4, every neighbour, means no cap.
     #[serde(default = "every_braced_neighbour")]
     pub neighbour_stance_bonus_cap: u8,
+    /// Whether a dodge is an agility test, each adjacent standing enemy a malus of one and two when
+    /// in Stance; otherwise the Agility die faces the Defense die of the most dangerous enemy.
+    #[serde(default)]
+    pub dodges_test_agility: bool,
     /// Whether a goblin keeps the steps it did not walk after its action: its Move and one action
     /// per turn, spent over as many orders as its coach likes; otherwise its first order ends its turn.
     #[serde(default)]
@@ -155,6 +159,7 @@ impl Default for Ruleset {
             kickoff_bounces: one_kickoff_bounce(),
             stance_bonus_cap: uncapped_stance_bonus(),
             neighbour_stance_bonus_cap: every_braced_neighbour(),
+            dodges_test_agility: false,
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),
