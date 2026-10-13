@@ -217,6 +217,62 @@ pub fn activation_odds(
     })
 }
 
+/// The board once `activation` is through with every roll on the way won: the goblin at the end of
+/// its path with what the order used spent, the ball it picked up on the way, a won assault's target
+/// down, a caught throw in its receiver's hands, a braced goblin in Stance. Dice decide the health a
+/// won assault takes and where a ball knocked loose bounces, so health stays as it is and such a
+/// ball lies on its carrier's square. A goblin scoring on its way ends there, its action never played.
+///
+/// # Errors
+/// The [`RuleViolation`] the engine would raise for the same order.
+pub fn board_after_success(
+    arena: &Arena,
+    ruleset: &Ruleset,
+    state: &GameState,
+    team: TeamId,
+    activation: &Activation,
+) -> Result<GameState, RuleViolation> {
+    validate_activation(arena, state, team, activation)?;
+    let id = activation.goblin;
+    let mut board = state.clone();
+    for to in activation.path.iter().copied() {
+        if let Some(goblin) = board.goblin_mut(id) {
+            goblin.presence = Presence::Standing(to);
+        }
+        if board.ball == (Ball::Loose { at: to }) {
+            board.ball = Ball::Carried { by: id };
+        }
+        if board.carrier() == Some(id) && arena.is_scoring_square_for(team, to) {
+            return Ok(board);
+        }
+    }
+    if let Some(goblin) = board.goblin_mut(id) {
+        goblin.spend_order(activation, ruleset.keeps_moving_after_action);
+    }
+    match activation.action {
+        None => {}
+        Some(Action::Stance) => {
+            if let Some(goblin) = board.goblin_mut(id) {
+                goblin.in_stance = true;
+            }
+        }
+        Some(Action::Assault { target }) => {
+            let target_carried_the_ball = board.carrier() == Some(target);
+            if let Some(defender) = board.goblin_mut(target)
+                && let Presence::Standing(square) = defender.presence
+            {
+                defender.presence = Presence::Down(square);
+                defender.in_stance = false;
+                if target_carried_the_ball {
+                    board.ball = Ball::Loose { at: square };
+                }
+            }
+        }
+        Some(Action::Throw { receiver }) => board.ball = Ball::Carried { by: receiver },
+    }
+    Ok(board)
+}
+
 fn action_odds(
     ruleset: &Ruleset,
     sketch: &GameState,
@@ -325,6 +381,115 @@ mod tests {
             path: path.iter().map(|(x, y)| Square::new(*x, *y)).collect(),
             action,
         }
+    }
+
+    fn played_out(scenario: Scenario, activation: &Activation) -> Result<GameState, RuleViolation> {
+        let game = scenario
+            .rules(|ruleset| ruleset.keeps_moving_after_action = true)
+            .game([]);
+        board_after_success(
+            game.arena(),
+            game.ruleset(),
+            game.state(),
+            TeamId::HOME,
+            activation,
+        )
+    }
+
+    #[test]
+    fn given_goblins_that_keep_moving_when_a_walk_is_played_out_then_it_stands_at_its_end_with_the_rest_of_its_move()
+     {
+        let board = played_out(
+            Scenario::new().goblin("H5", Sprinter, 3, 7),
+            &order("H5", &[(4, 7), (5, 7)], None),
+        )
+        .unwrap();
+        let sprinter = board.goblin(id("H5")).unwrap();
+        assert_eq!(
+            (
+                sprinter.presence,
+                sprinter.steps_left,
+                sprinter.has_action_left
+            ),
+            (Presence::Standing(Square::new(5, 7)), 3, true)
+        );
+    }
+
+    #[test]
+    fn given_a_walk_onto_the_loose_ball_when_played_out_then_the_goblin_carries_it() {
+        let board = played_out(
+            Scenario::new()
+                .goblin("H5", Sprinter, 3, 7)
+                .ball_loose_at(5, 7),
+            &order("H5", &[(4, 7), (5, 7)], None),
+        )
+        .unwrap();
+        assert_eq!(board.ball, Ball::Carried { by: id("H5") });
+    }
+
+    #[test]
+    fn given_a_throw_when_played_out_then_the_receiver_holds_the_ball_and_the_thrower_s_action_is_used()
+     {
+        let board = played_out(
+            Scenario::new()
+                .goblin("H9", Thrower, 4, 7)
+                .goblin("H5", Sprinter, 8, 7)
+                .ball_carried_by("H9"),
+            &order("H9", &[], Some(Action::Throw { receiver: id("H5") })),
+        )
+        .unwrap();
+        assert_eq!(
+            (board.ball, board.goblin(id("H9")).unwrap().has_action_left),
+            (Ball::Carried { by: id("H5") }, false)
+        );
+    }
+
+    #[test]
+    fn given_an_assault_on_the_enemy_carrier_when_played_out_then_it_is_down_and_the_ball_lies_on_its_square()
+     {
+        let board = played_out(
+            Scenario::new()
+                .goblin("H1", Bruiser, 5, 7)
+                .goblin("A5", Sprinter, 6, 7)
+                .ball_carried_by("A5"),
+            &order("H1", &[], Some(Action::Assault { target: id("A5") })),
+        )
+        .unwrap();
+        assert_eq!(
+            (board.goblin(id("A5")).unwrap().presence, board.ball),
+            (
+                Presence::Down(Square::new(6, 7)),
+                Ball::Loose {
+                    at: Square::new(6, 7)
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn given_a_stance_when_played_out_then_the_goblin_is_braced() {
+        let board = played_out(
+            Scenario::new().goblin("H1", Bruiser, 5, 7),
+            &order("H1", &[], Some(Action::Stance)),
+        )
+        .unwrap();
+        assert!(board.goblin(id("H1")).unwrap().in_stance);
+    }
+
+    #[test]
+    fn given_a_walk_beyond_the_steps_left_when_played_out_then_the_engine_violation() {
+        let refusal = played_out(
+            Scenario::new().goblin("H1", Bruiser, 5, 7),
+            &order("H1", &[(5, 6), (5, 5), (5, 4), (5, 3)], None),
+        );
+        assert_eq!(
+            refusal,
+            Err(RuleViolation::PathTooLong {
+                goblin: id("H1"),
+                steps_left: 3,
+                steps: 4
+            })
+        );
     }
 
     fn odds(scenario: Scenario, activation: &Activation) -> Result<ActivationOdds, RuleViolation> {
