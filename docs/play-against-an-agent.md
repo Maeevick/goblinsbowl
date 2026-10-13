@@ -155,7 +155,8 @@ The coach follows the loop in `prompts/coach.md`: read the rules once, wait for 
 | `wait_for_my_turn` | `max_wait_seconds` (at most 50, default 45) | the view as soon as it is the agent's turn or the match is over, else when the wait runs out |
 | `get_state` | none | the view now |
 | `get_rules` | none | the rules, the English part of `docs/rules.md` |
-| `play` | `activations`, `end_turn`, `dry_run`, `expected_version` | one report per order, then the view |
+| `play` | `activations`, `end_turn`, `dry_run`, `expected_version` | one report per order, the plan's chance for a dry run, then the view |
+| `compare_plans` | `plans`, each a list of `orders` | for each plan, one report per order and the chance that the whole plan goes through |
 
 Each entry of `activations` is an order: a goblin, where it goes with the steps it has left this turn, and optionally its action. Under rules 0.2 a goblin has its Move and one action per turn, spent over as many orders as the coach likes, so it can walk, act, and walk on later in the turn:
 
@@ -169,7 +170,16 @@ Each entry of `activations` is an order: a goblin, where it goes with the steps 
  "end_turn": true}
 ```
 
-`to` walks the safest path; `path` lists the exact squares stepped into, without the starting one. Orders resolve in order and stop at the first that ends the turn (a knockdown, a fumble, a goal) or that the server refuses; otherwise the turn lasts until `end_turn: true` or its clock runs out, even once no goblin can play. `dry_run: true` lists the risky steps of each order, with the dice and chances the hint level allows, without rolling; each order is planned from the board as it stands, so a second order for the same goblin is planned from where it stands now, not from where the first would leave it. `estimate` is the agent's own chance of success, kept in the call log to measure calibration.
+`to` walks the safest path; `path` lists the exact squares stepped into, without the starting one. Orders resolve in order and stop at the first that ends the turn (a knockdown, a fumble, a goal) or that the server refuses; otherwise the turn lasts until `end_turn: true` or its clock runs out, even once no goblin can play. `dry_run: true` previews the orders as one plan without rolling: each order from where the previous ones leave the board if their rolls succeed, with its risky steps (the dice and chances the hint level allows) and, under full hints, the chance that the whole plan goes through (`plan_chance`). `estimate` is the agent's own chance of success, kept in the call log to measure calibration.
+
+`compare_plans` weighs alternatives in one call: each plan is previewed from the board as it stands now, its orders in sequence. "Walk or throw?" is two plans of one order each; "dodge then throw, or throw from here with the malus?" is a plan of two orders against a plan of one, two smaller risks against a bigger one:
+
+```json
+{"plans": [
+   {"orders": [{"goblin": "A9", "to": [16, 8]}, {"goblin": "A9", "action": {"type": "throw", "target": "A5"}}]},
+   {"orders": [{"goblin": "A9", "action": {"type": "throw", "target": "A5"}}]}
+ ]}
+```
 
 The view carries the status (`your_turn`, `waiting`, `game_over`), the seat and its direction of attack, the version, the time left, score and turns, the ball, the board as text rows, every goblin (characteristics, health, square, condition, whether it can still act, its `steps_left` and `has_action_left`), the assault and ball options (pick-ups, scoring routes) with their chances under full hints, and the events since the agent's previous call. At kick-off it is about 10,000 characters.
 
