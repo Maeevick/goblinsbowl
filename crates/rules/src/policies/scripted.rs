@@ -85,7 +85,8 @@ pub fn bold_command(arena: &Arena, ruleset: &Ruleset, state: &GameState, team: T
 /// open teammate well ahead along a clear line, advance the carrier (without dice if that gets
 /// closer, else within the appetite) and brace it, guard the carrier without standing in front of
 /// it, hit an adjacent enemy, close in on the ball without dice, brace any goblin in contact;
-/// otherwise end the turn. Every risk is taken only within the appetite.
+/// otherwise end the turn. Every risk is taken only within the appetite, and nobody braces or
+/// guards under rules without Stance.
 pub fn scripted_command(
     arena: &Arena,
     ruleset: &Ruleset,
@@ -395,7 +396,7 @@ impl Coach<'_> {
             .or_else(fairly_safe)
             .map(|path| path.squares.clone())
             .unwrap_or_default();
-        let action = carrier.has_action_left.then_some(Action::Stance);
+        let action = self.may_brace(carrier).then_some(Action::Stance);
         (!path.is_empty() || action.is_some()).then_some(Activation {
             goblin: carrier.id,
             path,
@@ -404,6 +405,9 @@ impl Coach<'_> {
     }
 
     fn guard_carrier(&self) -> Option<Activation> {
+        if !self.ruleset.goblins_can_take_stance {
+            return None;
+        }
         let carrier = self.own_carrier()?;
         let carrier_square = carrier.square()?;
         let ahead = carrier_square
@@ -491,7 +495,7 @@ impl Coach<'_> {
                     )
                 })?;
             let braces_in_contact =
-                mover.has_action_left && self.enemies_next_to(best.destination) > 0;
+                self.may_brace(mover) && self.enemies_next_to(best.destination) > 0;
             Some(Activation {
                 goblin: mover.id,
                 path: best.squares,
@@ -500,12 +504,17 @@ impl Coach<'_> {
         })
     }
 
+    fn may_brace(&self, goblin: &Goblin) -> bool {
+        self.ruleset.goblins_can_take_stance && goblin.has_action_left
+    }
+
     fn brace(&self) -> Option<Activation> {
         self.actors()
             .find(|mover| {
-                mover
-                    .square()
-                    .is_some_and(|square| self.enemies_next_to(square) > 0)
+                self.may_brace(mover)
+                    && mover
+                        .square()
+                        .is_some_and(|square| self.enemies_next_to(square) > 0)
             })
             .map(|mover| Activation {
                 goblin: mover.id,
@@ -755,6 +764,49 @@ mod tests {
             choose(scenario),
             Command::Act(Activation { goblin, action: None, .. }) if goblin == id("H9")
         ));
+    }
+
+    #[test]
+    fn given_rules_without_stance_when_the_carrier_advances_then_it_does_not_brace() {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.goblins_can_take_stance = false)
+            .goblin("H5", Sprinter, 3, 7)
+            .ball_carried_by("H5");
+        let chosen = activation(choose(scenario));
+        assert_eq!(
+            (chosen.path.last().copied(), chosen.action),
+            (Some(Square::new(8, 7)), None)
+        );
+    }
+
+    #[test]
+    fn given_rules_without_stance_when_the_carrier_already_acted_then_nobody_walks_up_to_guard_it()
+    {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.goblins_can_take_stance = false)
+            .goblin("H1", Bruiser, 4, 7)
+            .goblin("H5", Sprinter, 7, 7)
+            .edit("H5", Goblin::spend_its_turn)
+            .ball_carried_by("H5");
+        assert!(!matches!(
+            choose(scenario),
+            Command::Act(Activation {
+                action: Some(Action::Stance),
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn given_rules_without_stance_when_a_sprinter_stuck_against_a_bruiser_has_nothing_safe_to_do_then_the_turn_ends()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.goblins_can_take_stance = false)
+            .goblin("H5", Sprinter, 7, 7)
+            .goblin("A1", Bruiser, 8, 7)
+            .goblin("A9", Sprinter, 13, 7)
+            .ball_carried_by("A9");
+        assert_eq!(choose(scenario), Command::EndTurn);
     }
 
     #[test]
