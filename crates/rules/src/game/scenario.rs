@@ -30,6 +30,11 @@ fn rules_0_1() -> Ruleset {
         kickoff_bounces: 1,
         keeps_moving_after_action: false,
         turn_ends_when_no_goblin_can_act: true,
+        default_roster: Roster {
+            bruisers: 4,
+            sprinters: 4,
+            throwers: 1,
+        },
         ..Ruleset::default()
     }
 }
@@ -38,7 +43,7 @@ impl Scenario {
     pub(crate) fn new() -> Self {
         let ruleset = rules_0_1();
         let state = GameState {
-            rosters: vec![Roster::DEFAULT, Roster::DEFAULT],
+            rosters: vec![ruleset.default_roster; 2],
             goblins: Vec::new(),
             ball: Ball::Loose {
                 at: Square::new(7, 7),

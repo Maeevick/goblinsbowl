@@ -127,11 +127,11 @@ pub enum RosterError {
 }
 
 impl Roster {
-    /// The default 4 Bruisers, 4 Sprinters, 1 Thrower composition.
+    /// The default 3 Bruisers, 4 Sprinters, 2 Throwers composition.
     pub const DEFAULT: Roster = Roster {
-        bruisers: 4,
+        bruisers: 3,
         sprinters: 4,
-        throwers: 1,
+        throwers: 2,
     };
 
     /// Total number of goblins.

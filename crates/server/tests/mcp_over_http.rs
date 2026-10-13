@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use goblins_rules::host::{MatchHost, MatchSetup, SeatKind};
 use goblins_rules::roster::Roster;
 use goblins_rules::ruleset::Ruleset;
+use goblins_rules::state::GameState;
 use goblins_rules::team::TeamId;
 use goblins_server::call_log::{CallEntry, CallLog};
 use goblins_server::match_server::{MatchClient, ServerPacing, spawn_match};
@@ -271,25 +272,26 @@ async fn given_a_dry_run_when_planning_a_stance_then_certain_odds_and_nothing_ch
 }
 
 struct Wing {
-    sprinter: &'static str,
+    sprinter: String,
     column: i16,
     towards_own_den: i16,
 }
 
-fn wing_sprinter_of(team: TeamId) -> Wing {
-    if team == TeamId::HOME {
-        Wing {
-            sprinter: "H5",
-            column: 7,
-            towards_own_den: -1,
-        }
-    } else {
-        Wing {
-            sprinter: "A5",
-            column: 13,
-            towards_own_den: 1,
-        }
-    }
+fn wing_sprinter_of(state: &GameState, team: TeamId) -> Outcome<Wing> {
+    let (sprinter, square) = state
+        .goblins_of(team)
+        .find_map(|goblin| {
+            goblin
+                .square()
+                .filter(|square| square.y == 5)
+                .map(|square| (goblin.id, square))
+        })
+        .ok_or("no goblin on the northern wing")?;
+    Ok(Wing {
+        sprinter: sprinter.to_string(),
+        column: i16::from(square.x),
+        towards_own_den: if team == TeamId::HOME { -1 } else { 1 },
+    })
 }
 
 fn walk(goblin: &str, columns_away: i16, wing: &Wing) -> Value {
@@ -300,14 +302,15 @@ fn walk(goblin: &str, columns_away: i16, wing: &Wing) -> Value {
 async fn given_a_dry_run_of_two_walks_of_one_sprinter_when_previewed_then_the_second_walks_on_from_where_the_first_ends()
 -> Outcome<()> {
     let server = start_server().await?;
-    let team = server.client.latest().state.active_team().unwrap();
-    let wing = wing_sprinter_of(team);
+    let state = server.client.latest().state.clone();
+    let team = state.active_team().unwrap();
+    let wing = wing_sprinter_of(&state, team)?;
     let coach = coach(&server.url, token_of(team)).await?;
     let report = structured(
         &call(
             &coach,
             "play",
-            json!({"activations": [walk(wing.sprinter, 2, &wing), walk(wing.sprinter, 4, &wing)], "dry_run": true}),
+            json!({"activations": [walk(&wing.sprinter, 2, &wing), walk(&wing.sprinter, 4, &wing)], "dry_run": true}),
         )
         .await?,
     );
@@ -327,14 +330,15 @@ async fn given_a_dry_run_of_two_walks_of_one_sprinter_when_previewed_then_the_se
 async fn given_a_dry_run_whose_second_walk_needs_more_steps_than_the_first_left_when_previewed_then_it_is_refused()
 -> Outcome<()> {
     let server = start_server().await?;
-    let team = server.client.latest().state.active_team().unwrap();
-    let wing = wing_sprinter_of(team);
+    let state = server.client.latest().state.clone();
+    let team = state.active_team().unwrap();
+    let wing = wing_sprinter_of(&state, team)?;
     let coach = coach(&server.url, token_of(team)).await?;
     let report = structured(
         &call(
             &coach,
             "play",
-            json!({"activations": [walk(wing.sprinter, 3, &wing), walk(wing.sprinter, -1, &wing)], "dry_run": true}),
+            json!({"activations": [walk(&wing.sprinter, 3, &wing), walk(&wing.sprinter, -1, &wing)], "dry_run": true}),
         )
         .await?,
     );
@@ -350,11 +354,12 @@ async fn given_a_dry_run_whose_second_walk_needs_more_steps_than_the_first_left_
 async fn given_two_plans_when_compared_then_each_is_previewed_from_the_board_as_it_stands()
 -> Outcome<()> {
     let server = start_server().await?;
-    let team = server.client.latest().state.active_team().unwrap();
-    let wing = wing_sprinter_of(team);
+    let state = server.client.latest().state.clone();
+    let team = state.active_team().unwrap();
+    let wing = wing_sprinter_of(&state, team)?;
     let coach = coach(&server.url, token_of(team)).await?;
-    let back = walk(wing.sprinter, 2, &wing);
-    let forward = walk(wing.sprinter, -2, &wing);
+    let back = walk(&wing.sprinter, 2, &wing);
+    let forward = walk(&wing.sprinter, -2, &wing);
     let report = structured(
         &call(
             &coach,

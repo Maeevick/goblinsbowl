@@ -103,6 +103,6 @@ sprinter = { min = 0, max = 8 }
 thrower = { min = 1, max = 2 }
 
 [default_roster]
-bruisers = 4
+bruisers = 3
 sprinters = 4
-throwers = 1
+throwers = 2

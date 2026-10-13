@@ -275,7 +275,7 @@ mod tests {
     #[test]
     fn given_the_scrimmage_formation_when_home_kicks_off_then_the_sprinters_take_the_wings() {
         assert_eq!(
-            home_in_scrimmage()[4..8],
+            home_in_scrimmage()[3..7],
             [
                 Square::new(7, 5),
                 Square::new(7, 6),
@@ -286,9 +286,17 @@ mod tests {
     }
 
     #[test]
-    fn given_the_scrimmage_formation_when_home_kicks_off_then_the_thrower_and_the_fourth_bruiser_stand_back()
+    fn given_the_scrimmage_formation_when_home_kicks_off_then_both_throwers_stand_back() {
+        assert_eq!(
+            home_in_scrimmage()[7..9],
+            [Square::new(2, 8), Square::new(2, 12)]
+        );
+    }
+
+    #[test]
+    fn given_a_fourth_bruiser_in_scrimmage_when_home_kicks_off_then_it_stands_back_beside_the_thrower()
      {
-        let squares = home_in_scrimmage();
+        let squares = kickoff_squares(&bowl_21(), &scrimmage(), TeamId::HOME, &ROSTER_0_1);
         assert_eq!(
             (squares[8], squares[3]),
             (Square::new(2, 8), Square::new(2, 12))
@@ -376,44 +384,56 @@ mod tests {
         );
     }
 
-    fn home_default() -> Vec<Square> {
+    const ROSTER_0_1: Roster = Roster {
+        bruisers: 4,
+        sprinters: 4,
+        throwers: 1,
+    };
+
+    fn home_in_den_lines() -> Vec<Square> {
         kickoff_squares(
             &Arena::bowl_15(),
             &Formation::DenLines,
             TeamId::HOME,
-            &Roster::DEFAULT,
+            &ROSTER_0_1,
         )
     }
 
     #[test]
-    fn given_default_roster_when_home_kicks_off_then_one_square_per_goblin() {
-        assert_eq!(home_default().len(), 9);
+    fn given_the_rules_0_1_roster_in_den_lines_when_home_kicks_off_then_one_square_per_goblin() {
+        assert_eq!(home_in_den_lines().len(), 9);
     }
 
     #[test]
-    fn given_default_roster_when_home_kicks_off_then_bruisers_hold_column_six() {
-        assert!(home_default()[..4].iter().all(|square| square.x == 6));
+    fn given_the_rules_0_1_roster_in_den_lines_when_home_kicks_off_then_bruisers_hold_column_six() {
+        assert!(home_in_den_lines()[..4].iter().all(|square| square.x == 6));
     }
 
     #[test]
-    fn given_default_roster_when_home_kicks_off_then_bruisers_spread_on_rows_4_6_8_10() {
-        let rows: Vec<u8> = home_default()[..4].iter().map(|square| square.y).collect();
+    fn given_the_rules_0_1_roster_in_den_lines_when_home_kicks_off_then_bruisers_spread_on_rows_4_6_8_10()
+     {
+        let rows: Vec<u8> = home_in_den_lines()[..4]
+            .iter()
+            .map(|square| square.y)
+            .collect();
         assert_eq!(rows, vec![4, 6, 8, 10]);
     }
 
     #[test]
-    fn given_default_roster_when_home_kicks_off_then_sprinters_hold_column_four() {
-        assert!(home_default()[4..8].iter().all(|square| square.x == 4));
+    fn given_the_rules_0_1_roster_in_den_lines_when_home_kicks_off_then_sprinters_hold_column_four()
+    {
+        assert!(home_in_den_lines()[4..8].iter().all(|square| square.x == 4));
     }
 
     #[test]
-    fn given_default_roster_when_home_kicks_off_then_the_thrower_stands_back_in_the_middle() {
-        assert_eq!(home_default()[8], Square::new(2, 7));
+    fn given_the_rules_0_1_roster_in_den_lines_when_home_kicks_off_then_the_thrower_stands_back_in_the_middle()
+     {
+        assert_eq!(home_in_den_lines()[8], Square::new(2, 7));
     }
 
     #[test]
-    fn given_default_roster_when_away_kicks_off_then_it_mirrors_home() {
-        let mirrored: Vec<Square> = home_default()
+    fn given_the_rules_0_1_roster_in_den_lines_when_away_kicks_off_then_it_mirrors_home() {
+        let mirrored: Vec<Square> = home_in_den_lines()
             .into_iter()
             .map(|square| Square::new(14 - square.x, square.y))
             .collect();
@@ -422,15 +442,16 @@ mod tests {
                 &Arena::bowl_15(),
                 &Formation::DenLines,
                 TeamId::AWAY,
-                &Roster::DEFAULT
+                &ROSTER_0_1
             ),
             mirrored
         );
     }
 
     #[test]
-    fn given_default_roster_when_home_kicks_off_then_nobody_crosses_the_middle() {
-        assert!(home_default().iter().all(|square| square.x < 7));
+    fn given_the_rules_0_1_roster_in_den_lines_when_home_kicks_off_then_nobody_crosses_the_middle()
+    {
+        assert!(home_in_den_lines().iter().all(|square| square.x < 7));
     }
 
     #[test]
