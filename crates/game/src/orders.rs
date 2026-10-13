@@ -258,11 +258,12 @@ pub fn prepared_after(reaction: Reaction, current: Option<Draft>) -> Option<Draf
     }
 }
 
-/// Whether `goblin` may still brace in Stance this turn.
-pub fn can_still_brace(state: &GameState, goblin: GoblinId) -> bool {
-    state
-        .goblin(goblin)
-        .is_some_and(|goblin| goblin.is_standing() && goblin.has_action_left)
+/// Whether `goblin` may still brace in Stance this turn, under rules that have one.
+pub fn can_still_brace(ruleset: &Ruleset, state: &GameState, goblin: GoblinId) -> bool {
+    ruleset.goblins_can_take_stance
+        && state
+            .goblin(goblin)
+            .is_some_and(|goblin| goblin.is_standing() && goblin.has_action_left)
 }
 
 /// The drafted walk followed by a Stance.
@@ -672,10 +673,9 @@ fn refresh_stance_button(
     prepared: Res<PreparedOrder>,
     mut stance_button: Single<&mut Visibility, With<StanceButton>>,
 ) {
-    let braces = prepared
-        .0
-        .as_ref()
-        .is_some_and(|draft| can_still_brace(&view.snapshot.state, draft.activation.goblin));
+    let braces = prepared.0.as_ref().is_some_and(|draft| {
+        can_still_brace(&view.ruleset, &view.snapshot.state, draft.activation.goblin)
+    });
     stance_button.set_if_neq(if braces {
         Visibility::Inherited
     } else {
@@ -1119,14 +1119,25 @@ mod tests {
         let mut state = board(&[("H5", 7, 7)], None);
         state.goblins[4].has_action_left = false;
 
-        assert!(!can_still_brace(&state, id("H5")));
+        assert!(!can_still_brace(&Ruleset::default(), &state, id("H5")));
     }
 
     #[test]
     fn given_a_goblin_with_its_action_left_when_asking_if_it_may_brace_then_yes() {
         let state = board(&[("H5", 7, 7)], None);
 
-        assert!(can_still_brace(&state, id("H5")));
+        assert!(can_still_brace(&Ruleset::default(), &state, id("H5")));
+    }
+
+    #[test]
+    fn given_rules_without_stance_when_asking_if_a_goblin_may_brace_then_no() {
+        let state = board(&[("H5", 7, 7)], None);
+        let without_stance = Ruleset {
+            goblins_can_take_stance: false,
+            ..Ruleset::default()
+        };
+
+        assert!(!can_still_brace(&without_stance, &state, id("H5")));
     }
 
     #[test]

@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use bevy::ui_widgets::{Activate, observe};
 use goblins_rules::balance::Attempts;
+use goblins_rules::ruleset::Ruleset;
 use goblins_rules::scoresheet::{Scoresheet, TeamSheet};
 use goblins_rules::state::Phase;
 use goblins_rules::team::TeamId;
@@ -22,6 +23,8 @@ const VALUE_COLOUR: Color = Color::WHITE;
 pub enum SheetEntry {
     /// Assaults made, won and lost.
     Assaults,
+    /// Assaults suffered, held and fallen.
+    Defences,
     /// Assaults suffered with a Stance bonus, held and fallen.
     BracedDefences,
     /// Assaults suffered without a Stance bonus, held and fallen.
@@ -49,22 +52,31 @@ pub enum SheetEntry {
 }
 
 impl SheetEntry {
-    /// Every line, in the order the scoresheet shows them.
-    pub const ALL: [SheetEntry; 13] = [
-        SheetEntry::Assaults,
-        SheetEntry::BracedDefences,
-        SheetEntry::OpenDefences,
-        SheetEntry::Dodges,
-        SheetEntry::Passes,
-        SheetEntry::Catches,
-        SheetEntry::Pickups,
-        SheetEntry::Interceptions,
-        SheetEntry::StepsWithTheBall,
-        SheetEntry::LongestPass,
-        SheetEntry::PassDistance,
-        SheetEntry::KnockOuts,
-        SheetEntry::TurnEndings,
-    ];
+    /// The lines the scoresheet shows under `ruleset`, in order: defences are split by Stance only
+    /// where the rules have one.
+    pub fn shown_under(ruleset: &Ruleset) -> Vec<SheetEntry> {
+        let defences = if ruleset.goblins_can_take_stance {
+            vec![SheetEntry::BracedDefences, SheetEntry::OpenDefences]
+        } else {
+            vec![SheetEntry::Defences]
+        };
+        [SheetEntry::Assaults]
+            .into_iter()
+            .chain(defences)
+            .chain([
+                SheetEntry::Dodges,
+                SheetEntry::Passes,
+                SheetEntry::Catches,
+                SheetEntry::Pickups,
+                SheetEntry::Interceptions,
+                SheetEntry::StepsWithTheBall,
+                SheetEntry::LongestPass,
+                SheetEntry::PassDistance,
+                SheetEntry::KnockOuts,
+                SheetEntry::TurnEndings,
+            ])
+            .collect()
+    }
 }
 
 /// What `entry` reads for a team: successes and failures, a count, or how its turns ended.
@@ -73,6 +85,10 @@ pub fn sheet_value(entry: SheetEntry, sheet: &TeamSheet) -> String {
         |attempts: Attempts| format!("{} / {}", attempts.succeeded, attempts.failed());
     match entry {
         SheetEntry::Assaults => successes_and_failures(sheet.assaults),
+        SheetEntry::Defences => successes_and_failures(Attempts {
+            tried: sheet.braced_defences.tried + sheet.open_defences.tried,
+            succeeded: sheet.braced_defences.succeeded + sheet.open_defences.succeeded,
+        }),
         SheetEntry::BracedDefences => successes_and_failures(sheet.braced_defences),
         SheetEntry::OpenDefences => successes_and_failures(sheet.open_defences),
         SheetEntry::Dodges => successes_and_failures(sheet.dodges),
@@ -136,7 +152,12 @@ impl Plugin for FinalWhistlePlugin {
     }
 }
 
-fn spawn_final_screen(mut commands: Commands, assets: Res<AssetServer>, texts: Res<Texts>) {
+fn spawn_final_screen(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    texts: Res<Texts>,
+    view: Res<MatchView>,
+) {
     let reading: Handle<Font> = assets.load(READING_FONT);
     let bold: Handle<Font> = assets.load(BOLD_FONT);
     commands
@@ -170,7 +191,7 @@ fn spawn_final_screen(mut commands: Commands, assets: Res<AssetServer>, texts: R
                                 story_colour(Some(team)),
                             ));
                         }
-                        for entry in SheetEntry::ALL {
+                        for entry in SheetEntry::shown_under(&view.ruleset) {
                             grid.spawn(text_bundle(
                                 texts.sheet_label(entry),
                                 &reading,
@@ -299,6 +320,50 @@ mod tests {
             },
             ..TeamSheet::default()
         }
+    }
+
+    #[test]
+    fn given_rules_without_stance_when_listing_the_sheet_then_defences_take_one_line() {
+        let without_stance = Ruleset {
+            goblins_can_take_stance: false,
+            ..Ruleset::default()
+        };
+        let entries = SheetEntry::shown_under(&without_stance);
+        assert!(
+            entries.contains(&SheetEntry::Defences)
+                && !entries.contains(&SheetEntry::BracedDefences)
+                && !entries.contains(&SheetEntry::OpenDefences)
+        );
+    }
+
+    #[test]
+    fn given_rules_with_stance_when_listing_the_sheet_then_defences_are_split_by_stance() {
+        let with_stance = Ruleset {
+            goblins_can_take_stance: true,
+            ..Ruleset::default()
+        };
+        let entries = SheetEntry::shown_under(&with_stance);
+        assert!(
+            entries.contains(&SheetEntry::BracedDefences)
+                && entries.contains(&SheetEntry::OpenDefences)
+                && !entries.contains(&SheetEntry::Defences)
+        );
+    }
+
+    #[test]
+    fn given_braced_and_open_defences_when_reading_all_defences_then_both_counted() {
+        let sheet = TeamSheet {
+            braced_defences: Attempts {
+                tried: 2,
+                succeeded: 1,
+            },
+            open_defences: Attempts {
+                tried: 3,
+                succeeded: 2,
+            },
+            ..TeamSheet::default()
+        };
+        assert_eq!(sheet_value(SheetEntry::Defences, &sheet), "3 / 2");
     }
 
     #[test]
