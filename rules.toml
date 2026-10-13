@@ -22,6 +22,8 @@ kickoff_across_spread = 0
 kickoff_bounces = 1
 # Most a Stance bonus adds to one roll (5: a goblin and its four neighbours, so no cap).
 stance_bonus_cap = 5
+# Most braced adjacent teammates a Stance bonus counts (4: every neighbour, so no cap).
+neighbour_stance_bonus_cap = 4
 # Whether a goblin keeps the steps it did not walk after its action, its Move and one action
 # per turn spent over several orders (false: its first order ends its turn).
 keeps_moving_after_action = true

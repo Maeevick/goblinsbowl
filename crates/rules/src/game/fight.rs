@@ -3,7 +3,7 @@
 use crate::dice::DiceRoller;
 use crate::event::{ContestRoll, GameEvent, TurnEndReason};
 use crate::odds::ContestDice;
-use crate::preview::{assault_dice, most_dangerous_tackler};
+use crate::preview::{assault_dice, most_dangerous_tackler, stance_bonus};
 use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::state::{Ball, Presence};
@@ -115,11 +115,7 @@ impl<D: DiceRoller> Game<D> {
             dice.opponent_faces,
             dice.opponent_modifier,
         );
-        let defender_braced = self
-            .state
-            .stance_bonus(defender)
-            .min(self.ruleset.stance_bonus_cap)
-            > 0;
+        let defender_braced = stance_bonus(&self.ruleset, &self.state, defender) > 0;
         events.push(GameEvent::AssaultResolved {
             attacker,
             defender,

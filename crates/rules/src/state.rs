@@ -103,6 +103,15 @@ impl Goblin {
     }
 }
 
+/// Who braces for a goblin: itself, and how many of its adjacent teammates.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct StanceSupport {
+    /// Whether the goblin itself stands braced in Stance.
+    pub itself: bool,
+    /// Standing teammates braced in Stance on squares next to it.
+    pub neighbours: u8,
+}
+
 /// Where the ball is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -212,13 +221,13 @@ impl GameState {
         })
     }
 
-    /// Defense bonus of goblin `id`: one per goblin in Stance among itself and its adjacent teammates.
-    pub fn stance_bonus(&self, id: GoblinId) -> u8 {
+    /// Who braces for goblin `id`: itself if it stands in Stance, and its braced adjacent teammates.
+    pub fn stance_support(&self, id: GoblinId) -> StanceSupport {
         let Some(goblin) = self.goblin(id) else {
-            return 0;
+            return StanceSupport::default();
         };
         let Some(square) = goblin.square() else {
-            return 0;
+            return StanceSupport::default();
         };
         let braced_neighbours = self
             .goblins_of(goblin.team())
@@ -231,8 +240,10 @@ impl GameState {
                         .is_some_and(|other| other.is_orthogonally_adjacent(square))
             })
             .count();
-        let braced_itself = usize::from(goblin.is_standing() && goblin.in_stance);
-        u8::try_from(braced_neighbours + braced_itself).unwrap_or(u8::MAX)
+        StanceSupport {
+            itself: goblin.is_standing() && goblin.in_stance,
+            neighbours: u8::try_from(braced_neighbours).unwrap_or(u8::MAX),
+        }
     }
 
     pub(crate) fn goblin_mut(&mut self, id: GoblinId) -> Option<&mut Goblin> {
@@ -347,49 +358,54 @@ mod tests {
         assert_eq!((rested.steps_left, rested.has_action_left), (3, true));
     }
 
+    fn support(itself: bool, neighbours: u8) -> StanceSupport {
+        StanceSupport { itself, neighbours }
+    }
+
     #[test]
-    fn given_goblin_in_stance_alone_when_asking_its_bonus_then_one() {
+    fn given_goblin_in_stance_alone_when_asking_its_support_then_only_itself() {
         assert_eq!(
-            state_with(vec![braced("H1", 5, 5)]).stance_bonus(id("H1")),
-            1
+            state_with(vec![braced("H1", 5, 5)]).stance_support(id("H1")),
+            support(true, 0)
         );
     }
 
     #[test]
-    fn given_goblin_between_two_braced_teammates_when_asking_its_bonus_then_two() {
+    fn given_goblin_between_two_braced_teammates_when_asking_its_support_then_two_neighbours() {
         let state = state_with(vec![
             standing("H1", 5, 5),
             braced("H2", 5, 4),
             braced("H3", 5, 6),
         ]);
-        assert_eq!(state.stance_bonus(id("H1")), 2);
+        assert_eq!(state.stance_support(id("H1")), support(false, 2));
     }
 
     #[test]
-    fn given_braced_goblin_next_to_a_braced_teammate_when_asking_its_bonus_then_two() {
+    fn given_braced_goblin_next_to_a_braced_teammate_when_asking_its_support_then_itself_and_one_neighbour()
+     {
         let state = state_with(vec![braced("H1", 5, 5), braced("H2", 6, 5)]);
-        assert_eq!(state.stance_bonus(id("H1")), 2);
+        assert_eq!(state.stance_support(id("H1")), support(true, 1));
     }
 
     #[test]
-    fn given_braced_teammate_on_a_diagonal_when_asking_the_bonus_then_zero() {
+    fn given_braced_teammate_on_a_diagonal_when_asking_the_support_then_none() {
         let state = state_with(vec![standing("H1", 5, 5), braced("H2", 6, 6)]);
-        assert_eq!(state.stance_bonus(id("H1")), 0);
+        assert_eq!(state.stance_support(id("H1")), support(false, 0));
     }
 
     #[test]
-    fn given_braced_opponent_next_to_the_goblin_when_asking_its_bonus_then_zero() {
+    fn given_braced_opponent_next_to_the_goblin_when_asking_its_support_then_none() {
         let state = state_with(vec![standing("H1", 5, 5), braced("A1", 6, 5)]);
-        assert_eq!(state.stance_bonus(id("H1")), 0);
+        assert_eq!(state.stance_support(id("H1")), support(false, 0));
     }
 
     #[test]
-    fn given_downed_goblin_next_to_a_braced_teammate_when_asking_its_bonus_then_one() {
+    fn given_downed_goblin_next_to_a_braced_teammate_when_asking_its_support_then_one_neighbour() {
         let state = state_with(vec![
             goblin("H1", Presence::Down(Square::new(5, 5))),
             braced("H2", 5, 4),
         ]);
-        assert_eq!(state.stance_bonus(id("H1")), 1);
+        assert_eq!(state.stance_support(id("H1")), support(false, 1));
     }
 
     #[test]

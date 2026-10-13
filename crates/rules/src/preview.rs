@@ -84,6 +84,15 @@ pub struct ActivationOdds {
     pub overall_success: Probability,
 }
 
+/// Defense bonus Stance gives goblin `id`: one if it braces itself, one per braced adjacent teammate
+/// up to the neighbours' cap, the whole within the Stance bonus cap.
+pub fn stance_bonus(ruleset: &Ruleset, state: &GameState, id: GoblinId) -> u8 {
+    let support = state.stance_support(id);
+    u8::from(support.itself)
+        .saturating_add(support.neighbours.min(ruleset.neighbour_stance_bonus_cap))
+        .min(ruleset.stance_bonus_cap)
+}
+
 /// The dice of `attacker` assaulting `defender`: Attack against Defense plus the defender's Stance
 /// bonus, minus the downed malus when the defender lies on the ground.
 pub fn assault_dice(
@@ -99,8 +108,7 @@ pub fn assault_dice(
     } else {
         0
     };
-    let stance_bonus = state.stance_bonus(defender).min(ruleset.stance_bonus_cap);
-    let modifier = i16::from(stance_bonus) - downed_malus;
+    let modifier = i16::from(stance_bonus(ruleset, state, defender)) - downed_malus;
     Some(ContestDice {
         actor_faces,
         opponent_faces: target.characteristics.defense,
@@ -117,11 +125,10 @@ pub fn dodge_dice(
 ) -> Option<ContestDice> {
     let actor_faces = state.goblin(mover)?.characteristics.agility;
     let opponent = state.goblin(tackler)?;
-    let stance_bonus = state.stance_bonus(tackler).min(ruleset.stance_bonus_cap);
     Some(ContestDice {
         actor_faces,
         opponent_faces: opponent.characteristics.defense,
-        opponent_modifier: i8::try_from(stance_bonus).unwrap_or(i8::MAX),
+        opponent_modifier: i8::try_from(stance_bonus(ruleset, state, tackler)).unwrap_or(i8::MAX),
     })
 }
 
@@ -553,6 +560,29 @@ mod tests {
             assault_dice(&capped, game.state(), id("H1"), id("A1"))
                 .map(|dice| dice.opponent_modifier),
             Some(1)
+        );
+    }
+
+    #[test]
+    fn given_a_braced_defender_between_two_braced_teammates_when_neighbours_count_once_then_its_die_gets_two()
+     {
+        let scenario = Scenario::new()
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .goblin("A2", Bruiser, 6, 6)
+            .goblin("A3", Bruiser, 6, 8)
+            .edit("A1", |goblin| goblin.in_stance = true)
+            .edit("A2", |goblin| goblin.in_stance = true)
+            .edit("A3", |goblin| goblin.in_stance = true);
+        let game = scenario.game([]);
+        let neighbours_once = Ruleset {
+            neighbour_stance_bonus_cap: 1,
+            ..game.ruleset().clone()
+        };
+        assert_eq!(
+            assault_dice(&neighbours_once, game.state(), id("H1"), id("A1"))
+                .map(|dice| dice.opponent_modifier),
+            Some(2)
         );
     }
 

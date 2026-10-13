@@ -67,6 +67,9 @@ pub struct Ruleset {
     /// Most a Stance bonus adds to one roll; 5, a goblin and its four neighbours, means no cap.
     #[serde(default = "uncapped_stance_bonus")]
     pub stance_bonus_cap: u8,
+    /// Most braced adjacent teammates a Stance bonus counts; 4, every neighbour, means no cap.
+    #[serde(default = "every_braced_neighbour")]
+    pub neighbour_stance_bonus_cap: u8,
     /// Whether a goblin keeps the steps it did not walk after its action: its Move and one action
     /// per turn, spent over as many orders as its coach likes; otherwise its first order ends its turn.
     #[serde(default)]
@@ -123,6 +126,10 @@ fn uncapped_stance_bonus() -> u8 {
     5
 }
 
+fn every_braced_neighbour() -> u8 {
+    4
+}
+
 fn turns_end_on_their_own() -> bool {
     true
 }
@@ -147,6 +154,7 @@ impl Default for Ruleset {
             kickoff_across_spread: 0,
             kickoff_bounces: one_kickoff_bounce(),
             stance_bonus_cap: uncapped_stance_bonus(),
+            neighbour_stance_bonus_cap: every_braced_neighbour(),
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),
