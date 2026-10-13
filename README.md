@@ -15,7 +15,7 @@ make check                            # lint + unit + integrated tests
 make balance ARGS="--games 1000 --home cautious --away bold"
 ```
 
-Rules 0.4 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`; how they play out between bots: [`docs/balance.md`](docs/balance.md).
+Rules 0.5 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`; how they play out between bots: [`docs/balance.md`](docs/balance.md).
 
 ## How to play
 
@@ -24,7 +24,7 @@ Rules 0.4 (French and English, printable for a paper playtest): [`docs/rules.md`
 - The pointer shows what a click would do, coloured by its risk: an arrow to walk, a lightning bolt to dodge, an up arrow to pick up the ball, a star to score, a burst to assault, a ball to throw.
 - Click a square to aim a walk, an enemy to aim an assault (your goblin walks next to it first), or a teammate to aim a throw when you hold the ball. The chance of success shows at the bottom left; click the same square or goblin again to go.
 - Each goblin has its Move and one action per turn: after an order it stays selected, so it can act and walk on with the squares it has left, now or later in the turn.
-- **Garde** braces in Stance after the aimed walk, or in place, while the goblin's action is left. **Annuler** or Escape lets the goblin go.
+- **Annuler** or Escape lets the selected goblin go.
 - **Fin du tour** ends the turn, which no longer ends on its own: once no goblin can play, a reminder shows and the button pulses. A second click confirms while goblins can still play.
 - At the final whistle, a scoresheet shows what each team did; **Rejouer** starts a new match and **Quitter** closes the game.
 - Camera: Q/E or right-drag to turn, WASD/arrows or middle-drag to pan, the wheel to zoom, R to reset. P pauses a match between humans.

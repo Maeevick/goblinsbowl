@@ -1,4 +1,4 @@
-# Goblins Bowl, règles 0.4
+# Goblins Bowl, règles 0.5
 
 *English version below.*
 
@@ -20,7 +20,7 @@ On se déplace et on est voisin **en ligne droite seulement** (haut, bas, gauche
 
 ## Un tour
 
-Chaque équipe a **60 secondes** par tour et **12 tours par mi-temps**, deux mi-temps. Pendant son tour, chaque gobelin a son **Mouvement** en cases et **une action** : **Assaut**, **Garde** ou **Lancer**. Il les dépense en autant d'ordres que tu veux, quand tu veux : il peut avancer, agir, laisser jouer un coéquipier, puis repartir avec les cases qui lui restent, sans jamais traverser personne.
+Chaque équipe a **60 secondes** par tour et **12 tours par mi-temps**, deux mi-temps. Pendant son tour, chaque gobelin a son **Mouvement** en cases et **une action** : **Assaut** ou **Lancer**. Il les dépense en autant d'ordres que tu veux, quand tu veux : il peut avancer, agir, laisser jouer un coéquipier, puis repartir avec les cases qui lui restent, sans jamais traverser personne.
 
 Le tour s'arrête quand tu appuies sur **Fin du tour**, quand le temps est écoulé, quand une équipe marque ou quand une action rate, même si plus aucun gobelin ne peut jouer.
 
@@ -33,12 +33,11 @@ Le chiffre Δ = mon dé moins le dé adverse. **En cas d'égalité, celui qui ag
 - **Assaut** sur un ennemi voisin : je lance mon dé d'Attaque, il lance son dé de Défense.
   - Je gagne : il tombe, lâche la balle et perd Δ points de Santé (rien si égalité).
   - Je perds : c'est moi qui tombe, je perds Δ − 1 points de Santé (rien si je perds de 1), et **le tour s'arrête**.
-- **Garde** : jusqu'au prochain tour de mon équipe, +1 à ma Défense et +1 à chaque coéquipier voisin. Les voisins ne comptent qu'une fois : un gobelin reçoit au plus +1 de sa propre Garde et +1 de ses voisins en Garde, donc +2 au maximum. Deux gobelins en Garde côte à côte sont déjà à +2 chacun.
-- **Esquive** : quand je quitte une case à côté d'un ennemi debout, je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi, 2 s'il est en Garde, et il faut faire **2 ou plus**. Si je rate, je tombe sur place, je perds en Santé ce qui me manquait moins 1 (rien s'il ne manquait que 1) et **le tour s'arrête**. Un Cogneur (dé à 3 faces) n'échappe qu'à un seul ennemi sans Garde, une fois sur trois.
+- **Esquive** : quand je quitte une case à côté d'un ennemi debout, je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi, et il faut faire **2 ou plus**. Si je rate, je tombe sur place, je perds en Santé ce qui me manquait moins 1 (rien s'il ne manquait que 1) et **le tour s'arrête**. Un Cogneur (dé à 3 faces) n'échappe qu'à un seul ennemi, une fois sur trois.
 
 ## La balle
 
-Lancer de balle : je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi (en Garde ou non), et il faut faire **2 ou plus** (un 1 rate toujours).
+Lancer de balle : je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi, et il faut faire **2 ou plus** (un 1 rate toujours).
 
 - **Ramasser** : obligatoire quand j'entre sur la case de la balle.
 - **Lancer** (c'est mon action) : vers un coéquipier debout, à n'importe quelle distance, avec −1 par case au-delà de 6. Chaque ennemi debout sous la trajectoire tente une **interception** (encore −1 pour la surprise). Sinon, mon coéquipier doit **attraper**.
@@ -49,7 +48,7 @@ La balle rebondit d'une case au hasard (dé à 4 faces : 1 haut, 2 droite, 3 bas
 
 ## Tomber, être KO
 
-Un gobelin à terre ne bloque plus personne, perd sa Garde, lâche la balle et peut encore être attaqué (avec −2 à sa Défense). Il se relève tout seul au début du tour suivant de son équipe, mais ne joue pas pendant ce tour-là. À 0 Santé, il est **KO** : il sort jusqu'au prochain coup d'envoi, où il revient avec un dé de Santé (au moins 1).
+Un gobelin à terre ne bloque plus personne, lâche la balle et peut encore être attaqué (avec −2 à sa Défense). Il se relève tout seul au début du tour suivant de son équipe, mais ne joue pas pendant ce tour-là. À 0 Santé, il est **KO** : il sort jusqu'au prochain coup d'envoi, où il revient avec un dé de Santé (au moins 1).
 
 ## Marquer
 
@@ -76,18 +75,16 @@ Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numé
 | Situation | Réussite |
 |---|---|
 | Cogneur contre Cogneur | 62 % |
-| Cogneur contre Cogneur en Garde | 38 % |
-| Cogneur contre un Cogneur en Garde à côté d'un autre (+2, le plus possible) | 19 % |
 | Cogneur contre Sprinteur | 88 % |
 | Cogneur contre un Cogneur à terre | 94 % |
+| Sprinteur contre Cogneur | 50 % |
 | Sprinteur qui quitte 1 / 2 / 3 ennemis | 67 / 50 / 33 % |
-| Sprinteur qui quitte 1 ennemi en Garde | 50 % |
-| Cogneur qui quitte 1 ennemi / 1 ennemi en Garde | 33 / 0 % |
+| Cogneur qui quitte 1 / 2 ennemis | 33 / 0 % |
 | Balle avec Agilité 6, 0 / 1 / 2 ennemis à côté | 83 / 67 / 50 % |
 
 ---
 
-# Goblins Bowl, rules 0.4
+# Goblins Bowl, rules 0.5
 
 ## The bowl
 
@@ -107,7 +104,7 @@ Moves and adjacency are **orthogonal only**, never diagonal.
 
 ## A turn
 
-**60 seconds** per turn, **12 turns per team per half**, two halves. In its team's turn each goblin has its **Move** in steps and **one action**: **Assault**, **Stance** or **Throw**. It spends them over as many orders as its coach likes, in any order: it may walk, act, let a teammate play, then walk on with the steps it has left, never through a goblin.
+**60 seconds** per turn, **12 turns per team per half**, two halves. In its team's turn each goblin has its **Move** in steps and **one action**: **Assault** or **Throw**. It spends them over as many orders as its coach likes, in any order: it may walk, act, let a teammate play, then walk on with the steps it has left, never through a goblin.
 
 A turn ends when its coach ends it, when its clock runs out, when a team scores or when an action fails, even once no goblin can act.
 
@@ -118,12 +115,11 @@ A turn ends when its coach ends it, when its clock runs out, when a team scores 
 Δ = actor's roll − opponent's roll. **Ties go to the actor.**
 
 - **Assault** an adjacent enemy: d(Attack) vs d(Defense). Win: it falls, drops the ball, loses Δ Health (nothing on a tie). Lose: the attacker falls, loses |Δ| − 1 Health (nothing when losing by 1), and the turn ends.
-- **Stance**: until the team's next turn, +1 Defense to itself and +1 to each adjacent teammate. Braced neighbours count once: a goblin gets at most +1 from its own Stance and +1 from its braced neighbours, +2 in all, so two braced goblins side by side already stand at +2 each.
-- **Dodge**, each step out of a square next to a standing enemy: d(Agility) minus 1 per adjacent standing enemy, 2 for one in Stance, must reach **2**. Miss: it falls where it stands, loses its shortfall minus 1 in Health (nothing when 1 short), and the turn ends. A Bruiser (d3) gets away from a single enemy out of Stance one time in three, and from nothing more.
+- **Dodge**, each step out of a square next to a standing enemy: d(Agility) minus 1 per adjacent standing enemy must reach **2**. Miss: it falls where it stands, loses its shortfall minus 1 in Health (nothing when 1 short), and the turn ends. A Bruiser (d3) gets away from a single enemy one time in three, and from two never.
 
 ## Ball actions
 
-d(Agility) minus 1 per adjacent standing enemy, braced or not, must reach **2** (a 1 always fails).
+d(Agility) minus 1 per adjacent standing enemy must reach **2** (a 1 always fails).
 
 - **Pick**: forced when entering the ball's square.
 - **Throw** (the action): to a standing teammate at any distance, −1 per step beyond 6. Each standing opponent under the flight line tries to **intercept** (extra −1 for surprise); otherwise the receiver must **catch**.
@@ -134,7 +130,7 @@ The ball bounces one square in a random orthogonal direction (d4: 1 north, 2 eas
 
 ## Down and knocked out
 
-A downed goblin has no reach, loses its Stance, drops the ball and can still be assaulted (−2 Defense). It stands up at the start of its team's next turn but cannot act during it. At 0 Health it is **KO** until the next kick-off, where it returns with d(Health) Health.
+A downed goblin has no reach, drops the ball and can still be assaulted (−2 Defense). It stands up at the start of its team's next turn but cannot act during it. At 0 Health it is **KO** until the next kick-off, where it returns with d(Health) Health.
 
 ## Scoring
 
