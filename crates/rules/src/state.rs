@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::characteristics::{Archetype, Characteristics};
+use crate::command::Activation;
 use crate::roster::{GoblinId, Roster};
 use crate::square::Square;
 use crate::team::TeamId;
@@ -86,6 +87,19 @@ impl Goblin {
     pub fn spend_its_turn(&mut self) {
         self.steps_left = 0;
         self.has_action_left = false;
+    }
+
+    /// Spends what `order` uses once it is through: the steps it walks and its action when goblins
+    /// keep moving after their action, otherwise, or when the order neither moves nor acts, the
+    /// rest of its turn.
+    pub fn spend_order(&mut self, order: &Activation, keeps_moving_after_action: bool) {
+        let steps = u8::try_from(order.path.len()).unwrap_or(u8::MAX);
+        if keeps_moving_after_action && (steps > 0 || order.action.is_some()) {
+            self.steps_left = self.steps_left.saturating_sub(steps);
+            self.has_action_left &= order.action.is_none();
+        } else {
+            self.spend_its_turn();
+        }
     }
 }
 

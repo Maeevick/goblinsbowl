@@ -22,10 +22,7 @@ impl<D: DiceRoller> Game<D> {
         let Some(team) = self.state.goblin(id).map(|goblin| goblin.team()) else {
             return;
         };
-        let steps = u8::try_from(activation.path.len()).unwrap_or(u8::MAX);
-        let keeps_the_rest_of_its_turn =
-            self.ruleset.keeps_moving_after_action && (steps > 0 || activation.action.is_some());
-        for to in activation.path {
+        for to in activation.path.iter().copied() {
             let Some(Presence::Standing(from)) =
                 self.state.goblin(id).map(|goblin| goblin.presence)
             else {
@@ -53,13 +50,9 @@ impl<D: DiceRoller> Game<D> {
                 return;
             }
         }
+        let keeps_moving_after_action = self.ruleset.keeps_moving_after_action;
         if let Some(goblin) = self.state.goblin_mut(id) {
-            if keeps_the_rest_of_its_turn {
-                goblin.steps_left = goblin.steps_left.saturating_sub(steps);
-                goblin.has_action_left &= activation.action.is_none();
-            } else {
-                goblin.spend_its_turn();
-            }
+            goblin.spend_order(&activation, keeps_moving_after_action);
         }
         let turn_ending = match activation.action {
             None => None,
