@@ -139,3 +139,24 @@ What the numbers say:
 - **The home edge shrinks**: none in the cautious mirror (13.9 % each), 38.6 % against 29.7 % in the bold mirror (37.1 % against 21.3 % under 0.3).
 - **Still more closed than 0.2 with both knobs** (53.5 % draws in the cautious mirror): careful coaches keep bracing (4.3 stances per team turn) and hardly dodge (0.2 per match).
 
+## Rules 0.5, 13 Oct 2026
+
+Rules 0.4 without Stance: no goblin braces, an action is an assault or a throw. Same coaches, seeds 1 to 1,000.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Knock-outs per match |
+|---|---|---|---|---|---|
+| cautious vs cautious | 40.0 % | 32.2 % | 27.8 % | 1.71 | 6.59 |
+| bold vs bold | 41.2 % | 31.1 % | 27.7 % | 2.10 | 4.99 |
+| cautious vs bold | 43.2 % | 29.0 % | 27.8 % | 1.86 | 5.89 |
+| bold vs cautious | 38.0 % | 35.2 % | 26.8 % | 1.99 | 5.71 |
+| cautious vs random | 99.8 % | 0 % | 0.2 % | 4.43 | 1.66 |
+| bold vs random | 100.0 % | 0 % | 0 % | 4.26 | 1.64 |
+
+What the numbers say:
+
+- **The walls are gone.** The cautious mirror scores 1.71 goals per match, almost five times as often as under 0.4, and draws 27.8 % of its matches instead of 72.2 %; the bold mirror scores 2.10 and draws 27.7 %. For the first time, both mirrors play the same open game.
+- **Careful coaches fight instead of bracing.** With nothing certain left to do in contact, the cautious mirror makes 55.5 assaults per match (7.7 under 0.4), wins 84 % of them, and knocks out 6.6 goblins per match. Bold coaches knock out fewer (5.0).
+- **The ball changes hands.** 17 to 21 pick-ups and 7 to 11 throws per match between scripted coaches, just over half of the throws caught; still no interception.
+- **A bigger risk appetite still does not pay against a careful opponent**, though by less: over both seats, cautious wins 39.2 % of its 2,000 matches against bold, bold 33.5 % against cautious.
+- **The home edge is back in every pairing** (40.0 % against 32.2 % in the cautious mirror, 41.2 % against 31.1 % in the bold one), while receiving the opening kick-off still gives nothing. Now that matches are decided, checking the scripted coaches' tie-breaks is worth doing before trusting home and away results.
+
