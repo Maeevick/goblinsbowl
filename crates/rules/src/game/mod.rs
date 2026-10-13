@@ -166,7 +166,7 @@ impl<D: DiceRoller> Game<D> {
         let mut events = Vec::new();
         match command {
             Command::Act(activation) => {
-                validate_activation(&self.arena, &self.state, team, &activation)?;
+                validate_activation(&self.arena, &self.ruleset, &self.state, team, &activation)?;
                 self.resolve_activation(activation, &mut events);
             }
             Command::EndTurn => self.finish_turn(TurnEndReason::EndTurn, &mut events),

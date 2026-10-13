@@ -3,6 +3,7 @@
 use crate::arena::Arena;
 use crate::command::{Action, Activation};
 use crate::roster::GoblinId;
+use crate::ruleset::Ruleset;
 use crate::square::Square;
 use crate::state::{Ball, GameState, Presence};
 use crate::team::TeamId;
@@ -15,6 +16,7 @@ use crate::violation::RuleViolation;
 /// The first [`RuleViolation`] met, in that order.
 pub fn validate_activation(
     arena: &Arena,
+    ruleset: &Ruleset,
     state: &GameState,
     team: TeamId,
     activation: &Activation,
@@ -61,7 +63,9 @@ pub fn validate_activation(
     }
     let final_square = visited.last().copied().unwrap_or(start);
     match activation.action {
-        None | Some(Action::Stance) => Ok(()),
+        None => Ok(()),
+        Some(Action::Stance) if ruleset.goblins_can_take_stance => Ok(()),
+        Some(Action::Stance) => Err(RuleViolation::NoStanceInTheseRules { goblin: id }),
         Some(Action::Assault { target }) => validate_assault(state, team, final_square, target),
         Some(Action::Throw { receiver }) => {
             validate_throw(state, team, id, &activation.path, receiver)
@@ -131,6 +135,7 @@ mod tests {
         assert_eq!(
             validate_activation(
                 game.arena(),
+                game.ruleset(),
                 game.state(),
                 TeamId::HOME,
                 &order("H1", &[(4, 7)])
@@ -145,12 +150,37 @@ mod tests {
         assert_eq!(
             validate_activation(
                 game.arena(),
+                game.ruleset(),
                 game.state(),
                 TeamId::HOME,
                 &order("H1", &[(2, 0)])
             ),
             Err(RuleViolation::PathLeavesTheBowl {
                 square: Square::new(2, 0)
+            })
+        );
+    }
+
+    #[test]
+    fn given_rules_without_stance_when_a_goblin_braces_then_refused() {
+        let game = Scenario::new()
+            .rules(|ruleset| ruleset.goblins_can_take_stance = false)
+            .goblin("H1", Sprinter, 3, 7)
+            .game([]);
+        let brace = Activation {
+            action: Some(Action::Stance),
+            ..order("H1", &[])
+        };
+        assert_eq!(
+            validate_activation(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                TeamId::HOME,
+                &brace
+            ),
+            Err(RuleViolation::NoStanceInTheseRules {
+                goblin: "H1".parse().unwrap()
             })
         );
     }

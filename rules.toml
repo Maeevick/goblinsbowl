@@ -27,6 +27,8 @@ neighbour_stance_bonus_cap = 1
 # Whether a dodge is an agility test, each adjacent standing enemy a malus of 1 (2 in Stance)
 # (false: the Agility die against the Defense die and Stance bonus of the most dangerous enemy).
 dodges_test_agility = true
+# Whether a goblin can spend its action bracing in Stance, a Defense bonus until its team's next turn.
+goblins_can_take_stance = true
 # Whether a goblin keeps the steps it did not walk after its action, its Move and one action
 # per turn spent over several orders (false: its first order ends its turn).
 keeps_moving_after_action = true

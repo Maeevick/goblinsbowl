@@ -61,7 +61,7 @@ pub fn random_command(
                 path: path.clone(),
                 action: *action,
             };
-            validate_activation(arena, state, team, &candidate).is_ok()
+            validate_activation(arena, ruleset, state, team, &candidate).is_ok()
         })
         .collect();
     let action = legal_actions
@@ -100,9 +100,14 @@ mod tests {
         let mut dice = SeededDice::from_seed(11);
         let all_legal = (0..200).all(|_| {
             match random_command(game.arena(), game.ruleset(), game.state(), team, &mut dice) {
-                Command::Act(activation) => {
-                    validate_activation(game.arena(), game.state(), team, &activation).is_ok()
-                }
+                Command::Act(activation) => validate_activation(
+                    game.arena(),
+                    game.ruleset(),
+                    game.state(),
+                    team,
+                    &activation,
+                )
+                .is_ok(),
                 Command::EndTurn | Command::TimeUp => true,
             }
         });

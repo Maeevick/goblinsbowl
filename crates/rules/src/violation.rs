@@ -60,6 +60,12 @@ pub enum RuleViolation {
         /// The goblin.
         goblin: GoblinId,
     },
+    /// The rules have no Stance to brace in.
+    #[error("these rules have no Stance: {goblin} cannot brace")]
+    NoStanceInTheseRules {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// A step is not orthogonally next to the previous square.
     #[error("step {index} to [{}, {}] is not next to the previous square", square.x, square.y)]
     PathNotContiguous {

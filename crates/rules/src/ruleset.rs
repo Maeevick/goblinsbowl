@@ -74,6 +74,10 @@ pub struct Ruleset {
     /// in Stance; otherwise the Agility die faces the Defense die of the most dangerous enemy.
     #[serde(default)]
     pub dodges_test_agility: bool,
+    /// Whether a goblin can spend its action bracing in Stance, a Defense bonus until its team's
+    /// next turn.
+    #[serde(default = "stance_in_the_rules")]
+    pub goblins_can_take_stance: bool,
     /// Whether a goblin keeps the steps it did not walk after its action: its Move and one action
     /// per turn, spent over as many orders as its coach likes; otherwise its first order ends its turn.
     #[serde(default)]
@@ -138,6 +142,10 @@ fn turns_end_on_their_own() -> bool {
     true
 }
 
+fn stance_in_the_rules() -> bool {
+    true
+}
+
 fn one_kickoff_bounce() -> u8 {
     1
 }
@@ -160,6 +168,7 @@ impl Default for Ruleset {
             stance_bonus_cap: 2,
             neighbour_stance_bonus_cap: 1,
             dodges_test_agility: true,
+            goblins_can_take_stance: stance_in_the_rules(),
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),

@@ -212,7 +212,7 @@ pub fn activation_odds(
     team: TeamId,
     activation: &Activation,
 ) -> Result<ActivationOdds, RuleViolation> {
-    validate_activation(arena, state, team, activation)?;
+    validate_activation(arena, ruleset, state, team, activation)?;
     let id = activation.goblin;
     let agility = state
         .goblin(id)
@@ -287,7 +287,7 @@ pub fn board_after_success(
     team: TeamId,
     activation: &Activation,
 ) -> Result<GameState, RuleViolation> {
-    validate_activation(arena, state, team, activation)?;
+    validate_activation(arena, ruleset, state, team, activation)?;
     let id = activation.goblin;
     let mut board = state.clone();
     for to in activation.path.iter().copied() {

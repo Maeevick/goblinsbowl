@@ -97,6 +97,7 @@ pub fn coach_giving_orders(snapshot: &MatchSnapshot) -> Option<TeamId> {
 /// `team` any more, back to a plain selection when its aimed order became illegal.
 pub fn keep_draft(
     arena: &Arena,
+    ruleset: &Ruleset,
     state: &GameState,
     team: Option<TeamId>,
     draft: &Draft,
@@ -106,7 +107,9 @@ pub fn keep_draft(
     if !can_be_activated(state, team, goblin) {
         return None;
     }
-    if draft.aim.is_some() && validate_activation(arena, state, team, &draft.activation).is_err() {
+    if draft.aim.is_some()
+        && validate_activation(arena, ruleset, state, team, &draft.activation).is_err()
+    {
         return Some(Draft::selecting(goblin));
     }
     Some(draft.clone())
@@ -163,7 +166,7 @@ pub fn react_to_click(
                 path: draft.activation.path.clone(),
                 action: Some(Action::Throw { receiver: goblin }),
             };
-            if validate_activation(arena, state, team, &throw).is_ok() {
+            if validate_activation(arena, ruleset, state, team, &throw).is_ok() {
                 Reaction::Prepare(Draft {
                     activation: throw,
                     aim: Some(click),
@@ -235,7 +238,7 @@ fn aim_assault(
         path,
         action: Some(Action::Assault { target }),
     };
-    if validate_activation(arena, state, team, &activation).is_err() {
+    if validate_activation(arena, ruleset, state, team, &activation).is_err() {
         return Reaction::Ignore;
     }
     Reaction::Prepare(Draft {
@@ -584,6 +587,7 @@ fn keep_prepared_order(view: Res<MatchView>, mut prepared: ResMut<PreparedOrder>
     };
     let kept = keep_draft(
         &view.arena,
+        &view.ruleset,
         &view.snapshot.state,
         coach_giving_orders(&view.snapshot),
         draft,
@@ -835,6 +839,7 @@ mod tests {
         assert_eq!(
             keep_draft(
                 &Arena::bowl_15(),
+                &Ruleset::default(),
                 &state,
                 Some(TeamId::HOME),
                 &Draft::selecting(id("H5"))
@@ -853,7 +858,13 @@ mod tests {
             BoardClick::Square(square(7, 9)),
         );
         assert_eq!(
-            keep_draft(&Arena::bowl_15(), &state, Some(TeamId::HOME), &walk),
+            keep_draft(
+                &Arena::bowl_15(),
+                &Ruleset::default(),
+                &state,
+                Some(TeamId::HOME),
+                &walk
+            ),
             Some(Draft::selecting(id("H5")))
         );
     }
@@ -868,7 +879,13 @@ mod tests {
             BoardClick::Square(square(7, 9)),
         );
         assert_eq!(
-            keep_draft(&Arena::bowl_15(), &state, Some(TeamId::HOME), &walk),
+            keep_draft(
+                &Arena::bowl_15(),
+                &Ruleset::default(),
+                &state,
+                Some(TeamId::HOME),
+                &walk
+            ),
             Some(walk.clone())
         );
     }
