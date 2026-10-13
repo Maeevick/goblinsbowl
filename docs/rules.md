@@ -1,4 +1,4 @@
-# Goblins Bowl, règles 0.3
+# Goblins Bowl, règles 0.4
 
 *English version below.*
 
@@ -10,13 +10,13 @@ On se déplace et on est voisin **en ligne droite seulement** (haut, bas, gauche
 
 ## Les équipes
 
-9 gobelins par équipe : 3 Cogneurs, 4 Sprinteurs, 2 Lanceurs. Chaque gobelin peut tout faire, seuls ses chiffres changent. Un chiffre comme Attaque 4 veut dire « lance un dé à 4 faces ».
+9 gobelins par équipe : 3 Cogneurs, 4 Sprinteurs, 2 Lanceurs. Chaque gobelin peut tout faire, seuls ses chiffres changent : 22 points chacun, répartis selon sa spécialité. Un chiffre comme Attaque 4 veut dire « lance un dé à 4 faces ».
 
 | Gobelin | Rôle | Attaque | Défense | Agilité | Santé | Mouvement |
 |---|---|---|---|---|---|---|
-| Cogneur | bagarreur | 4 | 4 | 2 | 6 | 3 |
-| Sprinteur | marqueur | 3 | 2 | 4 | 3 | 5 |
-| Lanceur | meneur | 2 | 3 | 4 | 3 | 4 |
+| Cogneur | bagarreur | 4 | 4 | 3 | 7 | 4 |
+| Sprinteur | marqueur | 3 | 2 | 6 | 5 | 6 |
+| Lanceur | meneur | 3 | 3 | 6 | 6 | 4 |
 
 ## Un tour
 
@@ -34,7 +34,7 @@ Le chiffre Δ = mon dé moins le dé adverse. **En cas d'égalité, celui qui ag
   - Je gagne : il tombe, lâche la balle et perd Δ points de Santé (rien si égalité).
   - Je perds : c'est moi qui tombe, je perds Δ − 1 points de Santé (rien si je perds de 1), et **le tour s'arrête**.
 - **Garde** : jusqu'au prochain tour de mon équipe, +1 à ma Défense et +1 à chaque coéquipier voisin. Les voisins ne comptent qu'une fois : un gobelin reçoit au plus +1 de sa propre Garde et +1 de ses voisins en Garde, donc +2 au maximum. Deux gobelins en Garde côte à côte sont déjà à +2 chacun.
-- **Esquive** : quand je quitte une case à côté d'un ennemi debout, je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi, 2 s'il est en Garde, et il faut faire **2 ou plus**. Si je rate, je tombe sur place, je perds en Santé ce qui me manquait moins 1 (rien s'il ne manquait que 1) et **le tour s'arrête**. Un Cogneur (dé à 2 faces) collé à un ennemi ne peut donc plus s'esquiver.
+- **Esquive** : quand je quitte une case à côté d'un ennemi debout, je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi, 2 s'il est en Garde, et il faut faire **2 ou plus**. Si je rate, je tombe sur place, je perds en Santé ce qui me manquait moins 1 (rien s'il ne manquait que 1) et **le tour s'arrête**. Un Cogneur (dé à 3 faces) n'échappe qu'à un seul ennemi sans Garde, une fois sur trois.
 
 ## La balle
 
@@ -69,7 +69,7 @@ Puis la balle tombe dans la moitié de l'équipe qui reçoit : 4 à 7 colonnes d
 
 ## Pour jouer sur papier
 
-Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numéros, une pièce pour le dé à 2 faces, un dé à 6 faces pour le dé à 3 faces (1-2 = 1, 3-4 = 2, 5-6 = 3), un dé à 4 faces, un dé à 6 faces et un dé à 12 faces pour le coup d'envoi. Le chronomètre du téléphone pour les 60 secondes (ou 90 pour commencer).
+Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numéros, une pièce pour le dé à 2 faces, un dé à 4 faces, un dé à 6 faces (qui sert aussi de dé à 3 faces, 1-2 = 1, 3-4 = 2, 5-6 = 3, et de dé à 5 faces en relançant le 6), un dé à 8 faces pour le dé à 7 faces (on relance le 8) et un dé à 12 faces pour le coup d'envoi. Le chronomètre du téléphone pour les 60 secondes (ou 90 pour commencer).
 
 ## Quelques chances
 
@@ -80,14 +80,14 @@ Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numé
 | Cogneur contre un Cogneur en Garde à côté d'un autre (+2, le plus possible) | 19 % |
 | Cogneur contre Sprinteur | 88 % |
 | Cogneur contre un Cogneur à terre | 94 % |
-| Sprinteur qui quitte 1 / 2 ennemis | 50 / 25 % |
-| Sprinteur qui quitte 1 ennemi en Garde | 25 % |
-| Cogneur qui quitte un ennemi | 0 % |
-| Balle avec Agilité 4, 0 / 1 / 2 ennemis à côté | 75 / 50 / 25 % |
+| Sprinteur qui quitte 1 / 2 / 3 ennemis | 67 / 50 / 33 % |
+| Sprinteur qui quitte 1 ennemi en Garde | 50 % |
+| Cogneur qui quitte 1 ennemi / 1 ennemi en Garde | 33 / 0 % |
+| Balle avec Agilité 6, 0 / 1 / 2 ennemis à côté | 83 / 67 / 50 % |
 
 ---
 
-# Goblins Bowl, rules 0.3
+# Goblins Bowl, rules 0.4
 
 ## The bowl
 
@@ -97,13 +97,13 @@ Moves and adjacency are **orthogonal only**, never diagonal.
 
 ## Teams
 
-9 goblins: 3 Bruisers, 4 Sprinters, 2 Throwers (rosters allow 0-8 / 0-8 / 1-2). Every goblin can do everything; only its characteristics differ. Attack, Defense and Agility are dice with that many faces.
+9 goblins: 3 Bruisers, 4 Sprinters, 2 Throwers (rosters allow 0-8 / 0-8 / 1-2). Every goblin can do everything; only its characteristics differ, 22 points each spread after its speciality. Attack, Defense and Agility are dice with that many faces.
 
 | Archetype | Role | Attack | Defense | Agility | Health | Move |
 |---|---|---|---|---|---|---|
-| Bruiser | fighter | 4 | 4 | 2 | 6 | 3 |
-| Sprinter | scorer | 3 | 2 | 4 | 3 | 5 |
-| Thrower | leader | 2 | 3 | 4 | 3 | 4 |
+| Bruiser | fighter | 4 | 4 | 3 | 7 | 4 |
+| Sprinter | scorer | 3 | 2 | 6 | 5 | 6 |
+| Thrower | leader | 3 | 3 | 6 | 6 | 4 |
 
 ## A turn
 
@@ -119,7 +119,7 @@ A turn ends when its coach ends it, when its clock runs out, when a team scores 
 
 - **Assault** an adjacent enemy: d(Attack) vs d(Defense). Win: it falls, drops the ball, loses Δ Health (nothing on a tie). Lose: the attacker falls, loses |Δ| − 1 Health (nothing when losing by 1), and the turn ends.
 - **Stance**: until the team's next turn, +1 Defense to itself and +1 to each adjacent teammate. Braced neighbours count once: a goblin gets at most +1 from its own Stance and +1 from its braced neighbours, +2 in all, so two braced goblins side by side already stand at +2 each.
-- **Dodge**, each step out of a square next to a standing enemy: d(Agility) minus 1 per adjacent standing enemy, 2 for one in Stance, must reach **2**. Miss: it falls where it stands, loses its shortfall minus 1 in Health (nothing when 1 short), and the turn ends. A Bruiser (d2) next to an enemy can no longer dodge.
+- **Dodge**, each step out of a square next to a standing enemy: d(Agility) minus 1 per adjacent standing enemy, 2 for one in Stance, must reach **2**. Miss: it falls where it stands, loses its shortfall minus 1 in Health (nothing when 1 short), and the turn ends. A Bruiser (d3) gets away from a single enemy out of Stance one time in three, and from nothing more.
 
 ## Ball actions
 
@@ -154,6 +154,6 @@ Then the ball drops in the receiving team's half, 4 to 7 columns behind the cent
 
 ## Paper playtest kit
 
-A 21 × 21 grid with the 5 × 5 corners crossed out, numbered tokens, a coin for the d2, a d6 for the d3 (1-2, 3-4, 5-6), a d4, a d6 and a d12 for the kick-off (reroll the 12), and a phone timer (90 s for the first games).
+A 21 × 21 grid with the 5 × 5 corners crossed out, numbered tokens, a coin for the d2, a d4, a d6 (also the d3, 1-2, 3-4, 5-6, and the d5 by rerolling the 6), a d8 for the d7 (reroll the 8) and a d12 for the kick-off (reroll the 12), and a phone timer (90 s for the first games).
 
 Every number above is tunable in `rules.toml`.
