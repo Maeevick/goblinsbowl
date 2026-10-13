@@ -184,22 +184,22 @@ impl Default for Ruleset {
                 bruiser: Characteristics {
                     attack: 4,
                     defense: 4,
-                    agility: 2,
-                    health: 6,
-                    movement: 3,
+                    agility: 3,
+                    health: 7,
+                    movement: 4,
                 },
                 sprinter: Characteristics {
                     attack: 3,
                     defense: 2,
-                    agility: 4,
-                    health: 3,
-                    movement: 5,
+                    agility: 6,
+                    health: 5,
+                    movement: 6,
                 },
                 thrower: Characteristics {
-                    attack: 2,
+                    attack: 3,
                     defense: 3,
-                    agility: 4,
-                    health: 3,
+                    agility: 6,
+                    health: 6,
                     movement: 4,
                 },
             },
@@ -284,15 +284,15 @@ mod tests {
     }
 
     #[test]
-    fn given_default_ruleset_when_reading_the_bruiser_then_four_four_two_six_three() {
+    fn given_default_ruleset_when_reading_the_bruiser_then_four_four_three_seven_four() {
         assert_eq!(
             Ruleset::default().archetypes.of(Archetype::Bruiser),
             Characteristics {
                 attack: 4,
                 defense: 4,
-                agility: 2,
-                health: 6,
-                movement: 3
+                agility: 3,
+                health: 7,
+                movement: 4
             }
         );
     }

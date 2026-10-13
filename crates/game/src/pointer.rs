@@ -378,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    fn given_a_selected_sprinter_next_to_a_bruiser_when_pointing_away_then_an_even_dodge() {
+    fn given_a_selected_sprinter_next_to_a_bruiser_when_pointing_away_then_a_likely_dodge() {
         assert_eq!(
             intent(
                 &[("H5", 10, 10), ("A1", 11, 10)],
@@ -386,7 +386,7 @@ mod tests {
                 Some("H5"),
                 BoardClick::Square(Square::new(8, 10))
             ),
-            PointerIntent::Order(Glyph::Dodge, Risk::Even)
+            PointerIntent::Order(Glyph::Dodge, Risk::Likely)
         );
     }
 
@@ -419,7 +419,7 @@ mod tests {
     }
 
     #[test]
-    fn given_a_selected_carrier_when_pointing_at_an_open_teammate_then_an_even_throw() {
+    fn given_a_selected_carrier_when_pointing_at_an_open_teammate_then_a_likely_throw() {
         assert_eq!(
             intent(
                 &[("H9", 10, 10), ("H5", 10, 14)],
@@ -427,7 +427,7 @@ mod tests {
                 Some("H9"),
                 BoardClick::Goblin(id("H5"))
             ),
-            PointerIntent::Order(Glyph::Throw, Risk::Even)
+            PointerIntent::Order(Glyph::Throw, Risk::Likely)
         );
     }
 

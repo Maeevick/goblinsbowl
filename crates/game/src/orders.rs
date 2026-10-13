@@ -1139,7 +1139,7 @@ mod tests {
 
     #[test]
     fn given_a_selected_sprinter_alone_when_marking_squares_then_every_reachable_square_is_safe() {
-        let state = board(&[("H5", 7, 7)], None);
+        let state = board(&[("H5", 7, 8)], None);
         let marks = square_marks(
             &Arena::bowl_15(),
             &Ruleset::default(),

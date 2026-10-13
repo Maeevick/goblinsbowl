@@ -79,22 +79,22 @@ prefers = ["thrower", "bruiser", "sprinter"]
 [archetypes.bruiser]
 attack = 4
 defense = 4
-agility = 2
-health = 6
-movement = 3
+agility = 3
+health = 7
+movement = 4
 
 [archetypes.sprinter]
 attack = 3
 defense = 2
-agility = 4
-health = 3
-movement = 5
+agility = 6
+health = 5
+movement = 6
 
 [archetypes.thrower]
-attack = 2
+attack = 3
 defense = 3
-agility = 4
-health = 3
+agility = 6
+health = 6
 movement = 4
 
 [roster_limits]

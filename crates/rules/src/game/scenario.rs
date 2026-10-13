@@ -1,11 +1,11 @@
 //! Hand-made match situations for rule tests.
 
 use crate::arena::BOWL_15_MASK;
-use crate::characteristics::Archetype;
+use crate::characteristics::{Archetype, Characteristics};
 use crate::dice::ScriptedDice;
 use crate::formation::Formation;
 use crate::roster::{GoblinId, Roster};
-use crate::ruleset::Ruleset;
+use crate::ruleset::{ArchetypeCharacteristics, Ruleset};
 use crate::square::Square;
 use crate::state::{Ball, GameState, Goblin, Phase, Presence};
 use crate::team::TeamId;
@@ -33,6 +33,29 @@ fn rules_0_1() -> Ruleset {
         dodges_test_agility: false,
         keeps_moving_after_action: false,
         turn_ends_when_no_goblin_can_act: true,
+        archetypes: ArchetypeCharacteristics {
+            bruiser: Characteristics {
+                attack: 4,
+                defense: 4,
+                agility: 2,
+                health: 6,
+                movement: 3,
+            },
+            sprinter: Characteristics {
+                attack: 3,
+                defense: 2,
+                agility: 4,
+                health: 3,
+                movement: 5,
+            },
+            thrower: Characteristics {
+                attack: 2,
+                defense: 3,
+                agility: 4,
+                health: 3,
+                movement: 4,
+            },
+        },
         default_roster: Roster {
             bruisers: 4,
             sprinters: 4,
