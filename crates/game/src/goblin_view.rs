@@ -31,9 +31,10 @@ const LYING_LIFT: f32 = 0.24;
 const LYING_SHIFT: f32 = 0.5;
 const LABEL_ABOVE_FEET: f32 = 1.45;
 const LABEL_WIDTH: f32 = 56.0;
-const LABEL_HEIGHT: f32 = 26.0;
+const LABEL_HEIGHT: f32 = 36.0;
 const LABEL_COLOUR: Color = Color::srgb(0.97, 0.96, 0.92);
 const PIP_SIZE: f32 = 7.0;
+const PIPS_PER_ROW: u8 = 4;
 const PIP_FULL: Color = Color::srgb(0.95, 0.2, 0.25);
 const PIP_LOST: Color = Color::srgba(0.15, 0.12, 0.12, 0.8);
 const CATCH_UP_BEATS: usize = 12;
@@ -203,6 +204,15 @@ pub fn ball_position(arena: &Arena, state: &GameState) -> Option<Vec3> {
             .and_then(Goblin::square)
             .map(|square| square_centre(arena, square) + Vec3::Y * BALL_ABOVE_CARRIER),
     }
+}
+
+/// How many health pips each row of a label holds: four at most, the rows as even as can be,
+/// so the pips of goblins standing side by side never run into each other.
+pub fn pip_rows(health: u8) -> Vec<u8> {
+    let rows = health.div_ceil(PIPS_PER_ROW).max(1);
+    (0..rows)
+        .map(|row| health / rows + u8::from(row < health % rows))
+        .collect()
 }
 
 /// Colour of the health pip at `index` for a goblin with `health` left.
@@ -606,7 +616,9 @@ fn spawn_label(commands: &mut Commands, kit: &FigureKit, goblin: &Goblin, figure
             Node {
                 position_type: PositionType::Absolute,
                 width: px(LABEL_WIDTH),
+                height: px(LABEL_HEIGHT),
                 flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexEnd,
                 align_items: AlignItems::Center,
                 row_gap: px(1),
                 ..default()
@@ -634,27 +646,46 @@ fn spawn_label(commands: &mut Commands, kit: &FigureKit, goblin: &Goblin, figure
             label
                 .spawn((
                     Node {
-                        column_gap: px(2),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        row_gap: px(2),
                         ..default()
                     },
                     Pickable::IGNORE,
                 ))
-                .with_children(|pips| {
-                    for index in 0..goblin.characteristics.health {
-                        pips.spawn((
+                .with_children(|rows| {
+                    let counts = pip_rows(goblin.characteristics.health);
+                    let firsts = counts.iter().scan(0, |next, count| {
+                        let first = *next;
+                        *next += count;
+                        Some(first)
+                    });
+                    for (first, count) in firsts.zip(counts.iter().copied()) {
+                        rows.spawn((
                             Node {
-                                width: px(PIP_SIZE),
-                                height: px(PIP_SIZE),
-                                border_radius: BorderRadius::all(px(PIP_SIZE / 2.0)),
+                                column_gap: px(2),
                                 ..default()
                             },
-                            BackgroundColor(pip_colour(index, goblin.health)),
                             Pickable::IGNORE,
-                            HealthPip {
-                                goblin: goblin.id,
-                                index,
-                            },
-                        ));
+                        ))
+                        .with_children(|pips| {
+                            for index in first..first + count {
+                                pips.spawn((
+                                    Node {
+                                        width: px(PIP_SIZE),
+                                        height: px(PIP_SIZE),
+                                        border_radius: BorderRadius::all(px(PIP_SIZE / 2.0)),
+                                        ..default()
+                                    },
+                                    BackgroundColor(pip_colour(index, goblin.health)),
+                                    Pickable::IGNORE,
+                                    HealthPip {
+                                        goblin: goblin.id,
+                                        index,
+                                    },
+                                ));
+                            }
+                        });
                     }
                 });
         });
@@ -1227,6 +1258,21 @@ mod tests {
             ball_position(&arena, &state),
             Some(square_centre(&arena, carrier_square) + Vec3::Y * BALL_ABOVE_CARRIER)
         );
+    }
+
+    #[test]
+    fn given_seven_health_when_laying_out_its_pips_then_a_row_of_four_over_a_row_of_three() {
+        assert_eq!(pip_rows(7), vec![4, 3]);
+    }
+
+    #[test]
+    fn given_five_health_when_laying_out_its_pips_then_a_row_of_three_over_a_row_of_two() {
+        assert_eq!(pip_rows(5), vec![3, 2]);
+    }
+
+    #[test]
+    fn given_four_health_when_laying_out_its_pips_then_a_single_row() {
+        assert_eq!(pip_rows(4), vec![4]);
     }
 
     #[test]
