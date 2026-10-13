@@ -28,6 +28,8 @@ fn rules_0_1() -> Ruleset {
         kickoff_depth_spread: 0,
         kickoff_across_spread: 0,
         kickoff_bounces: 1,
+        stance_bonus_cap: 5,
+        neighbour_stance_bonus_cap: 4,
         keeps_moving_after_action: false,
         turn_ends_when_no_goblin_can_act: true,
         default_roster: Roster {
