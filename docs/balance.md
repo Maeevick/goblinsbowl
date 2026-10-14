@@ -160,3 +160,23 @@ What the numbers say:
 - **A bigger risk appetite still does not pay against a careful opponent**, though by less: over both seats, cautious wins 39.2 % of its 2,000 matches against bold, bold 33.5 % against cautious.
 - **The home edge is back in every pairing** (40.0 % against 32.2 % in the cautious mirror, 41.2 % against 31.1 % in the bold one), while receiving the opening kick-off still gives nothing. Now that matches are decided, checking the scripted coaches' tie-breaks is worth doing before trusting home and away results.
 
+## Rules 0.6, 14 Oct 2026
+
+Rules 0.5 with hand-offs, carriers that cannot assault, and missed bouncing balls that no longer end the turn. Same coaches, seeds 1 to 1,000.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Knock-outs per match |
+|---|---|---|---|---|---|
+| cautious vs cautious | 41.7 % | 30.0 % | 28.3 % | 1.77 | 5.88 |
+| bold vs bold | 41.4 % | 32.8 % | 25.8 % | 2.22 | 4.42 |
+| cautious vs bold | 40.4 % | 33.2 % | 26.4 % | 1.98 | 5.13 |
+| bold vs cautious | 41.2 % | 32.0 % | 26.8 % | 2.09 | 5.04 |
+| cautious vs random | 99.5 % | 0 % | 0.5 % | 4.32 | 1.56 |
+| bold vs random | 100.0 % | 0 % | 0 % | 4.27 | 1.58 |
+
+What the numbers say:
+
+- **A little more flow.** Fumbles per team turn fall from 0.171 to 0.143 in the cautious mirror and from 0.246 to 0.224 in the bold one, now that a missed bouncing ball no longer ends the turn; goals rise slightly (1.77 and 2.22 per match) and throws too (7.2 and 11.5), hand-offs included.
+- **Fewer knock-outs** (5.9 and 4.4 per match instead of 6.6 and 5.0): carriers no longer fight.
+- **For the first time, risk appetite does not cost against a careful opponent**: over both seats, bold wins 37.2 % of its 2,000 matches against cautious, cautious 36.2 % against bold.
+- **The home edge stays** at 7 to 12 points in every pairing between scripted coaches; their tie-breaks remain unchecked.
+
