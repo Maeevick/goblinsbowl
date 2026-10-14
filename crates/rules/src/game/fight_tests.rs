@@ -215,6 +215,22 @@ fn given_the_dropped_ball_bounces_to_an_attacking_teammate_who_misses_then_the_t
 }
 
 #[test]
+fn given_missed_bounces_that_do_not_end_turns_when_an_attacking_teammate_misses_the_dropped_ball_then_the_turn_goes_on()
+ {
+    let mut game = bruisers_face_to_face()
+        .rules(|ruleset| ruleset.missed_bounces_end_the_turn = false)
+        .goblin("H3", Sprinter, 6, 6)
+        .ball_carried_by("A1")
+        .game([4, 1, 1, 1, 2]);
+    let events = game.apply(TeamId::HOME, assault("H1", &[], "A1")).unwrap();
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, GameEvent::TurnEnded { .. }))
+    );
+}
+
+#[test]
 fn given_a_goblin_moving_next_to_an_enemy_when_assaulting_then_the_assault_happens_after_the_move()
 {
     let mut game = bruisers_face_to_face()

@@ -26,6 +26,9 @@ dodges_test_agility = true
 # Whether a goblin can spend its action bracing in Stance, a Defense bonus until its team's next turn
 # (rules 0.1 to 0.4; none since 0.5).
 goblins_can_take_stance = false
+# Whether a goblin of the team on turn missing a bouncing ball ends the turn
+# (false: only a missed catch of the team's own throw does, as a failed pick-up or throw does).
+missed_bounces_end_the_turn = true
 # Whether a goblin keeps the steps it did not walk after its action, its Move and one action
 # per turn spent over several orders (false: its first order ends its turn).
 keeps_moving_after_action = true

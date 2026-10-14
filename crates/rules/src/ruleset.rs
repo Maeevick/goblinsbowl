@@ -78,6 +78,10 @@ pub struct Ruleset {
     /// next turn.
     #[serde(default = "stance_in_the_rules")]
     pub goblins_can_take_stance: bool,
+    /// Whether a goblin of the team on turn missing a bouncing ball, after an assault knocked the
+    /// carrier down, ends the turn; otherwise only a missed catch of the team's own throw does.
+    #[serde(default = "missed_bounces_end_turns")]
+    pub missed_bounces_end_the_turn: bool,
     /// Whether a goblin keeps the steps it did not walk after its action: its Move and one action
     /// per turn, spent over as many orders as its coach likes; otherwise its first order ends its turn.
     #[serde(default)]
@@ -146,6 +150,10 @@ fn stance_in_the_rules() -> bool {
     true
 }
 
+fn missed_bounces_end_turns() -> bool {
+    true
+}
+
 fn one_kickoff_bounce() -> u8 {
     1
 }
@@ -169,6 +177,7 @@ impl Default for Ruleset {
             neighbour_stance_bonus_cap: every_braced_neighbour(),
             dodges_test_agility: true,
             goblins_can_take_stance: false,
+            missed_bounces_end_the_turn: missed_bounces_end_turns(),
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),

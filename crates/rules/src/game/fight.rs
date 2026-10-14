@@ -126,9 +126,10 @@ impl<D: DiceRoller> Game<D> {
             self.knock_down(defender, damage, events)
         };
         let active_team = self.state.active_team();
-        missed_catches
+        let a_teammate_missed = missed_catches
             .iter()
-            .any(|goblin| Some(goblin.team) == active_team)
+            .any(|goblin| Some(goblin.team) == active_team);
+        (self.ruleset.missed_bounces_end_the_turn && a_teammate_missed)
             .then_some(TurnEndReason::Fumble)
     }
 }
