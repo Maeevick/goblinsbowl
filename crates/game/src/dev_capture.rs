@@ -3,8 +3,9 @@
 //! Rendering offscreen keeps captures working while the display is asleep or locked.
 //!
 //! `GOBLINSBOWL_SCRIPT` plays inputs at given frames beforehand, for example
-//! `30:ready;60:click H5;90:click 7,9;100:done H6;120:end;600:restart`, so a capture can show an
-//! order being given, a goblin done for its turn, the turn handed over or a new match.
+//! `30:ready;60:click H5;90:click 7,9;95:hover A4;100:done H6;120:end;600:restart`, so a capture can
+//! show an order being given, a goblin under the pointer, a goblin done for its turn, the turn
+//! handed over or a new match.
 
 use std::path::PathBuf;
 
@@ -18,7 +19,7 @@ use goblins_rules::command::{Activation, Command};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::square::Square;
 
-use crate::bowl_view::BoardClick;
+use crate::bowl_view::{BoardClick, HoveredSquare};
 use crate::camera_rig::CameraRig;
 use crate::hud::{human_team_in_control, team_waiting_for_ready};
 use crate::local_match::{MatchOrder, MatchSystems, MatchView};
@@ -46,6 +47,8 @@ pub enum ScriptedInput {
     Ready,
     /// Click on the board.
     Click(BoardClick),
+    /// Move the pointer over a goblin or a square, as the mouse would.
+    Hover(BoardClick),
     /// Order a goblin of the team in control to stay put and do nothing, ending its turn.
     Done(GoblinId),
     /// End the turn of the human team in control.
@@ -142,6 +145,8 @@ fn parse_step(step: &str) -> Result<ScriptStep, String> {
         ScriptedInput::Restart
     } else if let Some(target) = input.strip_prefix("click ") {
         ScriptedInput::Click(parse_click_target(target.trim())?)
+    } else if let Some(target) = input.strip_prefix("hover ") {
+        ScriptedInput::Hover(parse_click_target(target.trim())?)
     } else if let Some(goblin) = input.strip_prefix("done ") {
         ScriptedInput::Done(
             goblin
@@ -151,7 +156,7 @@ fn parse_step(step: &str) -> Result<ScriptStep, String> {
         )
     } else {
         return Err(format!(
-            "\"{input}\" is neither ready, end, restart, a click nor a goblin done"
+            "\"{input}\" is neither ready, end, restart, a click, a hover nor a goblin done"
         ));
     };
     Ok(ScriptStep { at_frame, input })
@@ -182,6 +187,7 @@ fn play_script(
     mut script: ResMut<Script>,
     mut rig: ResMut<CameraRig>,
     mut clicks: MessageWriter<BoardClick>,
+    mut hovered: ResMut<HoveredSquare>,
     mut orders: MessageWriter<MatchOrder>,
 ) {
     while let Some(step) = script.steps.get(script.played).copied() {
@@ -198,6 +204,14 @@ fn play_script(
             }
             ScriptedInput::Click(click) => {
                 clicks.write(click);
+            }
+            ScriptedInput::Hover(BoardClick::Square(square)) => hovered.0 = Some(square),
+            ScriptedInput::Hover(BoardClick::Goblin(goblin)) => {
+                hovered.0 = view
+                    .snapshot
+                    .state
+                    .goblin(goblin)
+                    .and_then(|goblin| goblin.square());
             }
             ScriptedInput::Done(goblin) => {
                 if let Some(team) = human_team_in_control(&view.snapshot) {
@@ -326,6 +340,20 @@ mod tests {
             Ok(vec![ScriptStep {
                 at_frame: 90,
                 input: ScriptedInput::Click(BoardClick::Square(Square::new(7, 9)))
+            }])
+        );
+    }
+
+    #[test]
+    fn given_a_hover_over_a_goblin_when_parsing_the_script_then_the_pointer_rests_on_it() {
+        assert_eq!(
+            parse_script("95:hover A4"),
+            Ok(vec![ScriptStep {
+                at_frame: 95,
+                input: ScriptedInput::Hover(BoardClick::Goblin(GoblinId::new(
+                    goblins_rules::team::TeamId::AWAY,
+                    4
+                )))
             }])
         );
     }
