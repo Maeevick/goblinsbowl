@@ -32,6 +32,9 @@ fn rules_0_1() -> Ruleset {
         neighbour_stance_bonus_cap: 4,
         dodges_test_agility: false,
         goblins_can_take_stance: true,
+        missed_bounces_end_the_turn: true,
+        carriers_can_assault: true,
+        adjacent_throws_are_hand_offs: false,
         keeps_moving_after_action: false,
         turn_ends_when_no_goblin_can_act: true,
         archetypes: ArchetypeCharacteristics {
