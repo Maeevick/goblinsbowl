@@ -800,6 +800,49 @@ mod tests {
             .ball_carried_by("H1")
     }
 
+    fn thrower_next_to_a_teammate() -> Scenario {
+        thrower_with_the_ball()
+            .rules(|ruleset| ruleset.adjacent_throws_are_hand_offs = true)
+            .goblin("H4", Sprinter, 5, 7)
+    }
+
+    #[test]
+    fn given_hand_offs_when_the_carrier_throws_to_an_adjacent_teammate_then_only_the_catch_is_rolled()
+     {
+        let mut game = thrower_next_to_a_teammate().game([3]);
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H4")).unwrap();
+        assert_eq!(
+            events[..2],
+            [
+                GameEvent::HandedOff {
+                    giver: id("H1"),
+                    receiver: id("H4")
+                },
+                GameEvent::CatchAttempted {
+                    goblin: id("H4"),
+                    roll: AgilityRoll {
+                        faces: 4,
+                        rolled: 3,
+                        malus: 0,
+                        target: 2,
+                        success: true
+                    }
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn given_hand_offs_when_the_adjacent_teammate_misses_the_catch_then_the_turn_ends_on_a_fumble()
+    {
+        let mut game = thrower_next_to_a_teammate().game([1, 2]);
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H4")).unwrap();
+        assert!(events.contains(&GameEvent::TurnEnded {
+            team: TeamId::HOME,
+            reason: TurnEndReason::Fumble
+        }));
+    }
+
     #[test]
     fn given_a_clear_line_when_throw_and_catch_succeed_then_the_receiver_holds_the_ball() {
         let mut game = thrower_with_the_ball().game([3, 3]);

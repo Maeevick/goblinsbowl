@@ -112,6 +112,10 @@ impl MatchStats {
                     stats.throws.tried += 1;
                     awaited_receiver = roll.success.then_some(receiver);
                 }
+                GameEvent::HandedOff { receiver, .. } => {
+                    stats.throws.tried += 1;
+                    awaited_receiver = Some(receiver);
+                }
                 GameEvent::InterceptAttempted { goblin, roll } if roll.success => {
                     count_for(&mut stats.interceptions, goblin.team);
                     awaited_receiver = None;
@@ -291,6 +295,27 @@ mod tests {
                 receiver: id("H5"),
                 roll: roll(true),
                 distance: 5,
+            },
+            GameEvent::CatchAttempted {
+                goblin: id("H5"),
+                roll: roll(true),
+            },
+        ];
+        assert_eq!(
+            MatchStats::from_events(&events).throws,
+            Attempts {
+                tried: 1,
+                succeeded: 1
+            }
+        );
+    }
+
+    #[test]
+    fn given_a_hand_off_caught_by_its_receiver_when_counting_then_one_throw_caught() {
+        let events = [
+            GameEvent::HandedOff {
+                giver: id("H9"),
+                receiver: id("H5"),
             },
             GameEvent::CatchAttempted {
                 goblin: id("H5"),

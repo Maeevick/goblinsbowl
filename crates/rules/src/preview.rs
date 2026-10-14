@@ -369,14 +369,18 @@ fn throw_odds(
             success: Probability::IMPOSSIBLE,
         };
     };
-    let distance_malus = thrower_square
-        .orthogonal_distance(receiver_square)
-        .saturating_sub(ruleset.throw_free_range);
-    let throw = agility_success(
-        thrower_goblin.map_or(1, |goblin| goblin.characteristics.agility),
-        adjacent_opponent_count(sketch, thrower_square, team).saturating_add(distance_malus),
-        target,
-    );
+    let distance = thrower_square.orthogonal_distance(receiver_square);
+    let distance_malus = distance.saturating_sub(ruleset.throw_free_range);
+    let hands_off = ruleset.adjacent_throws_are_hand_offs && distance == 1;
+    let throw = if hands_off {
+        Probability::CERTAIN
+    } else {
+        agility_success(
+            thrower_goblin.map_or(1, |goblin| goblin.characteristics.agility),
+            adjacent_opponent_count(sketch, thrower_square, team).saturating_add(distance_malus),
+            target,
+        )
+    };
     let interceptions: Vec<(GoblinId, Probability)> =
         squares_crossed(thrower_square, receiver_square)
             .into_iter()
@@ -740,6 +744,23 @@ mod tests {
         let walk = order("H1", &[(5, 8)], None);
         let preview = odds(Scenario::new().goblin("H1", Sprinter, 5, 7), &walk).unwrap();
         assert_eq!(preview.overall_success, Probability::CERTAIN);
+    }
+
+    #[test]
+    fn given_hand_offs_when_previewing_a_throw_to_an_adjacent_teammate_then_only_the_catch_is_at_risk()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.adjacent_throws_are_hand_offs = true)
+            .goblin("H1", Thrower, 4, 7)
+            .goblin("H2", Sprinter, 5, 7)
+            .ball_carried_by("H1");
+        let hand_off = order("H1", &[], Some(Action::Throw { receiver: id("H2") }));
+        let preview = odds(scenario, &hand_off).unwrap();
+        assert!(matches!(
+            preview.action,
+            Some(ActionOdds::Throw { throw, catch, .. })
+                if throw == Probability::CERTAIN && catch == Probability::new(3, 4)
+        ));
     }
 
     #[test]

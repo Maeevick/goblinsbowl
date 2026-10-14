@@ -496,6 +496,11 @@ impl Texts {
                     )
                 },
             ),
+            GameEvent::HandedOff { giver, receiver } => pick(
+                french,
+                format!("{giver} donne la balle à {receiver}"),
+                format!("{giver} hands the ball to {receiver}"),
+            ),
             GameEvent::InterceptAttempted { goblin, roll } => pick(
                 french,
                 if roll.success {
@@ -1149,6 +1154,18 @@ mod tests {
         assert_eq!(
             FRENCH.describe_event(&event),
             Some("Fin du tour des Leprechauns".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_hand_off_when_described_in_french_then_the_ball_changes_hands() {
+        let event = GameEvent::HandedOff {
+            giver: id("H8"),
+            receiver: id("H4"),
+        };
+        assert_eq!(
+            FRENCH.describe_event(&event),
+            Some("H8 donne la balle à H4".to_string())
         );
     }
 

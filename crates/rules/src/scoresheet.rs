@@ -137,6 +137,14 @@ impl Scoresheet {
                     self.update(thrower.team, |sheet| sheet.passes.record(false));
                 }
             }
+            GameEvent::HandedOff { giver, receiver } => {
+                self.carrier = None;
+                self.pass_in_flight = Some(PassInFlight {
+                    team: giver.team,
+                    receiver,
+                    distance: 1,
+                });
+            }
             GameEvent::InterceptAttempted { goblin, roll } => {
                 self.update(goblin.team, |sheet| {
                     sheet.interceptions.record(roll.success)
@@ -303,6 +311,24 @@ mod tests {
         let away = sheet_of(TeamId::AWAY, &events);
 
         assert_eq!(away.dodges, attempts(1, 0));
+    }
+
+    #[test]
+    fn given_a_hand_off_caught_when_tallied_then_a_completed_pass_of_one_square() {
+        let events = [
+            GameEvent::HandedOff {
+                giver: id("H9"),
+                receiver: id("H5"),
+            },
+            catch("H5", true),
+        ];
+
+        let home = sheet_of(TeamId::HOME, &events);
+
+        assert_eq!(
+            (home.passes, home.longest_pass, home.completed_pass_distance),
+            (attempts(1, 1), 1, 1)
+        );
     }
 
     #[test]

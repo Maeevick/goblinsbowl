@@ -176,6 +176,13 @@ pub enum GameEvent {
         /// Orthogonal steps between the thrower and the receiver.
         distance: u8,
     },
+    /// A goblin handed the ball to an adjacent teammate, without a throw roll.
+    HandedOff {
+        /// The goblin giving the ball.
+        giver: GoblinId,
+        /// The teammate who must catch it.
+        receiver: GoblinId,
+    },
     /// An opponent standing on the flight line tried to snatch the ball.
     InterceptAttempted {
         /// The would-be interceptor.

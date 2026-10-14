@@ -85,6 +85,10 @@ pub struct Ruleset {
     /// Whether the goblin holding the ball may assault.
     #[serde(default = "carriers_assault")]
     pub carriers_can_assault: bool,
+    /// Whether a throw to an orthogonally adjacent teammate is a hand-off: no throw roll, only the
+    /// receiver's catch.
+    #[serde(default)]
+    pub adjacent_throws_are_hand_offs: bool,
     /// Whether a goblin keeps the steps it did not walk after its action: its Move and one action
     /// per turn, spent over as many orders as its coach likes; otherwise its first order ends its turn.
     #[serde(default)]
@@ -186,6 +190,7 @@ impl Default for Ruleset {
             goblins_can_take_stance: false,
             missed_bounces_end_the_turn: missed_bounces_end_turns(),
             carriers_can_assault: carriers_assault(),
+            adjacent_throws_are_hand_offs: false,
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),

@@ -4,6 +4,7 @@ use crate::dice::DiceRoller;
 use crate::event::GameEvent;
 use crate::flight::squares_crossed;
 use crate::roster::GoblinId;
+use crate::square::Square;
 use crate::state::Ball;
 
 use super::Game;
@@ -30,6 +31,13 @@ impl<D: DiceRoller> Game<D> {
             return false;
         };
         let distance = thrower_square.orthogonal_distance(receiver_square);
+        if self.ruleset.adjacent_throws_are_hand_offs && distance == 1 {
+            events.push(GameEvent::HandedOff {
+                giver: thrower,
+                receiver,
+            });
+            return self.receiver_catches(receiver, receiver_square, events);
+        }
         let distance_malus = distance.saturating_sub(self.ruleset.throw_free_range);
         let roll = self.agility_roll(thrower, distance_malus);
         events.push(GameEvent::ThrowAttempted {
@@ -61,6 +69,15 @@ impl<D: DiceRoller> Game<D> {
                 }
             }
         }
+        self.receiver_catches(receiver, receiver_square, events)
+    }
+
+    fn receiver_catches(
+        &mut self,
+        receiver: GoblinId,
+        receiver_square: Square,
+        events: &mut Vec<GameEvent>,
+    ) -> bool {
         if self.attempt_catch(receiver, 0, events) {
             return true;
         }
