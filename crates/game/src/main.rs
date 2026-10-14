@@ -22,7 +22,9 @@ use goblinsbowl::orders::OrdersPlugin;
 use goblinsbowl::pointer::PointerPlugin;
 use goblinsbowl::server_link::{LinkSettings, ServerLink, ServerLinkPlugin};
 use goblinsbowl::texts::Texts;
-use goblinsbowl::{bowl_view, camera_rig, dev_capture, dice_view, final_whistle, goblin_view, hud};
+use goblinsbowl::{
+    bowl_view, camera_rig, dev_capture, dice_view, final_whistle, goblin_cards, goblin_view, hud,
+};
 
 enum MatchSource {
     Local(Box<MatchHost>, Vec<GameEvent>),
@@ -112,6 +114,7 @@ fn main() -> AppExit {
     app.add_plugins((
         bowl_view::BowlViewPlugin,
         goblin_view::GoblinViewPlugin,
+        goblin_cards::GoblinCardsPlugin,
         dice_view::DiceViewPlugin,
         OrdersPlugin,
         PointerPlugin,

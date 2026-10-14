@@ -20,6 +20,7 @@ use goblins_rules::team::TeamId;
 use goblins_rules::validation::validate_activation;
 
 use crate::bowl_view::{BoardClick, square_centre};
+use crate::goblin_cards::{CardSide, goblin_card};
 use crate::goblin_view::GoblinFigure;
 use crate::hud::{BOLD_FONT, READING_FONT, button, human_team_in_control, text_bundle};
 use crate::local_match::{MatchOrder, MatchRestarted, MatchSystems, MatchView};
@@ -484,6 +485,7 @@ fn spawn_order_bar(mut commands: Commands, assets: Res<AssetServer>, texts: Res<
         Pickable::IGNORE,
         OrderBar,
         children![
+            goblin_card(CardSide::Teammate, &bold, &reading),
             (text_bundle("", &bold, 24.0, Color::WHITE), DraftLine),
             (
                 text_bundle("", &reading, 18.0, Color::srgb(0.92, 0.92, 0.88)),
@@ -709,10 +711,7 @@ fn refresh_order_bar(
             texts.confirm_hint().to_string(),
         ),
         None => (
-            state
-                .goblin(draft.activation.goblin)
-                .map(|goblin| texts.selected_goblin(goblin.id, goblin.archetype))
-                .unwrap_or_default(),
+            texts.pick_a_target().to_string(),
             Color::WHITE,
             String::new(),
             String::new(),

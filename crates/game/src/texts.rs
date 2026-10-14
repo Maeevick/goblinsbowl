@@ -6,7 +6,7 @@ use goblins_rules::command::{Action, Activation};
 use goblins_rules::event::{DodgeRoll, GameEvent, TurnEndReason};
 use goblins_rules::odds::{AgilityDice, ContestDice, Probability};
 use goblins_rules::preview::{ActionOdds, ActivationOdds, DodgeDice, RiskyStep};
-use goblins_rules::roster::GoblinId;
+use goblins_rules::state::Goblin;
 use goblins_rules::team::TeamId;
 
 use crate::beats::ShownRoll;
@@ -151,13 +151,49 @@ impl Texts {
         if self.french() { "Annuler" } else { "Cancel" }
     }
 
-    /// Hint shown once a goblin is selected, for example "H3 (Cogneur) : choisis une case ou une cible".
-    pub fn selected_goblin(&self, goblin: GoblinId, archetype: Archetype) -> String {
-        let archetype = self.archetype_name(archetype);
+    /// Hint shown once a goblin is selected, its card above telling which one.
+    pub fn pick_a_target(&self) -> &'static str {
         if self.french() {
-            format!("{goblin} ({archetype}) : choisis une case ou une cible")
+            "Choisis une case ou une cible"
         } else {
-            format!("{goblin} ({archetype}): pick a square or a target")
+            "Pick a square or a target"
+        }
+    }
+
+    /// The three lines of a goblin's card: who it is, its dice, then its Move and Health. A goblin
+    /// of the coach shows the steps it has left; any other shows its whole Move.
+    pub fn card_lines(&self, goblin: &Goblin, coached: bool) -> [String; 3] {
+        let characteristics = goblin.characteristics;
+        let movement = if coached {
+            format!("{}/{}", goblin.steps_left, characteristics.movement)
+        } else {
+            characteristics.movement.to_string()
+        };
+        let who = format!("{} · {}", goblin.id, self.archetype_name(goblin.archetype));
+        if self.french() {
+            [
+                who,
+                format!(
+                    "Attaque {} · Défense {} · Agilité {}",
+                    characteristics.attack, characteristics.defense, characteristics.agility
+                ),
+                format!(
+                    "Mouvement {movement} · Santé {}/{}",
+                    goblin.health, characteristics.health
+                ),
+            ]
+        } else {
+            [
+                who,
+                format!(
+                    "Attack {} · Defense {} · Agility {}",
+                    characteristics.attack, characteristics.defense, characteristics.agility
+                ),
+                format!(
+                    "Move {movement} · Health {}/{}",
+                    goblin.health, characteristics.health
+                ),
+            ]
         }
     }
 
@@ -849,9 +885,42 @@ mod tests {
 
     #[test]
     fn given_french_when_a_goblin_is_selected_then_it_is_asked_where_to_go() {
+        assert_eq!(FRENCH.pick_a_target(), "Choisis une case ou une cible");
+    }
+
+    fn sprinter_with_steps_and_health_lost() -> Goblin {
+        let characteristics = goblins_rules::ruleset::Ruleset::default()
+            .archetypes
+            .of(Archetype::Sprinter);
+        Goblin {
+            id: id("H4"),
+            archetype: Archetype::Sprinter,
+            characteristics,
+            health: 3,
+            presence: goblins_rules::state::Presence::Standing([7, 5].into()),
+            in_stance: false,
+            steps_left: 2,
+            has_action_left: true,
+        }
+    }
+
+    #[test]
+    fn given_french_when_carding_the_coach_s_own_sprinter_then_its_dice_steps_left_and_health() {
         assert_eq!(
-            FRENCH.selected_goblin(id("H3"), Archetype::Bruiser),
-            "H3 (Cogneur) : choisis une case ou une cible"
+            FRENCH.card_lines(&sprinter_with_steps_and_health_lost(), true),
+            [
+                "H4 · Sprinteur".to_string(),
+                "Attaque 3 · Défense 2 · Agilité 6".to_string(),
+                "Mouvement 2/6 · Santé 3/5".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn given_english_when_carding_an_opponent_then_its_whole_move() {
+        assert_eq!(
+            ENGLISH.card_lines(&sprinter_with_steps_and_health_lost(), false)[2],
+            "Move 6 · Health 3/5"
         );
     }
 

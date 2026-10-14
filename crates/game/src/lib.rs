@@ -8,6 +8,7 @@ pub mod camera_rig;
 pub mod dev_capture;
 pub mod dice_view;
 pub mod final_whistle;
+pub mod goblin_cards;
 pub mod goblin_view;
 pub mod hud;
 pub mod local_match;
