@@ -31,12 +31,8 @@ const LYING_LIFT: f32 = 0.24;
 const LYING_SHIFT: f32 = 0.5;
 const LABEL_ABOVE_FEET: f32 = 1.45;
 const LABEL_WIDTH: f32 = 56.0;
-const LABEL_HEIGHT: f32 = 36.0;
+const LABEL_HEIGHT: f32 = 20.0;
 const LABEL_COLOUR: Color = Color::srgb(0.97, 0.96, 0.92);
-const PIP_SIZE: f32 = 7.0;
-const PIPS_PER_ROW: u8 = 4;
-const PIP_FULL: Color = Color::srgb(0.95, 0.2, 0.25);
-const PIP_LOST: Color = Color::srgba(0.15, 0.12, 0.12, 0.8);
 const CATCH_UP_BEATS: usize = 12;
 const CATCH_UP_PACE: f32 = 3.0;
 const ROLL_HOLD_SECONDS: f32 = 0.9;
@@ -150,12 +146,6 @@ struct BallMarker;
 #[derive(Component)]
 struct FigureLabel(Entity);
 
-#[derive(Component)]
-struct HealthPip {
-    goblin: GoblinId,
-    index: u8,
-}
-
 /// Coat colour of a team, a darker shade of its den: dokkaebi blue for home, leprechaun gold for away.
 pub fn team_colour(team: TeamId) -> Color {
     if team == TeamId::HOME {
@@ -206,20 +196,6 @@ pub fn ball_position(arena: &Arena, state: &GameState) -> Option<Vec3> {
     }
 }
 
-/// How many health pips each row of a label holds: four at most, the rows as even as can be,
-/// so the pips of goblins standing side by side never run into each other.
-pub fn pip_rows(health: u8) -> Vec<u8> {
-    let rows = health.div_ceil(PIPS_PER_ROW).max(1);
-    (0..rows)
-        .map(|row| health / rows + u8::from(row < health % rows))
-        .collect()
-}
-
-/// Colour of the health pip at `index` for a goblin with `health` left.
-pub fn pip_colour(index: u8, health: u8) -> Color {
-    if index < health { PIP_FULL } else { PIP_LOST }
-}
-
 /// Height above the feet where a goblin's label sits: just over its head, or over the ball it carries.
 pub fn label_lift(carrying: bool) -> f32 {
     if carrying {
@@ -268,7 +244,6 @@ impl Plugin for GoblinViewPlugin {
                     carry_ball,
                     refresh_rings,
                     refresh_foot_plates,
-                    refresh_health_pips,
                     mark_loose_ball,
                 )
                     .chain()
@@ -643,51 +618,6 @@ fn spawn_label(commands: &mut Commands, kit: &FigureKit, goblin: &Goblin, figure
                 },
                 Pickable::IGNORE,
             ));
-            label
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        row_gap: px(2),
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .with_children(|rows| {
-                    let counts = pip_rows(goblin.characteristics.health);
-                    let firsts = counts.iter().scan(0, |next, count| {
-                        let first = *next;
-                        *next += count;
-                        Some(first)
-                    });
-                    for (first, count) in firsts.zip(counts.iter().copied()) {
-                        rows.spawn((
-                            Node {
-                                column_gap: px(2),
-                                ..default()
-                            },
-                            Pickable::IGNORE,
-                        ))
-                        .with_children(|pips| {
-                            for index in first..first + count {
-                                pips.spawn((
-                                    Node {
-                                        width: px(PIP_SIZE),
-                                        height: px(PIP_SIZE),
-                                        border_radius: BorderRadius::all(px(PIP_SIZE / 2.0)),
-                                        ..default()
-                                    },
-                                    BackgroundColor(pip_colour(index, goblin.health)),
-                                    Pickable::IGNORE,
-                                    HealthPip {
-                                        goblin: goblin.id,
-                                        index,
-                                    },
-                                ));
-                            }
-                        });
-                    }
-                });
         });
 }
 
@@ -1029,17 +959,6 @@ fn refresh_rings(
     }
 }
 
-fn refresh_health_pips(view: Res<MatchView>, mut pips: Query<(&HealthPip, &mut BackgroundColor)>) {
-    for (pip, mut background) in &mut pips {
-        let health = view
-            .snapshot
-            .state
-            .goblin(pip.goblin)
-            .map_or(0, |goblin| goblin.health);
-        background.set_if_neq(BackgroundColor(pip_colour(pip.index, health)));
-    }
-}
-
 fn place_labels(
     view: Res<MatchView>,
     camera: Single<(&Camera, &GlobalTransform)>,
@@ -1258,31 +1177,6 @@ mod tests {
             ball_position(&arena, &state),
             Some(square_centre(&arena, carrier_square) + Vec3::Y * BALL_ABOVE_CARRIER)
         );
-    }
-
-    #[test]
-    fn given_seven_health_when_laying_out_its_pips_then_a_row_of_four_over_a_row_of_three() {
-        assert_eq!(pip_rows(7), vec![4, 3]);
-    }
-
-    #[test]
-    fn given_five_health_when_laying_out_its_pips_then_a_row_of_three_over_a_row_of_two() {
-        assert_eq!(pip_rows(5), vec![3, 2]);
-    }
-
-    #[test]
-    fn given_four_health_when_laying_out_its_pips_then_a_single_row() {
-        assert_eq!(pip_rows(4), vec![4]);
-    }
-
-    #[test]
-    fn given_two_health_left_when_colouring_the_second_pip_then_full() {
-        assert_eq!(pip_colour(1, 2), PIP_FULL);
-    }
-
-    #[test]
-    fn given_two_health_left_when_colouring_the_third_pip_then_lost() {
-        assert_eq!(pip_colour(2, 2), PIP_LOST);
     }
 
     #[test]
