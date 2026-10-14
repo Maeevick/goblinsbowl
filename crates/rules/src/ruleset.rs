@@ -82,6 +82,9 @@ pub struct Ruleset {
     /// carrier down, ends the turn; otherwise only a missed catch of the team's own throw does.
     #[serde(default = "missed_bounces_end_turns")]
     pub missed_bounces_end_the_turn: bool,
+    /// Whether the goblin holding the ball may assault.
+    #[serde(default = "carriers_assault")]
+    pub carriers_can_assault: bool,
     /// Whether a goblin keeps the steps it did not walk after its action: its Move and one action
     /// per turn, spent over as many orders as its coach likes; otherwise its first order ends its turn.
     #[serde(default)]
@@ -154,6 +157,10 @@ fn missed_bounces_end_turns() -> bool {
     true
 }
 
+fn carriers_assault() -> bool {
+    true
+}
+
 fn one_kickoff_bounce() -> u8 {
     1
 }
@@ -178,6 +185,7 @@ impl Default for Ruleset {
             dodges_test_agility: true,
             goblins_can_take_stance: false,
             missed_bounces_end_the_turn: missed_bounces_end_turns(),
+            carriers_can_assault: carriers_assault(),
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),

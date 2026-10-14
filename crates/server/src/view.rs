@@ -472,7 +472,7 @@ fn assault_options(
                 })
                 .map(move |defender| (attacker, defender))
         })
-        .map(|(attacker, defender)| {
+        .filter_map(|(attacker, defender)| {
             let order = Activation {
                 goblin: attacker.id,
                 path: Vec::new(),
@@ -481,10 +481,10 @@ fn assault_options(
                 }),
             };
             let chance = activation_odds(arena, ruleset, state, seat, &order)
-                .map(|odds| odds.overall_success)
-                .unwrap_or(Probability::IMPOSSIBLE);
+                .ok()?
+                .overall_success;
             let dice = assault_dice(ruleset, state, attacker.id, defender.id);
-            AssaultOption {
+            Some(AssaultOption {
                 attacker: attacker.id.to_string(),
                 target: defender.id.to_string(),
                 dice: dice
@@ -492,7 +492,7 @@ fn assault_options(
                     .map(|dice| describe_dice(&dice)),
                 success_percent: (hints == OddsHints::Full)
                     .then(|| (chance.as_percentage() * 10.0).round() / 10.0),
-            }
+            })
         })
         .collect()
 }
@@ -670,6 +670,21 @@ mod tests {
     }
 
     fn attacker_next_to_an_enemy(host: &MatchHost, has_action_left: bool) -> CoachView {
+        let (snapshot, seat, _) = beside_an_enemy(host, has_action_left);
+        coach_view(
+            host.game().arena(),
+            host.game().ruleset(),
+            &snapshot,
+            seat,
+            &[],
+            OddsHints::Full,
+        )
+    }
+
+    fn beside_an_enemy(
+        host: &MatchHost,
+        has_action_left: bool,
+    ) -> (MatchSnapshot, TeamId, GoblinId) {
         let mut snapshot = host.snapshot();
         let seat = snapshot.state.active_team().unwrap();
         let attacker = snapshot.state.goblins_of(seat).next().unwrap().id;
@@ -690,14 +705,28 @@ mod tests {
                 goblin.has_action_left = has_action_left;
             }
         }
-        coach_view(
+        (snapshot, seat, attacker)
+    }
+
+    #[test]
+    fn given_carriers_that_cannot_assault_when_the_carrier_stands_next_to_an_enemy_then_no_assault_option()
+     {
+        let host = kick_off();
+        let (mut snapshot, seat, attacker) = beside_an_enemy(&host, true);
+        snapshot.state.ball = Ball::Carried { by: attacker };
+        let ruleset = Ruleset {
+            carriers_can_assault: false,
+            ..host.game().ruleset().clone()
+        };
+        let view = coach_view(
             host.game().arena(),
-            host.game().ruleset(),
+            &ruleset,
             &snapshot,
             seat,
             &[],
             OddsHints::Full,
-        )
+        );
+        assert!(view.assault_options.is_empty());
     }
 
     #[test]

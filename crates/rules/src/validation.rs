@@ -66,11 +66,24 @@ pub fn validate_activation(
         None => Ok(()),
         Some(Action::Stance) if ruleset.goblins_can_take_stance => Ok(()),
         Some(Action::Stance) => Err(RuleViolation::NoStanceInTheseRules { goblin: id }),
+        Some(Action::Assault { .. })
+            if !ruleset.carriers_can_assault
+                && holds_the_ball_after(state, id, &activation.path) =>
+        {
+            Err(RuleViolation::CarrierCannotAssault { goblin: id })
+        }
         Some(Action::Assault { target }) => validate_assault(state, team, final_square, target),
         Some(Action::Throw { receiver }) => {
             validate_throw(state, team, id, &activation.path, receiver)
         }
     }
+}
+
+/// Whether `goblin` holds the ball once it has walked `path`: it carries it already, or picks it
+/// up on the way.
+fn holds_the_ball_after(state: &GameState, goblin: GoblinId, path: &[Square]) -> bool {
+    state.carrier() == Some(goblin)
+        || matches!(state.ball, Ball::Loose { at } if path.contains(&at))
 }
 
 fn validate_assault(
@@ -101,9 +114,7 @@ fn validate_throw(
     path: &[Square],
     receiver: GoblinId,
 ) -> Result<(), RuleViolation> {
-    let holds_the_ball = state.carrier() == Some(thrower);
-    let picks_it_on_the_way = matches!(state.ball, Ball::Loose { at } if path.contains(&at));
-    if !holds_the_ball && !picks_it_on_the_way {
+    if !holds_the_ball_after(state, thrower, path) {
         return Err(RuleViolation::ThrowWithoutBall { goblin: thrower });
     }
     let can_receive = state.goblin(receiver).is_some_and(|goblin| {
@@ -157,6 +168,63 @@ mod tests {
             ),
             Err(RuleViolation::PathLeavesTheBowl {
                 square: Square::new(2, 0)
+            })
+        );
+    }
+
+    #[test]
+    fn given_carriers_that_cannot_assault_when_the_carrier_assaults_then_refused() {
+        let game = Scenario::new()
+            .rules(|ruleset| ruleset.carriers_can_assault = false)
+            .goblin("H1", Sprinter, 3, 7)
+            .goblin("A1", Sprinter, 4, 7)
+            .ball_carried_by("H1")
+            .game([]);
+        let assault = Activation {
+            action: Some(Action::Assault {
+                target: "A1".parse().unwrap(),
+            }),
+            ..order("H1", &[])
+        };
+        assert_eq!(
+            validate_activation(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                TeamId::HOME,
+                &assault
+            ),
+            Err(RuleViolation::CarrierCannotAssault {
+                goblin: "H1".parse().unwrap()
+            })
+        );
+    }
+
+    #[test]
+    fn given_carriers_that_cannot_assault_when_a_goblin_picks_the_ball_up_on_its_way_to_assault_then_refused()
+     {
+        let game = Scenario::new()
+            .rules(|ruleset| ruleset.carriers_can_assault = false)
+            .goblin("H1", Sprinter, 3, 7)
+            .goblin("A1", Sprinter, 5, 7)
+            .ball_loose_at(4, 7)
+            .game([]);
+        let assault = Activation {
+            action: Some(Action::Assault {
+                target: "A1".parse().unwrap(),
+            }),
+            ..order("H1", &[(4, 7)])
+        };
+        assert_eq!(
+            validate_activation(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                TeamId::HOME,
+                &assault
+            ),
+            Err(RuleViolation::CarrierCannotAssault {
+                goblin: "H1".parse().unwrap()
             })
         );
     }

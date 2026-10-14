@@ -810,6 +810,27 @@ mod tests {
     }
 
     #[test]
+    fn given_carriers_that_cannot_assault_when_a_marked_carrier_could_hit_a_sprinter_then_it_does_not()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| {
+                ruleset.carriers_can_assault = false;
+                ruleset.goblins_can_take_stance = false;
+            })
+            .goblin("H1", Bruiser, 7, 7)
+            .goblin("A1", Bruiser, 8, 7)
+            .goblin("A5", Sprinter, 7, 6)
+            .ball_carried_by("H1");
+        assert!(!matches!(
+            choose(scenario),
+            Command::Act(Activation {
+                action: Some(Action::Assault { .. }),
+                ..
+            })
+        ));
+    }
+
+    #[test]
     fn given_every_goblin_already_acted_when_choosing_then_the_turn_ends() {
         let scenario = Scenario::new()
             .goblin("H5", Sprinter, 7, 7)

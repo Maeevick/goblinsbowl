@@ -60,6 +60,12 @@ pub enum RuleViolation {
         /// The goblin.
         goblin: GoblinId,
     },
+    /// The goblin would hold the ball, and the rules keep carriers from assaulting.
+    #[error("{goblin} holds the ball and cannot assault")]
+    CarrierCannotAssault {
+        /// The carrier.
+        goblin: GoblinId,
+    },
     /// The rules have no Stance to brace in.
     #[error("these rules have no Stance: {goblin} cannot brace")]
     NoStanceInTheseRules {
