@@ -673,16 +673,15 @@ fn follow_selected_goblin(
 fn refresh_stance_button(
     view: Res<MatchView>,
     prepared: Res<PreparedOrder>,
-    mut stance_button: Single<&mut Visibility, With<StanceButton>>,
+    mut stance_button: Single<&mut Node, With<StanceButton>>,
 ) {
     let braces = prepared.0.as_ref().is_some_and(|draft| {
         can_still_brace(&view.ruleset, &view.snapshot.state, draft.activation.goblin)
     });
-    stance_button.set_if_neq(if braces {
-        Visibility::Inherited
-    } else {
-        Visibility::Hidden
-    });
+    let display = if braces { Display::Flex } else { Display::None };
+    if stance_button.display != display {
+        stance_button.display = display;
+    }
 }
 
 fn refresh_order_bar(
@@ -1133,6 +1132,39 @@ mod tests {
             goblins_can_take_stance: true,
             ..Ruleset::default()
         }
+    }
+
+    #[test]
+    fn given_the_shipped_rules_without_stance_when_a_goblin_is_selected_then_the_garde_button_takes_no_room()
+     {
+        let (host, _) = MatchHost::start(MatchSetup {
+            ruleset: Ruleset::default(),
+            rosters: [Roster::DEFAULT, Roster::DEFAULT],
+            seed: 5,
+            seats: [SeatKind::Human, SeatKind::Human],
+            turn_seconds: [60, 60],
+            agent_ready_grace_seconds: 15,
+        })
+        .unwrap();
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(MatchView {
+                snapshot: host.snapshot(),
+                arena: host.game().arena().clone(),
+                ruleset: host.game().ruleset().clone(),
+                fresh_events: Vec::new(),
+                refusal: None,
+            })
+            .insert_resource(PreparedOrder(Some(Draft::selecting(id("H4")))))
+            .add_systems(Update, refresh_stance_button);
+        let button = app.world_mut().spawn((Node::default(), StanceButton)).id();
+
+        app.update();
+
+        assert_eq!(
+            app.world().get::<Node>(button).map(|node| node.display),
+            Some(Display::None)
+        );
     }
 
     #[test]
