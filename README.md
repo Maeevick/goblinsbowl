@@ -15,14 +15,15 @@ make check                            # lint + unit + integrated tests
 make balance ARGS="--games 1000 --home cautious --away bold"
 ```
 
-Rules 0.5 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`; how they play out between bots: [`docs/balance.md`](docs/balance.md).
+Rules 0.6 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`; how they play out between bots: [`docs/balance.md`](docs/balance.md).
 
 ## How to play
 
 - Between turns the bowl finishes playing out the last moves and their headlines, then announces the next team with a goblin aside. Press **Prêts !** when it shows: the camera swings behind your team and the clock starts.
 - A green tile under one of your goblins means it can still play, a dark tile that it is done for the turn. Click a goblin to select it: the squares it can reach light up, green needs no dice, yellow, orange and red are riskier.
+- The selected goblin's card shows at the bottom left (its dice, the steps it has left, its Health), and the card of the opponent under the pointer at the bottom right.
 - The pointer shows what a click would do, coloured by its risk: an arrow to walk, a lightning bolt to dodge, an up arrow to pick up the ball, a star to score, a burst to assault, a ball to throw.
-- Click a square to aim a walk, an enemy to aim an assault (your goblin walks next to it first), or a teammate to aim a throw when you hold the ball. The chance of success shows at the bottom left; click the same square or goblin again to go.
+- Click a square to aim a walk, an enemy to aim an assault (your goblin walks next to it first; the ball carrier cannot assault), or a teammate to aim a throw when you hold the ball (a hand-off when it stands next to you). The chance of success shows at the bottom left; click the same square or goblin again to go.
 - Each goblin has its Move and one action per turn: after an order it stays selected, so it can act and walk on with the squares it has left, now or later in the turn.
 - **Annuler** or Escape lets the selected goblin go.
 - **Fin du tour** ends the turn, which no longer ends on its own: once no goblin can play, a reminder shows and the button pulses. A second click confirms while goblins can still play.
@@ -41,4 +42,4 @@ With an agent seat, the window and the headless server both open an MCP endpoint
 
 ## Development
 
-`GOBLINSBOWL_SCREENSHOT=/tmp/shot.png make run` renders the game offscreen, saves a PNG after a few frames and quits (works while the screen is locked). `GOBLINSBOWL_SCREENSHOT_FRAME` picks the frame, and `GOBLINSBOWL_SCRIPT="30:ready;60:click A5;90:click 12,6;120:done A6;150:end"` plays inputs before the capture: `ready`, a `click` on a goblin or a square, `done` for a goblin that stays put for the rest of its turn, `end` for the end of the turn, and `restart` for a new match.
+`GOBLINSBOWL_SCREENSHOT=/tmp/shot.png make run` renders the game offscreen, saves a PNG after a few frames and quits (works while the screen is locked). `GOBLINSBOWL_SCREENSHOT_FRAME` picks the frame, and `GOBLINSBOWL_SCRIPT="30:ready;60:click A5;90:click 12,6;120:done A6;150:end"` plays inputs before the capture: `ready`, a `click` on a goblin or a square, `hover` to rest the pointer on one, `done` for a goblin that stays put for the rest of its turn, `end` for the end of the turn, and `restart` for a new match.

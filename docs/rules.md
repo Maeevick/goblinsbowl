@@ -1,4 +1,4 @@
-# Goblins Bowl, règles 0.5
+# Goblins Bowl, règles 0.6
 
 *English version below.*
 
@@ -30,7 +30,7 @@ Le tour s'arrête quand tu appuies sur **Fin du tour**, quand le temps est écou
 
 Le chiffre Δ = mon dé moins le dé adverse. **En cas d'égalité, celui qui agit gagne.**
 
-- **Assaut** sur un ennemi voisin : je lance mon dé d'Attaque, il lance son dé de Défense.
+- **Assaut** sur un ennemi voisin, si je ne porte pas la balle : je lance mon dé d'Attaque, il lance son dé de Défense.
   - Je gagne : il tombe, lâche la balle et perd Δ points de Santé (rien si égalité).
   - Je perds : c'est moi qui tombe, je perds Δ − 1 points de Santé (rien si je perds de 1), et **le tour s'arrête**.
 - **Esquive** : quand je quitte une case à côté d'un ennemi debout, je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi, et il faut faire **2 ou plus**. Si je rate, je tombe sur place, je perds en Santé ce qui me manquait moins 1 (rien s'il ne manquait que 1) et **le tour s'arrête**. Un Cogneur (dé à 3 faces) n'échappe qu'à un seul ennemi, une fois sur trois.
@@ -41,8 +41,9 @@ Lancer de balle : je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à 
 
 - **Ramasser** : obligatoire quand j'entre sur la case de la balle.
 - **Lancer** (c'est mon action) : vers un coéquipier debout, à n'importe quelle distance, avec −1 par case au-delà de 6. Chaque ennemi debout sous la trajectoire tente une **interception** (encore −1 pour la surprise). Sinon, mon coéquipier doit **attraper**.
-- **Attraper** : quand la balle arrive sur moi (passe, rebond, coup d'envoi).
-- Raté par mon équipe pendant son tour, ou interception : c'est un **fumble**, la balle rebondit et **le tour s'arrête**.
+- **Transmission** : un lancer vers un coéquipier collé à moi ne rate jamais, pas de jet de lancer ; seul mon coéquipier lance son jet pour attraper.
+- **Attraper** : quand la balle arrive sur moi (passe, transmission, rebond, coup d'envoi).
+- Un ramassage ou un lancer raté par mon équipe pendant son tour, ma passe ou ma transmission pas attrapée, ou une interception : c'est un **fumble**, la balle rebondit et **le tour s'arrête**. Rater une balle qui rebondit n'arrête jamais le tour.
 
 La balle rebondit d'une case au hasard (dé à 4 faces : 1 haut, 2 droite, 3 bas, 4 gauche), jamais hors du bowl.
 
@@ -81,10 +82,11 @@ Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numé
 | Sprinteur qui quitte 1 / 2 / 3 ennemis | 67 / 50 / 33 % |
 | Cogneur qui quitte 1 / 2 ennemis | 33 / 0 % |
 | Balle avec Agilité 6, 0 / 1 / 2 ennemis à côté | 83 / 67 / 50 % |
+| Transmission à un Sprinteur sans ennemi à côté | 83 % |
 
 ---
 
-# Goblins Bowl, rules 0.5
+# Goblins Bowl, rules 0.6
 
 ## The bowl
 
@@ -114,7 +116,7 @@ A turn ends when its coach ends it, when its clock runs out, when a team scores 
 
 Δ = actor's roll − opponent's roll. **Ties go to the actor.**
 
-- **Assault** an adjacent enemy: d(Attack) vs d(Defense). Win: it falls, drops the ball, loses Δ Health (nothing on a tie). Lose: the attacker falls, loses |Δ| − 1 Health (nothing when losing by 1), and the turn ends.
+- **Assault** an adjacent enemy, unless holding the ball: d(Attack) vs d(Defense). Win: it falls, drops the ball, loses Δ Health (nothing on a tie). Lose: the attacker falls, loses |Δ| − 1 Health (nothing when losing by 1), and the turn ends.
 - **Dodge**, each step out of a square next to a standing enemy: d(Agility) minus 1 per adjacent standing enemy must reach **2**. Miss: it falls where it stands, loses its shortfall minus 1 in Health (nothing when 1 short), and the turn ends. A Bruiser (d3) gets away from a single enemy one time in three, and from two never.
 
 ## Ball actions
@@ -123,8 +125,9 @@ d(Agility) minus 1 per adjacent standing enemy must reach **2** (a 1 always fail
 
 - **Pick**: forced when entering the ball's square.
 - **Throw** (the action): to a standing teammate at any distance, −1 per step beyond 6. Each standing opponent under the flight line tries to **intercept** (extra −1 for surprise); otherwise the receiver must **catch**.
-- **Catch**: a throw, a bounce or the kick-off.
-- A failed Pick, Throw or Catch by the active team, or an interception, is a **fumble**: the ball bounces and the turn ends.
+- **Hand-off**: a throw to an adjacent teammate never fails, with no throw roll; only the receiver rolls to catch.
+- **Catch**: a throw, a hand-off, a bounce or the kick-off.
+- A failed Pick or Throw by the active team, its own throw or hand-off not caught, or an interception, is a **fumble**: the ball bounces and the turn ends. Missing a bouncing ball never ends a turn.
 
 The ball bounces one square in a random orthogonal direction (d4: 1 north, 2 east, 3 south, 4 west), never out of the bowl.
 

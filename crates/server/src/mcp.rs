@@ -41,16 +41,16 @@ use crate::view::{CoachView, OddsHints, coach_view, describe_chance, odds_lines}
 const LONGEST_WAIT_SECONDS: u64 = 50;
 const DEFAULT_WAIT_SECONDS: u64 = 45;
 const RULES: &str = include_str!("../../../docs/rules.md");
-const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.5";
+const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.6";
 
 const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based goblin football game played with dice. \
 Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
 resolved in order; add end_turn=true on your last call), then wait again, until status is game_over. \
 Each goblin has its movement in steps and one action (assault or throw) per turn, spent over as many \
 orders as you like, even after other goblins played (steps_left, has_action_left). \
-Any failed dodge, assault, pick, throw or catch ends your turn at once, so order safe moves first and keep \
-risky ones for last. Otherwise your turn ends only with end_turn=true, a score, or its clock (time_left_ms) \
-running out. To get exact odds without rolling, play with dry_run=true previews its orders as one plan, each \
+Any failed dodge, assault, pick-up or throw, or your own throw not caught, ends your turn at once, \
+so order safe moves first and keep risky ones for last. Otherwise your turn ends only with end_turn=true, \
+a score, or its clock (time_left_ms) running out. To get exact odds without rolling, play with dry_run=true previews its orders as one plan, each \
 from where the previous ones leave the board, and compare_plans weighs alternative plans side by side. \
 Squares are [x, y]; goblins are H1..H9 (home, west den) and A1..A9 (away, east den). Call get_rules once \
 for the full rules.";
@@ -307,7 +307,7 @@ impl CoachServer {
         .await
     }
 
-    #[tool(description = "The full rules of Goblins Bowl 0.5 (read once).")]
+    #[tool(description = "The full rules of Goblins Bowl 0.6 (read once).")]
     async fn get_rules(&self, context: RequestContext<RoleServer>) -> Result<String, String> {
         self.logged(&context, "get_rules", serde_json::json!({}), async |_| {
             Ok(english_rules())
@@ -753,7 +753,7 @@ mod tests {
     fn given_the_rules_document_when_sent_to_agents_then_only_its_english_half_from_the_0_2_heading()
      {
         let rules = english_rules();
-        assert!(rules.starts_with("# Goblins Bowl, rules 0.5") && !rules.contains("règles"));
+        assert!(rules.starts_with("# Goblins Bowl, rules 0.6") && !rules.contains("règles"));
     }
 
     #[test]
