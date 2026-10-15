@@ -42,6 +42,7 @@ fn main() -> AppExit {
     };
     let seed = options.seed.unwrap_or_else(seed_from_clock);
     let bot = options.bot;
+    let record_to = options.local_record_dir();
     let bot_pause = Duration::from_millis(800);
     let (host, opening_events) = match MatchHost::start(options.match_setup(ruleset, seed)) {
         Ok(started) => started,
@@ -103,6 +104,7 @@ fn main() -> AppExit {
             LocalMatchPlugin {
                 host: *host,
                 opening_events,
+                record_to,
             },
             BotSeatPlugin {
                 bot,

@@ -3,15 +3,18 @@
 //! Screens only read [`MatchView`] and send [`MatchOrder`] messages, so the source of the match can
 //! later be swapped for an embedded server without touching them.
 
+use std::path::PathBuf;
 use std::time::Duration;
 
 use bevy::prelude::*;
 use goblins_rules::arena::Arena;
 use goblins_rules::command::Command;
 use goblins_rules::event::GameEvent;
-use goblins_rules::host::{MatchHost, MatchSnapshot};
+use goblins_rules::host::{MatchHost, MatchRecord, MatchSnapshot};
 use goblins_rules::ruleset::Ruleset;
+use goblins_rules::state::Phase;
 use goblins_rules::team::TeamId;
+use goblins_server::runs::{record_file, write_record};
 
 /// What screens read: the latest snapshot and what happened during this frame.
 #[derive(Resource, Clone, Debug)]
@@ -73,12 +76,52 @@ struct LocalMatch {
     clock_ran_before_orders: bool,
 }
 
+/// The record of the match being played, saved to a file named after its seed.
+#[derive(Resource)]
+struct Recording {
+    folder: PathBuf,
+    file: PathBuf,
+    saved: bool,
+}
+
+impl Recording {
+    fn of_match(folder: PathBuf, seed: u64) -> Self {
+        let file = record_file(&folder, seed);
+        Self {
+            folder,
+            file,
+            saved: false,
+        }
+    }
+
+    fn save_unless_saved(&mut self, record: &MatchRecord, moment: &str) {
+        if self.saved {
+            return;
+        }
+        match write_record(record, &self.file) {
+            Ok(()) => {
+                self.saved = true;
+                println!("{moment}: record saved to {}", self.file.display());
+            }
+            Err(error) => eprintln!("{moment}: the record could not be saved: {error:#}"),
+        }
+    }
+
+    fn start_over(&mut self, seed: u64) {
+        self.file = record_file(&self.folder, seed);
+        self.saved = false;
+    }
+}
+
 /// Runs a match hosted inside the app.
 pub struct LocalMatchPlugin {
     /// The started match.
     pub host: MatchHost,
     /// Events of its opening (coin toss, kick-off), shown on the first frame.
     pub opening_events: Vec<GameEvent>,
+    /// Folder its record is saved to at the final whistle, on a restart and when the app closes;
+    /// nothing is saved without one.
+    pub record_to: Option<PathBuf>,
 }
 
 impl Plugin for LocalMatchPlugin {
@@ -104,10 +147,17 @@ impl Plugin for LocalMatchPlugin {
             .configure_sets(Update, (MatchSystems::Apply, MatchSystems::Present).chain())
             .add_systems(
                 Update,
-                (apply_orders, run_clock, refresh_view)
+                (apply_orders, run_clock, refresh_view, save_at_final_whistle)
                     .chain()
                     .in_set(MatchSystems::Apply),
-            );
+            )
+            .add_systems(Last, save_on_exit);
+        if let Some(folder) = &self.record_to {
+            app.insert_resource(Recording::of_match(
+                folder.clone(),
+                self.host.record().setup.seed,
+            ));
+        }
     }
 }
 
@@ -120,6 +170,7 @@ fn apply_orders(
     mut view: ResMut<MatchView>,
     opening: Option<ResMut<OpeningEvents>>,
     mut restarts: MessageWriter<MatchRestarted>,
+    mut recording: Option<ResMut<Recording>>,
 ) {
     view.fresh_events.clear();
     view.refusal = None;
@@ -149,8 +200,14 @@ fn apply_orders(
                 }
             }
             MatchOrder::Restart => {
+                if let Some(recording) = recording.as_mut() {
+                    recording.save_unless_saved(local.host.record(), "Restarted");
+                }
                 let mut setup = local.host.record().setup.clone();
                 setup.seed = setup.seed.wrapping_add(1);
+                if let Some(recording) = recording.as_mut() {
+                    recording.start_over(setup.seed);
+                }
                 if let Ok((host, opening_events)) = MatchHost::start(setup) {
                     local.host = host;
                     local.clock_ran_before_orders = false;
@@ -186,6 +243,30 @@ fn refresh_view(local: Res<LocalMatch>, mut view: ResMut<MatchView>) {
     view.snapshot = local.host.snapshot();
 }
 
+fn save_at_final_whistle(
+    local: Res<LocalMatch>,
+    view: Res<MatchView>,
+    recording: Option<ResMut<Recording>>,
+) {
+    if let Some(mut recording) = recording
+        && view.snapshot.state.phase == Phase::Finished
+    {
+        recording.save_unless_saved(local.host.record(), "Final whistle");
+    }
+}
+
+fn save_on_exit(
+    mut exits: MessageReader<AppExit>,
+    local: Res<LocalMatch>,
+    recording: Option<ResMut<Recording>>,
+) {
+    if exits.read().next().is_some()
+        && let Some(mut recording) = recording
+    {
+        recording.save_unless_saved(local.host.record(), "Stopped");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -209,6 +290,7 @@ mod tests {
             LocalMatchPlugin {
                 host,
                 opening_events,
+                record_to: None,
             },
         ))
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(
@@ -220,6 +302,103 @@ mod tests {
 
     fn view(app: &App) -> &MatchView {
         app.world().resource::<MatchView>()
+    }
+
+    fn recording_app(folder_name: &str, turns_per_half: u8) -> (App, PathBuf) {
+        let folder = std::env::temp_dir().join(format!(
+            "goblinsbowl-local-record-{folder_name}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&folder);
+        let (host, opening_events) = MatchHost::start(MatchSetup {
+            ruleset: Ruleset {
+                turns_per_half,
+                halves: 1,
+                ..Ruleset::default()
+            },
+            rosters: [Roster::DEFAULT, Roster::DEFAULT],
+            seed: 42,
+            seats: [SeatKind::Human, SeatKind::Bot],
+            turn_seconds: [60, 60],
+            agent_ready_grace_seconds: 15,
+        })
+        .unwrap();
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            LocalMatchPlugin {
+                host,
+                opening_events,
+                record_to: Some(folder.clone()),
+            },
+        ));
+        app.update();
+        (app, folder)
+    }
+
+    fn saved_records(folder: &std::path::Path) -> Vec<MatchRecord> {
+        std::fs::read_dir(folder)
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .filter_map(|entry| std::fs::read_to_string(entry.path()).ok())
+                    .filter_map(|text| MatchRecord::from_json_lines(&text).ok())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn end_the_turn(app: &mut App) {
+        let team = active_team(app);
+        app.world_mut().write_message(MatchOrder::Command {
+            team,
+            command: Command::EndTurn,
+        });
+        app.update();
+    }
+
+    #[test]
+    fn given_a_recorded_match_when_the_final_whistle_goes_then_its_record_is_saved() {
+        let (mut app, folder) = recording_app("final-whistle", 1);
+
+        end_the_turn(&mut app);
+        end_the_turn(&mut app);
+
+        let lengths: Vec<usize> = saved_records(&folder)
+            .iter()
+            .map(|record| record.entries.len())
+            .collect();
+        assert_eq!(lengths, vec![2]);
+    }
+
+    #[test]
+    fn given_a_recorded_match_under_way_when_the_app_closes_then_what_was_played_is_saved() {
+        let (mut app, folder) = recording_app("exit", 12);
+        end_the_turn(&mut app);
+
+        app.world_mut().write_message(AppExit::Success);
+        app.update();
+
+        let lengths: Vec<usize> = saved_records(&folder)
+            .iter()
+            .map(|record| record.entries.len())
+            .collect();
+        assert_eq!(lengths, vec![1]);
+    }
+
+    #[test]
+    fn given_a_recorded_match_under_way_when_restarted_then_the_stopped_match_is_saved() {
+        let (mut app, folder) = recording_app("restart", 12);
+        end_the_turn(&mut app);
+
+        app.world_mut().write_message(MatchOrder::Restart);
+        app.update();
+
+        let seeds: Vec<u64> = saved_records(&folder)
+            .iter()
+            .map(|record| record.setup.seed)
+            .collect();
+        assert_eq!(seeds, vec![42]);
     }
 
     fn active_team(app: &App) -> TeamId {

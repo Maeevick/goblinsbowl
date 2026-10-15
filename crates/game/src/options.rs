@@ -75,15 +75,24 @@ pub struct GameOptions {
     /// Bearer token of an away agent; random when left out.
     #[arg(long, env = "GB_AWAY_TOKEN", hide_env_values = true)]
     pub away_token: Option<String>,
-    /// Folder where the record and the tool calls of a match against an agent are saved.
+    /// Folder where match records are saved, with the tool calls of a match against an agent.
     #[arg(long, default_value = "runs")]
     pub record_dir: PathBuf,
+    /// Save the record of a match without agent to the record folder, at the final whistle and
+    /// when the window closes; a match against an agent is always recorded.
+    #[arg(long)]
+    pub record: bool,
 }
 
 impl GameOptions {
     /// Whether an agent coaches a seat, so the match runs on an embedded server.
     pub fn has_agent(&self) -> bool {
         self.home == LocalSeat::Agent || self.away == LocalSeat::Agent
+    }
+
+    /// Folder a match without agent saves its record to, when asked to record it.
+    pub fn local_record_dir(&self) -> Option<PathBuf> {
+        self.record.then(|| self.record_dir.clone())
     }
 
     /// The match these options describe, with `ruleset` and dice `seed`.
@@ -109,6 +118,19 @@ mod tests {
     fn parse(arguments: &[&str]) -> GameOptions {
         GameOptions::try_parse_from(std::iter::once("goblinsbowl").chain(arguments.iter().copied()))
             .unwrap()
+    }
+
+    #[test]
+    fn given_the_record_flag_when_parsed_then_a_match_without_agent_is_saved_to_the_runs_folder() {
+        assert_eq!(
+            parse(&["--away", "bot", "--record"]).local_record_dir(),
+            Some(PathBuf::from("runs"))
+        );
+    }
+
+    #[test]
+    fn given_no_record_flag_when_parsed_then_a_match_without_agent_is_not_saved() {
+        assert_eq!(parse(&["--away", "bot"]).local_record_dir(), None);
     }
 
     #[test]

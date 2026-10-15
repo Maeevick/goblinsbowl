@@ -261,6 +261,7 @@ mod tests {
             LocalMatchPlugin {
                 host,
                 opening_events,
+                record_to: None,
             },
             BowlViewPlugin,
         ))
