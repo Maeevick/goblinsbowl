@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
+use goblins_rules::host::MatchRecord;
 use goblins_rules::state::Phase;
 
 use crate::call_log::CallLog;
@@ -29,7 +30,7 @@ impl RunFiles {
     pub fn open(folder: &Path, seed: u64) -> anyhow::Result<(Self, CallLog)> {
         std::fs::create_dir_all(folder)
             .with_context(|| format!("cannot create {}", folder.display()))?;
-        let name = format!("{}-seed{seed}", seconds_since_epoch());
+        let name = run_name(seed);
         let files = Self {
             record: folder.join(format!("{name}.jsonl")),
             calls: folder.join(format!("{name}-calls.jsonl")),
@@ -43,6 +44,28 @@ impl RunFiles {
     }
 }
 
+/// Where the record of a match started now with `seed` goes in `folder`, named like every run.
+pub fn record_file(folder: &Path, seed: u64) -> PathBuf {
+    folder.join(format!("{}.jsonl", run_name(seed)))
+}
+
+fn run_name(seed: u64) -> String {
+    format!("{}-seed{seed}", seconds_since_epoch())
+}
+
+/// Writes `record` to `file`, creating its folder if needed.
+///
+/// # Errors
+/// The folder cannot be created or the file cannot be written.
+pub fn write_record(record: &MatchRecord, file: &Path) -> anyhow::Result<()> {
+    if let Some(folder) = file.parent() {
+        std::fs::create_dir_all(folder)
+            .with_context(|| format!("cannot create {}", folder.display()))?;
+    }
+    std::fs::write(file, record.to_json_lines() + "\n")
+        .with_context(|| format!("cannot write {}", file.display()))
+}
+
 /// Seconds since the Unix epoch, zero if the clock is before it.
 pub fn seconds_since_epoch() -> u64 {
     SystemTime::now()
@@ -53,12 +76,7 @@ pub fn seconds_since_epoch() -> u64 {
 
 /// Saves the record of the match so far to `file`, telling the console which `moment` it was.
 pub async fn save_record(client: &MatchClient, file: &Path, moment: &str) {
-    let saved = async {
-        let record = client.record().await?;
-        std::fs::write(file, record.to_json_lines() + "\n")?;
-        anyhow::Ok(())
-    }
-    .await;
+    let saved = async { write_record(&client.record().await?, file) }.await;
     match saved {
         Ok(()) => println!("{moment}: record saved to {}", file.display()),
         Err(error) => eprintln!("{moment}: the record could not be saved: {error}"),
@@ -96,6 +114,29 @@ mod tests {
         let folder = fresh_folder("calls");
         let (files, _) = RunFiles::open(&folder, 42).unwrap();
         assert!(files.calls.starts_with(&folder) && files.calls.exists());
+    }
+
+    #[test]
+    fn given_a_missing_folder_when_writing_a_record_then_it_is_created_and_the_record_reads_back() {
+        let folder = fresh_folder("write");
+        let (host, _) = goblins_rules::host::MatchHost::start(goblins_rules::host::MatchSetup {
+            ruleset: goblins_rules::ruleset::Ruleset::default(),
+            rosters: [goblins_rules::roster::Roster::DEFAULT; 2],
+            seed: 7,
+            seats: [
+                goblins_rules::host::SeatKind::Human,
+                goblins_rules::host::SeatKind::Bot,
+            ],
+            turn_seconds: [60, 60],
+            agent_ready_grace_seconds: 15,
+        })
+        .unwrap();
+        let file = record_file(&folder, 7);
+
+        write_record(host.record(), &file).unwrap();
+
+        let written = MatchRecord::from_json_lines(&std::fs::read_to_string(&file).unwrap());
+        assert_eq!(written.map(|record| record.setup.seed).ok(), Some(7));
     }
 
     #[test]
