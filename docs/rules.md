@@ -1,10 +1,34 @@
-# Goblins Bowl, règles 0.6
+# Goblins Bowl, règles 0.7
 
 *English version below.*
 
 ## Le bowl
 
-Un grand bol en forme de croix : 21 × 21 cases, sans les quatre coins de 5 × 5 (341 cases). Chaque branche se termine par une rangée de 11 cases, la **tanière**. Les gobelins de gauche (domicile) défendent la tanière ouest, ceux de droite (visiteurs) la tanière est. Les branches nord et sud sont des recoins pour se cacher ou contourner.
+Un grand bol rond : un disque de 21 cases de diamètre, dessiné case par case (349 cases). À chaque bout, l'arc de 11 cases au bord du bol est la **tanière** : les gobelins de gauche (domicile) défendent la tanière ouest (D), ceux de droite (visiteurs) la tanière est (V). Au nord et au sud, le bord du bol laisse de la place pour contourner.
+
+```
+       .......
+     ...........
+    .............
+   ...............
+  .................
+ D.................V
+ D.................V
+D...................V
+D...................V
+D...................V
+D...................V
+D...................V
+D...................V
+D...................V
+ D.................V
+ D.................V
+  .................
+   ...............
+    .............
+     ...........
+       .......
+```
 
 On se déplace et on est voisin **en ligne droite seulement** (haut, bas, gauche, droite), jamais en diagonale.
 
@@ -49,11 +73,11 @@ La balle rebondit d'une case au hasard (dé à 4 faces : 1 haut, 2 droite, 3 bas
 
 ## Tomber, être KO
 
-Un gobelin à terre ne bloque plus personne, lâche la balle et peut encore être attaqué (avec −2 à sa Défense). Il se relève tout seul au début du tour suivant de son équipe, mais ne joue pas pendant ce tour-là. À 0 Santé, il est **KO** : il sort jusqu'au prochain coup d'envoi, où il revient avec un dé de Santé (au moins 1).
+Un gobelin à terre ne bloque plus personne, lâche la balle et peut encore être attaqué (avec −2 à sa Défense). Il se relève tout seul au début du tour suivant de son équipe, mais ne joue pas pendant ce tour-là. La Santé compte pour tout le match, personne n'en récupère. À 0 Santé, il est **KO** : il sort pour le reste du match.
 
 ## Marquer
 
-Un gobelin debout avec la balle dans la tanière ennemie marque 1 point, même pendant le tour adverse. Ensuite, **coup d'envoi** : tout le monde reprend sa place de départ, tous les gobelins retrouvent leur Santé (sauf les KO, qui lancent leur dé de Santé), la balle tombe chez l'équipe qui vient d'encaisser, et c'est elle qui joue en premier.
+Un gobelin debout avec la balle dans la tanière ennemie marque 1 point, même pendant le tour adverse. Ensuite, **coup d'envoi** : tout le monde reprend sa place de départ sans retrouver de Santé, les KO restent dehors et les autres se répartissent les places de départ, la balle tombe chez l'équipe qui vient d'encaisser, et c'est elle qui joue en premier.
 
 ## Le coup d'envoi
 
@@ -69,7 +93,7 @@ Puis la balle tombe dans la moitié de l'équipe qui reçoit : 4 à 7 colonnes d
 
 ## Pour jouer sur papier
 
-Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numéros, une pièce pour le dé à 2 faces, un dé à 4 faces, un dé à 6 faces (qui sert aussi de dé à 3 faces, 1-2 = 1, 3-4 = 2, 5-6 = 3, et de dé à 5 faces en relançant le 6), un dé à 8 faces pour le dé à 7 faces (on relance le 8) et un dé à 12 faces pour le coup d'envoi. Le chronomètre du téléphone pour les 60 secondes (ou 90 pour commencer).
+Un quadrillage 21 × 21 où l'on recopie le disque du plan, des jetons avec les numéros et de quoi noter la Santé, une pièce pour le dé à 2 faces, un dé à 4 faces, un dé à 6 faces (qui sert aussi de dé à 3 faces : 1-2 = 1, 3-4 = 2, 5-6 = 3) et un dé à 12 faces pour le coup d'envoi. Le chronomètre du téléphone pour les 60 secondes (ou 90 pour commencer).
 
 ## Quelques chances
 
@@ -86,11 +110,11 @@ Un quadrillage 21 × 21 (on raye les coins de 5 × 5), des jetons avec les numé
 
 ---
 
-# Goblins Bowl, rules 0.6
+# Goblins Bowl, rules 0.7
 
 ## The bowl
 
-A cross-shaped bowl: 21 × 21 squares without its four 5 × 5 corners (341 squares). Each arm ends in an 11-square **den**. Home defends the west den, away the east den; the north and south arms are side pockets.
+A round bowl: a pixelated disc 21 squares across (349 squares). At each end, the 11-square arc on the rim is a **den**: home defends the west den, away the east den; north and south, the rim leaves room to go round.
 
 Moves and adjacency are **orthogonal only**, never diagonal.
 
@@ -133,11 +157,11 @@ The ball bounces one square in a random orthogonal direction (d4: 1 north, 2 eas
 
 ## Down and knocked out
 
-A downed goblin has no reach, drops the ball and can still be assaulted (−2 Defense). It stands up at the start of its team's next turn but cannot act during it. At 0 Health it is **KO** until the next kick-off, where it returns with d(Health) Health.
+A downed goblin has no reach, drops the ball and can still be assaulted (−2 Defense). It stands up at the start of its team's next turn but cannot act during it. Health lasts the whole match, nobody heals. At 0 Health it is **KO** for the rest of the match.
 
 ## Scoring
 
-A standing goblin holding the ball in the enemy den scores, in either team's turn. Then the **kick-off**: everyone goes back to the kick-off formation, everyone heals (KO goblins roll their Health die), the ball drops in the half of the team that conceded, and that team plays first.
+A standing goblin holding the ball in the enemy den scores, in either team's turn. Then the **kick-off**: everyone goes back to the kick-off formation without healing, KO goblins stay out and the others share the formation's squares, the ball drops in the half of the team that conceded, and that team plays first.
 
 ## Kick-off formation
 
@@ -153,6 +177,6 @@ Then the ball drops in the receiving team's half, 4 to 7 columns behind the cent
 
 ## Paper playtest kit
 
-A 21 × 21 grid with the 5 × 5 corners crossed out, numbered tokens, a coin for the d2, a d4, a d6 (also the d3, 1-2, 3-4, 5-6, and the d5 by rerolling the 6), a d8 for the d7 (reroll the 8) and a d12 for the kick-off (reroll the 12), and a phone timer (90 s for the first games).
+A 21 × 21 grid with the disc of the French plan drawn on it, numbered tokens and a way to mark Health, a coin for the d2, a d4, a d6 (also the d3: 1-2, 3-4, 5-6) and a d12 for the kick-off (reroll the 12), and a phone timer (90 s for the first games).
 
 Every number above is tunable in `rules.toml`.
