@@ -1,4 +1,5 @@
-//! Bot seats of the local match: a built-in bot plays one command per pause, so people can follow.
+//! Bot seats of the local match: a built-in bot plays one command per pause, and only once the bowl
+//! has played out and its headlines have been read, so people can follow.
 
 use std::time::Duration;
 
@@ -7,6 +8,7 @@ use goblins_rules::dice::SeededDice;
 use goblins_rules::host::SeatKind;
 use goblins_rules::policies::Bot;
 
+use crate::goblin_view::BowlAnimation;
 use crate::local_match::{MatchOrder, MatchSystems, MatchView};
 
 /// Plays every bot seat of the local match.
@@ -40,6 +42,7 @@ impl Plugin for BotSeatPlugin {
 fn play_bot_seats(
     time: Res<Time>,
     view: Res<MatchView>,
+    animation: Option<Res<BowlAnimation>>,
     mut coach: ResMut<BotCoach>,
     mut orders: MessageWriter<MatchOrder>,
 ) {
@@ -48,7 +51,8 @@ fn play_bot_seats(
         .state
         .active_team()
         .filter(|team| snapshot.seats.get(team.index()) == Some(&SeatKind::Bot));
-    let Some(team) = bot_team else {
+    let bowl_busy = animation.is_some_and(|animation| animation.busy);
+    let Some(team) = bot_team.filter(|_| !bowl_busy) else {
         coach.pause.reset();
         return;
     };
@@ -125,6 +129,20 @@ mod tests {
         let mut app = app_with([SeatKind::Bot, SeatKind::Bot]);
         let before = version(&app);
         app.update();
+        assert_eq!(version(&app), before);
+    }
+
+    #[test]
+    fn given_the_bowl_still_playing_out_the_last_moves_when_the_pause_passes_then_the_bot_waits() {
+        let mut app = app_with([SeatKind::Bot, SeatKind::Bot]);
+        app.insert_resource(BowlAnimation {
+            busy: true,
+            headline: None,
+        });
+        let before = version(&app);
+        for _ in 0..8 {
+            app.update();
+        }
         assert_eq!(version(&app), before);
     }
 
