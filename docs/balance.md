@@ -180,3 +180,23 @@ What the numbers say:
 - **For the first time, risk appetite does not cost against a careful opponent**: over both seats, bold wins 37.2 % of its 2,000 matches against cautious, cautious 36.2 % against bold.
 - **The home edge stays** at 7 to 12 points in every pairing between scripted coaches; their tie-breaks remain unchecked.
 
+## Rules 0.7, 16 Oct 2026
+
+Rules 0.6 on the round bowl, with Health that lasts the whole match. Same coaches, seeds 1 to 1,000.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Knock-outs per match |
+|---|---|---|---|---|---|
+| cautious vs cautious | 40.0 % | 36.2 % | 23.8 % | 2.06 | 6.05 |
+| bold vs bold | 43.6 % | 36.9 % | 19.5 % | 2.56 | 5.84 |
+| cautious vs bold | 38.2 % | 38.6 % | 23.2 % | 2.36 | 5.96 |
+| bold vs cautious | 41.8 % | 37.5 % | 20.7 % | 2.41 | 5.96 |
+| cautious vs random | 100.0 % | 0 % | 0 % | 4.76 | 2.09 |
+| bold vs random | 100.0 % | 0 % | 0 % | 4.59 | 2.60 |
+
+What the numbers say:
+
+- **More goals, fewer draws.** The cautious mirror scores 2.06 goals per match (1.77 under 0.6) and draws 23.8 % of its matches; the bold mirror scores 2.56 and draws 19.5 %. In most pairings the second half scores a little more than the first: goblins knocked out early no longer come back.
+- **The home edge shrinks**: 3.8 points in the cautious mirror (11.7 under 0.6), 6.7 in the bold one, and the away team even wins slightly more when cautious hosts bold. The cross shape played a part in the edge; the scripted coaches' tie-breaks are still unchecked.
+- **Bold now edges cautious**: over both seats, bold wins 40.2 % of its 2,000 matches against cautious, cautious 37.9 % against bold.
+- Both changes came together, so these runs do not say how much each one weighs.
+
