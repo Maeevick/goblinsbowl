@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::arena::{Arena, ArenaError, BOWL_21_MASK};
+use crate::arena::{Arena, ArenaError, ROUND_BOWL_21_MASK};
 use crate::characteristics::{Archetype, Characteristics};
 use crate::formation::{Formation, FormationError, FormationLine, kickoff_drop_square};
 use crate::roster::{CountLimit, Roster, RosterError, RosterLimits};
@@ -202,7 +202,10 @@ impl Default for Ruleset {
             goblins_heal_at_kick_off: false,
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
-            arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),
+            arena: ROUND_BOWL_21_MASK
+                .iter()
+                .map(|row| (*row).to_string())
+                .collect(),
             formation: Formation::Lines(vec![
                 FormationLine {
                     depth: 1,
