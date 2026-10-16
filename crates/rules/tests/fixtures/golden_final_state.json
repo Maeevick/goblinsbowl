@@ -22,15 +22,15 @@
         "health": 7,
         "movement": 4
       },
-      "health": 2,
+      "health": 6,
       "presence": {
         "standing": [
-          10,
-          9
+          6,
+          5
         ]
       },
       "in_stance": false,
-      "steps_left": 4,
+      "steps_left": 0,
       "has_action_left": true
     },
     {
@@ -46,13 +46,13 @@
       "health": 7,
       "presence": {
         "standing": [
-          7,
-          3
+          8,
+          17
         ]
       },
       "in_stance": false,
-      "steps_left": 4,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "H3",
@@ -67,12 +67,12 @@
       "health": 7,
       "presence": {
         "standing": [
-          7,
-          10
+          9,
+          14
         ]
       },
       "in_stance": false,
-      "steps_left": 3,
+      "steps_left": 1,
       "has_action_left": true
     },
     {
@@ -88,8 +88,8 @@
       "health": 5,
       "presence": {
         "standing": [
-          5,
-          7
+          15,
+          9
         ]
       },
       "in_stance": false,
@@ -109,12 +109,12 @@
       "health": 5,
       "presence": {
         "standing": [
-          6,
-          2
+          7,
+          7
         ]
       },
       "in_stance": false,
-      "steps_left": 6,
+      "steps_left": 1,
       "has_action_left": true
     },
     {
@@ -130,8 +130,8 @@
       "health": 5,
       "presence": {
         "standing": [
-          5,
-          15
+          13,
+          19
         ]
       },
       "in_stance": false,
@@ -151,12 +151,12 @@
       "health": 4,
       "presence": {
         "standing": [
-          7,
+          6,
           17
         ]
       },
       "in_stance": false,
-      "steps_left": 2,
+      "steps_left": 6,
       "has_action_left": true
     },
     {
@@ -172,12 +172,12 @@
       "health": 6,
       "presence": {
         "standing": [
-          6,
-          7
+          0,
+          13
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
+      "steps_left": 1,
       "has_action_left": true
     },
     {
@@ -193,12 +193,12 @@
       "health": 6,
       "presence": {
         "standing": [
-          9,
-          14
+          4,
+          3
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
+      "steps_left": 2,
       "has_action_left": true
     },
     {
@@ -211,16 +211,16 @@
         "health": 7,
         "movement": 4
       },
-      "health": 7,
+      "health": 2,
       "presence": {
         "standing": [
-          11,
+          14,
           9
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
-      "has_action_left": false
+      "steps_left": 4,
+      "has_action_left": true
     },
     {
       "id": "A2",
@@ -235,8 +235,8 @@
       "health": 7,
       "presence": {
         "standing": [
-          15,
-          11
+          9,
+          10
         ]
       },
       "in_stance": false,
@@ -256,8 +256,8 @@
       "health": 6,
       "presence": {
         "standing": [
-          10,
-          15
+          8,
+          10
         ]
       },
       "in_stance": false,
@@ -277,8 +277,8 @@
       "health": 5,
       "presence": {
         "standing": [
-          14,
-          5
+          10,
+          3
         ]
       },
       "in_stance": false,
@@ -287,6 +287,27 @@
     },
     {
       "id": "A5",
+      "archetype": "sprinter",
+      "characteristics": {
+        "attack": 3,
+        "defense": 2,
+        "agility": 6,
+        "health": 5,
+        "movement": 6
+      },
+      "health": 5,
+      "presence": {
+        "standing": [
+          16,
+          7
+        ]
+      },
+      "in_stance": false,
+      "steps_left": 6,
+      "has_action_left": true
+    },
+    {
+      "id": "A6",
       "archetype": "sprinter",
       "characteristics": {
         "attack": 3,
@@ -307,27 +328,6 @@
       "has_action_left": true
     },
     {
-      "id": "A6",
-      "archetype": "sprinter",
-      "characteristics": {
-        "attack": 3,
-        "defense": 2,
-        "agility": 6,
-        "health": 5,
-        "movement": 6
-      },
-      "health": 5,
-      "presence": {
-        "standing": [
-          12,
-          19
-        ]
-      },
-      "in_stance": false,
-      "steps_left": 6,
-      "has_action_left": true
-    },
-    {
       "id": "A7",
       "archetype": "sprinter",
       "characteristics": {
@@ -337,15 +337,15 @@
         "health": 5,
         "movement": 6
       },
-      "health": 5,
+      "health": 4,
       "presence": {
         "standing": [
-          13,
-          17
+          16,
+          18
         ]
       },
       "in_stance": false,
-      "steps_left": 6,
+      "steps_left": 0,
       "has_action_left": true
     },
     {
@@ -361,8 +361,8 @@
       "health": 6,
       "presence": {
         "standing": [
-          17,
-          13
+          18,
+          8
         ]
       },
       "in_stance": false,
@@ -382,8 +382,8 @@
       "health": 6,
       "presence": {
         "standing": [
-          20,
-          14
+          18,
+          10
         ]
       },
       "in_stance": false,
@@ -394,8 +394,8 @@
   "ball": {
     "loose": {
       "at": [
-        4,
-        10
+        5,
+        4
       ]
     }
   },
