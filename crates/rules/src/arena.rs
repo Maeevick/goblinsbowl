@@ -52,6 +52,32 @@ pub const BOWL_21_MASK: [&str; 21] = [
     "xxxxxOOOOOOOOOOOxxxxx",
 ];
 
+/// Mask of the round bowl: a pixelated disc 21 squares across (349 squares), each den the arc of
+/// 11 squares at its west or east edge.
+pub const ROUND_BOWL_21_MASK: [&str; 21] = [
+    "xxxxxxxOOOOOOOxxxxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxOOOOOOOOOOOOOxxxx",
+    "xxxOOOOOOOOOOOOOOOxxx",
+    "xxOOOOOOOOOOOOOOOOOxx",
+    "xHOOOOOOOOOOOOOOOOOAx",
+    "xHOOOOOOOOOOOOOOOOOAx",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "xHOOOOOOOOOOOOOOOOOAx",
+    "xHOOOOOOOOOOOOOOOOOAx",
+    "xxOOOOOOOOOOOOOOOOOxx",
+    "xxxOOOOOOOOOOOOOOOxxx",
+    "xxxxOOOOOOOOOOOOOxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxxxxOOOOOOOxxxxxxx",
+];
+
 /// Mask of the compact bowl: a 12 × 12 grid with its four 3 × 3 corners cut out (108 squares).
 pub const BOWL_12_MASK: [&str; 12] = [
     "xxxOOOOOOxxx",
@@ -262,6 +288,23 @@ mod tests {
             den,
             (5..=15).map(|y| Square::new(20, y)).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn given_the_round_bowl_mask_when_parsed_then_349_squares_are_in_bounds() {
+        let arena = Arena::from_mask(&ROUND_BOWL_21_MASK).unwrap();
+        assert_eq!(arena.in_bounds_squares().count(), 349);
+    }
+
+    #[test]
+    fn given_the_round_bowl_mask_when_listing_the_home_den_then_an_arc_of_eleven_squares_on_the_west_edge()
+     {
+        let arena = Arena::from_mask(&ROUND_BOWL_21_MASK).unwrap();
+        let den: Vec<Square> = arena.den_squares(TeamId::HOME).collect();
+        let arc: Vec<Square> = (5..=15)
+            .map(|y| Square::new(if (7..=13).contains(&y) { 0 } else { 1 }, y))
+            .collect();
+        assert_eq!(den, arc);
     }
 
     #[test]
