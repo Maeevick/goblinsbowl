@@ -381,11 +381,13 @@ pub fn odds_lines(odds: &ActivationOdds, hints: OddsHints) -> Vec<String> {
 }
 
 fn describe_seat(arena: &Arena, seat: TeamId) -> String {
-    let column = |team: TeamId| {
-        arena
-            .den_squares(team)
-            .next()
-            .map_or_else(|| "?".to_string(), |square| square.x.to_string())
+    let columns = |team: TeamId| {
+        let xs: Vec<u8> = arena.den_squares(team).map(|square| square.x).collect();
+        match (xs.iter().min(), xs.iter().max()) {
+            (Some(first), Some(last)) if first == last => format!("column {first}"),
+            (Some(first), Some(last)) => format!("columns {first} to {last}"),
+            _ => "no column".to_string(),
+        }
     };
     let (name, own_side, enemy_side) = if seat == TeamId::HOME {
         ("home (H)", "west", "east")
@@ -393,9 +395,9 @@ fn describe_seat(arena: &Arena, seat: TeamId) -> String {
         ("away (A)", "east", "west")
     };
     format!(
-        "{name}: you defend the {own_side} den (column {}) and score in the {enemy_side} den (column {})",
-        column(seat),
-        column(seat.duel_opponent())
+        "{name}: you defend the {own_side} den ({}) and score in the {enemy_side} den ({})",
+        columns(seat),
+        columns(seat.duel_opponent())
     )
 }
 
@@ -590,8 +592,12 @@ mod tests {
     use goblins_rules::roster::Roster;
 
     fn kick_off() -> MatchHost {
+        kick_off_on(Ruleset::default())
+    }
+
+    fn kick_off_on(ruleset: Ruleset) -> MatchHost {
         MatchHost::start(MatchSetup {
-            ruleset: Ruleset::default(),
+            ruleset,
             rosters: [Roster::DEFAULT, Roster::DEFAULT],
             seed: 2,
             seats: [SeatKind::Agent, SeatKind::Agent],
@@ -812,13 +818,31 @@ mod tests {
         );
     }
 
+    fn bowl(mask: &[&str]) -> Ruleset {
+        Ruleset {
+            arena: mask.iter().map(|row| (*row).to_string()).collect(),
+            ..Ruleset::default()
+        }
+    }
+
     #[test]
-    fn given_the_home_seat_when_viewed_then_it_is_told_where_it_scores() {
-        let host = kick_off();
+    fn given_the_home_seat_on_the_cross_bowl_when_viewed_then_it_scores_in_the_east_column() {
+        let host = kick_off_on(bowl(&goblins_rules::arena::BOWL_21_MASK));
         assert!(
             view_for(&host, TeamId::HOME, OddsHints::Full)
                 .you
                 .contains("score in the east den (column 20)")
+        );
+    }
+
+    #[test]
+    fn given_the_home_seat_on_the_round_bowl_when_viewed_then_it_scores_in_the_east_arc_over_two_columns()
+     {
+        let host = kick_off_on(bowl(&goblins_rules::arena::ROUND_BOWL_21_MASK));
+        assert!(
+            view_for(&host, TeamId::HOME, OddsHints::Full)
+                .you
+                .contains("score in the east den (columns 19 to 20)")
         );
     }
 
