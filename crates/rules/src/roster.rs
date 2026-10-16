@@ -134,6 +134,26 @@ impl Roster {
         throwers: 2,
     };
 
+    /// The roster counting `archetypes`, one goblin each.
+    pub fn of(archetypes: impl IntoIterator<Item = Archetype>) -> Roster {
+        archetypes.into_iter().fold(
+            Roster {
+                bruisers: 0,
+                sprinters: 0,
+                throwers: 0,
+            },
+            |mut roster, archetype| {
+                let count = match archetype {
+                    Archetype::Bruiser => &mut roster.bruisers,
+                    Archetype::Sprinter => &mut roster.sprinters,
+                    Archetype::Thrower => &mut roster.throwers,
+                };
+                *count = count.saturating_add(1);
+                roster
+            },
+        )
+    }
+
     /// Total number of goblins.
     pub fn size(&self) -> u8 {
         self.bruisers
@@ -239,6 +259,18 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&GoblinId::new(TeamId::AWAY, 1)).unwrap(),
             "\"A1\""
+        );
+    }
+
+    #[test]
+    fn given_two_bruisers_and_a_thrower_when_making_their_roster_then_two_none_and_one() {
+        assert_eq!(
+            Roster::of([Archetype::Bruiser, Archetype::Thrower, Archetype::Bruiser]),
+            Roster {
+                bruisers: 2,
+                sprinters: 0,
+                throwers: 1
+            }
         );
     }
 

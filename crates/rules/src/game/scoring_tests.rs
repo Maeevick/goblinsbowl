@@ -186,6 +186,72 @@ fn given_a_knocked_out_goblin_when_the_next_kick_off_comes_then_it_returns_with_
 }
 
 #[test]
+fn given_health_that_lasts_the_match_when_the_next_kick_off_comes_then_a_hurt_goblin_stays_hurt() {
+    let mut game = home_carrier_near_the_away_den()
+        .rules(|ruleset| ruleset.goblins_heal_at_kick_off = false)
+        .edit("A1", |goblin| goblin.health = 2)
+        .game([KICK_OFF_BOUNCE_NORTH]);
+    game.apply(TeamId::HOME, act("H1", &[(13, 7), (14, 7)], None))
+        .unwrap();
+    let hurt = game.state().goblin(id("A1")).unwrap();
+    assert_eq!((hurt.is_standing(), hurt.health), (true, 2));
+}
+
+#[test]
+fn given_health_that_lasts_the_match_when_the_next_kick_off_comes_then_a_knocked_out_goblin_stays_out()
+ {
+    let mut game = home_carrier_near_the_away_den()
+        .rules(|ruleset| ruleset.goblins_heal_at_kick_off = false)
+        .goblin("A2", Bruiser, 10, 3)
+        .edit("A2", |goblin| {
+            goblin.presence = Presence::KnockedOut;
+            goblin.health = 0;
+        })
+        .game([KICK_OFF_BOUNCE_NORTH]);
+    let events = game
+        .apply(TeamId::HOME, act("H1", &[(13, 7), (14, 7)], None))
+        .unwrap();
+    assert_eq!(
+        (
+            game.state().goblin(id("A2")).unwrap().presence,
+            events
+                .iter()
+                .any(|event| matches!(event, GameEvent::ReturnedFromKnockOut { .. }))
+        ),
+        (Presence::KnockedOut, false)
+    );
+}
+
+#[test]
+fn given_health_that_lasts_the_match_when_a_bruiser_is_out_at_the_kick_off_then_a_sprinter_still_takes_a_sprinter_square()
+ {
+    let mut game = home_carrier_near_the_away_den()
+        .rules(|ruleset| ruleset.goblins_heal_at_kick_off = false)
+        .goblin("A5", Sprinter, 10, 3)
+        .edit("A1", |goblin| {
+            goblin.presence = Presence::KnockedOut;
+            goblin.health = 0;
+        })
+        .game([KICK_OFF_BOUNCE_NORTH]);
+    let lone_sprinter_square = crate::formation::kickoff_squares(
+        game.arena(),
+        &game.ruleset().formation,
+        TeamId::AWAY,
+        &crate::roster::Roster {
+            bruisers: 0,
+            sprinters: 1,
+            throwers: 0,
+        },
+    )[0];
+    game.apply(TeamId::HOME, act("H1", &[(13, 7), (14, 7)], None))
+        .unwrap();
+    assert_eq!(
+        game.state().goblin(id("A5")).unwrap().presence,
+        Presence::Standing(lone_sprinter_square)
+    );
+}
+
+#[test]
 fn given_a_hurt_goblin_when_the_next_kick_off_comes_then_it_is_back_to_full_health() {
     let mut game = home_carrier_near_the_away_den()
         .edit("A1", |goblin| goblin.health = 2)

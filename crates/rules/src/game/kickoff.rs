@@ -6,9 +6,9 @@ use crate::dice::DiceRoller;
 use crate::event::{AgilityRoll, GameEvent};
 use crate::formation::{kickoff_drop_square, kickoff_squares};
 use crate::odds::AgilityDice;
-use crate::roster::GoblinId;
+use crate::roster::{GoblinId, Roster};
 use crate::square::{Direction, Square};
-use crate::state::{Ball, Presence};
+use crate::state::{Ball, Goblin, Presence};
 use crate::team::TeamId;
 
 use super::Game;
@@ -20,13 +20,19 @@ impl<D: DiceRoller> Game<D> {
     pub(super) fn kick_off(&mut self, receiving_team: TeamId, events: &mut Vec<GameEvent>) {
         events.push(GameEvent::KickedOff { receiving_team });
         for team in TeamId::DUEL {
-            let roster = self.state.rosters[team.index()];
-            let lineup = kickoff_squares(&self.arena, &self.ruleset.formation, team, &roster);
-            let ids: Vec<GoblinId> = self
+            let heals = self.ruleset.goblins_heal_at_kick_off;
+            let lining_up: Vec<&Goblin> = self
                 .state
                 .goblins_of(team)
-                .map(|goblin| goblin.id)
+                .filter(|goblin| heals || goblin.presence != Presence::KnockedOut)
                 .collect();
+            let roster = if lining_up.len() == self.state.goblins_of(team).count() {
+                self.state.rosters[team.index()]
+            } else {
+                Roster::of(lining_up.iter().map(|goblin| goblin.archetype))
+            };
+            let ids: Vec<GoblinId> = lining_up.iter().map(|goblin| goblin.id).collect();
+            let lineup = kickoff_squares(&self.arena, &self.ruleset.formation, team, &roster);
             for (id, square) in ids.into_iter().zip(lineup) {
                 self.line_up(id, square, events);
             }
@@ -73,7 +79,9 @@ impl<D: DiceRoller> Game<D> {
             return;
         };
         let full_health = goblin.characteristics.health;
-        let health = if goblin.presence == Presence::KnockedOut {
+        let health = if !self.ruleset.goblins_heal_at_kick_off {
+            goblin.health
+        } else if goblin.presence == Presence::KnockedOut {
             let health = self.dice.roll(full_health);
             events.push(GameEvent::ReturnedFromKnockOut { goblin: id, health });
             health

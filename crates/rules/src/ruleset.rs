@@ -89,6 +89,10 @@ pub struct Ruleset {
     /// receiver's catch.
     #[serde(default)]
     pub adjacent_throws_are_hand_offs: bool,
+    /// Whether every goblin gets its Health back at a kick-off, a knocked-out one rolling its Health
+    /// die; otherwise Health lasts the whole match and a knocked-out goblin stays out of it.
+    #[serde(default = "kick_offs_heal")]
+    pub goblins_heal_at_kick_off: bool,
     /// Whether a goblin keeps the steps it did not walk after its action: its Move and one action
     /// per turn, spent over as many orders as its coach likes; otherwise its first order ends its turn.
     #[serde(default)]
@@ -165,6 +169,10 @@ fn carriers_assault() -> bool {
     true
 }
 
+fn kick_offs_heal() -> bool {
+    true
+}
+
 fn one_kickoff_bounce() -> u8 {
     1
 }
@@ -191,6 +199,7 @@ impl Default for Ruleset {
             missed_bounces_end_the_turn: false,
             carriers_can_assault: false,
             adjacent_throws_are_hand_offs: true,
+            goblins_heal_at_kick_off: kick_offs_heal(),
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),
