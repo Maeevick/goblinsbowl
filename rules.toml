@@ -35,7 +35,7 @@ carriers_can_assault = false
 adjacent_throws_are_hand_offs = true
 # Whether every goblin gets its Health back at a kick-off, a knocked-out one rolling its Health die
 # (false: Health lasts the whole match and a knocked-out goblin stays out of it).
-goblins_heal_at_kick_off = true
+goblins_heal_at_kick_off = false
 # Whether a goblin keeps the steps it did not walk after its action, its Move and one action
 # per turn spent over several orders (false: its first order ends its turn).
 keeps_moving_after_action = true

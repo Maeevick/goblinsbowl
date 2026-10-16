@@ -199,7 +199,7 @@ impl Default for Ruleset {
             missed_bounces_end_the_turn: false,
             carriers_can_assault: false,
             adjacent_throws_are_hand_offs: true,
-            goblins_heal_at_kick_off: kick_offs_heal(),
+            goblins_heal_at_kick_off: false,
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
             arena: BOWL_21_MASK.iter().map(|row| (*row).to_string()).collect(),
