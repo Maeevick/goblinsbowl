@@ -30,7 +30,6 @@ const END_TURN_CONFIRM_SECONDS: f32 = 3.0;
 const BUTTON_BORDER: Color = Color::srgb(0.95, 0.8, 0.4);
 const PULSE_PER_SECOND: f32 = 5.0;
 const INTERLUDE_SECONDS: f32 = 2.5;
-const HEADLINE_SECONDS: f32 = 2.2;
 const LOG_COLOUR: Color = Color::srgb(0.92, 0.92, 0.88);
 
 /// A line of the match story, and the team it is about, if any.
@@ -99,45 +98,6 @@ impl EventLog {
     /// The lines, oldest first.
     pub fn lines(&self) -> impl Iterator<Item = &StoryLine> {
         self.lines.iter()
-    }
-}
-
-/// Headlines waiting to be shown big, one at a time, once the bowl has played out what happened.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
-pub struct Headlines {
-    waiting: VecDeque<StoryLine>,
-    showing: Option<(StoryLine, f32)>,
-}
-
-impl Headlines {
-    /// Queues headlines after those already waiting.
-    pub fn announce(&mut self, headlines: impl IntoIterator<Item = StoryLine>) {
-        self.waiting.extend(headlines);
-    }
-
-    /// The headlines `seconds` later, `animating` telling whether the bowl still plays out moves.
-    pub fn after(mut self, animating: bool, seconds: f32) -> Self {
-        self.showing = self
-            .showing
-            .map(|(headline, left)| (headline, left - seconds))
-            .filter(|(_, left)| *left > 0.0);
-        if self.showing.is_none() && !animating {
-            self.showing = self
-                .waiting
-                .pop_front()
-                .map(|headline| (headline, HEADLINE_SECONDS));
-        }
-        self
-    }
-
-    /// The headline on screen, if any.
-    pub fn shown(&self) -> Option<&StoryLine> {
-        self.showing.as_ref().map(|(headline, _)| headline)
-    }
-
-    /// Whether no headline is shown or waiting.
-    pub fn are_over(&self) -> bool {
-        self.showing.is_none() && self.waiting.is_empty()
     }
 }
 
@@ -307,7 +267,6 @@ impl Plugin for HudPlugin {
             .init_resource::<EventLog>()
             .init_resource::<EndTurnConfirmation>()
             .init_resource::<Handover>()
-            .init_resource::<Headlines>()
             .add_systems(Startup, spawn_hud)
             .add_systems(
                 Update,
@@ -322,7 +281,6 @@ impl Plugin for HudPlugin {
                         refresh_turn_and_clock,
                         refresh_log,
                         refresh_refusal,
-                        follow_headlines,
                         refresh_headline,
                         follow_handover,
                         refresh_ready_overlay,
@@ -619,7 +577,6 @@ fn ready_pressed(
 fn forget_the_last_match(
     mut restarts: MessageReader<MatchRestarted>,
     mut log: ResMut<EventLog>,
-    mut headlines: ResMut<Headlines>,
     mut handover: ResMut<Handover>,
     mut confirmation: ResMut<EndTurnConfirmation>,
 ) {
@@ -627,50 +584,25 @@ fn forget_the_last_match(
         return;
     }
     *log = EventLog::default();
-    *headlines = Headlines::default();
     *handover = Handover::default();
     confirmation.seconds_left = 0.0;
 }
 
-fn collect_log_lines(
-    view: Res<MatchView>,
-    texts: Res<Texts>,
-    mut log: ResMut<EventLog>,
-    mut headlines: ResMut<Headlines>,
-) {
-    if view.fresh_events.is_empty() {
-        return;
-    }
-    let story = |describe: &dyn Fn(&GameEvent) -> Option<String>| {
-        view.fresh_events
-            .iter()
-            .filter_map(|event| {
-                describe(event).map(|text| StoryLine {
-                    text,
-                    team: event_team(event),
-                })
-            })
-            .collect::<Vec<_>>()
-    };
-    log.push_lines(story(&|event| texts.describe_event(event)));
-    headlines.announce(story(&|event| texts.headline(event)));
-}
-
-fn follow_headlines(
-    time: Res<Time>,
-    animation: Res<BowlAnimation>,
-    mut headlines: ResMut<Headlines>,
-) {
-    let next = headlines.clone().after(animation.busy, time.delta_secs());
-    headlines.set_if_neq(next);
+fn collect_log_lines(view: Res<MatchView>, texts: Res<Texts>, mut log: ResMut<EventLog>) {
+    log.push_lines(view.fresh_events.iter().filter_map(|event| {
+        texts.describe_event(event).map(|text| StoryLine {
+            text,
+            team: event_team(event),
+        })
+    }));
 }
 
 fn refresh_headline(
-    headlines: Res<Headlines>,
+    animation: Res<BowlAnimation>,
     mut banner: Single<&mut Visibility, With<HeadlineBanner>>,
     mut text: Single<(&mut Text, &mut TextColor), With<HeadlineText>>,
 ) {
-    let Some(headline) = headlines.shown() else {
+    let Some(headline) = &animation.headline else {
         banner.set_if_neq(Visibility::Hidden);
         return;
     };
@@ -778,12 +710,11 @@ fn follow_handover(
     time: Res<Time>,
     view: Res<MatchView>,
     animation: Res<BowlAnimation>,
-    headlines: Res<Headlines>,
     mut handover: ResMut<Handover>,
 ) {
     let next = handover.after(
         waiting_turn(&view.snapshot),
-        animation.busy || !headlines.are_over(),
+        animation.busy,
         time.delta_secs(),
     );
     handover.set_if_neq(next);
@@ -949,50 +880,6 @@ mod tests {
         assert_eq!(
             [Some(TeamId::HOME), Some(TeamId::AWAY), None].map(story_colour),
             [HOME_COLOUR, AWAY_COLOUR, LOG_COLOUR]
-        );
-    }
-
-    #[test]
-    fn given_a_headline_announced_while_the_bowl_moves_when_time_passes_then_nothing_shows_yet() {
-        let mut headlines = Headlines::default();
-        headlines.announce([story("Chute !", Some(TeamId::HOME))]);
-        assert_eq!(headlines.after(true, 0.5).shown(), None);
-    }
-
-    #[test]
-    fn given_a_headline_announced_when_the_bowl_is_still_then_it_shows() {
-        let mut headlines = Headlines::default();
-        headlines.announce([story("Chute !", Some(TeamId::HOME))]);
-        assert_eq!(
-            headlines
-                .after(false, 0.1)
-                .shown()
-                .map(|line| line.text.as_str()),
-            Some("Chute !")
-        );
-    }
-
-    #[test]
-    fn given_two_headlines_when_the_first_has_shown_long_enough_then_the_second_shows() {
-        let mut headlines = Headlines::default();
-        headlines.announce([story("A7 est KO !", None), story("POINT !", None)]);
-        let shown = headlines
-            .after(false, 0.1)
-            .after(false, HEADLINE_SECONDS)
-            .shown()
-            .map(|line| line.text.clone());
-        assert_eq!(shown, Some("POINT !".to_string()));
-    }
-
-    #[test]
-    fn given_the_last_headline_shown_long_enough_when_time_passes_then_headlines_are_over() {
-        let mut headlines = Headlines::default();
-        headlines.announce([story("POINT !", None)]);
-        assert!(
-            headlines
-                .after(false, 0.1)
-                .after(false, HEADLINE_SECONDS)
-                .are_over()
         );
     }
 

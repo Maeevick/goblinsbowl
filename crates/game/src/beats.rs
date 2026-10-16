@@ -4,9 +4,19 @@ use bevy::prelude::Message;
 use goblins_rules::event::{AgilityRoll, ContestRoll, DodgeRoll, GameEvent};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::square::Square;
+use goblins_rules::team::TeamId;
+
+/// A headline the bowl holds on, so it is read before anything that happened after it plays.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Headline {
+    /// What it says.
+    pub text: String,
+    /// The team it is about, which colours it.
+    pub team: Option<TeamId>,
+}
 
 /// One thing the bowl shows happening, played once the previous one is over.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Beat {
     /// A goblin steps into a square.
     Step {
@@ -49,6 +59,8 @@ pub enum Beat {
         /// The goblin reached.
         goblin: GoblinId,
     },
+    /// A headline shown big while the bowl waits.
+    Headline(Headline),
 }
 
 /// A roll worth showing, by kind of action.
@@ -89,6 +101,22 @@ pub struct RollShown {
     pub goblin: GoblinId,
     /// What was rolled.
     pub roll: ShownRoll,
+}
+
+/// What the bowl shows of `events`, in order, holding on the headline `headline_of` finds for an
+/// event before showing what came after it.
+pub fn timeline_of(
+    events: &[GameEvent],
+    headline_of: impl Fn(&GameEvent) -> Option<Headline>,
+) -> Vec<Beat> {
+    events
+        .iter()
+        .flat_map(|event| {
+            beats_from_events(std::slice::from_ref(event))
+                .into_iter()
+                .chain(headline_of(event).map(Beat::Headline))
+        })
+        .collect()
 }
 
 /// What the bowl shows of `events`, in order.
@@ -151,7 +179,7 @@ pub fn beats_from_events(events: &[GameEvent]) -> Vec<Beat> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use goblins_rules::team::TeamId;
+    use goblins_rules::event::TurnEndReason;
 
     fn roll(success: bool) -> goblins_rules::event::AgilityRoll {
         goblins_rules::event::AgilityRoll {
@@ -165,6 +193,54 @@ mod tests {
 
     fn goblin(text: &str) -> GoblinId {
         text.parse().unwrap()
+    }
+
+    fn fumble_headline(event: &GameEvent) -> Option<Headline> {
+        matches!(
+            event,
+            GameEvent::TurnEnded {
+                reason: TurnEndReason::Fumble,
+                ..
+            }
+        )
+        .then(|| Headline {
+            text: "Fumble !".to_string(),
+            team: Some(TeamId::AWAY),
+        })
+    }
+
+    #[test]
+    fn given_a_fumble_then_the_next_team_getting_up_when_laying_out_the_timeline_then_the_headline_holds_the_bowl_in_between()
+     {
+        let events = [
+            GameEvent::PickAttempted {
+                goblin: goblin("A4"),
+                roll: roll(false),
+            },
+            GameEvent::TurnEnded {
+                team: TeamId::AWAY,
+                reason: TurnEndReason::Fumble,
+            },
+            GameEvent::StoodUp {
+                goblin: goblin("H2"),
+            },
+        ];
+        assert_eq!(
+            timeline_of(&events, fumble_headline),
+            vec![
+                Beat::Roll {
+                    goblin: goblin("A4"),
+                    roll: ShownRoll::Pick(roll(false))
+                },
+                Beat::Headline(Headline {
+                    text: "Fumble !".to_string(),
+                    team: Some(TeamId::AWAY)
+                }),
+                Beat::Rise {
+                    goblin: goblin("H2")
+                },
+            ]
+        );
     }
 
     #[test]

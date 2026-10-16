@@ -9,9 +9,7 @@ use goblins_rules::state::Phase;
 use goblins_rules::team::TeamId;
 
 use crate::goblin_view::BowlAnimation;
-use crate::hud::{
-    BOLD_FONT, Headlines, READING_FONT, button, overlay, panel, story_colour, text_bundle,
-};
+use crate::hud::{BOLD_FONT, READING_FONT, button, overlay, panel, story_colour, text_bundle};
 use crate::local_match::{MatchOrder, MatchRestarted, MatchSystems, MatchView, RestartableMatch};
 use crate::texts::Texts;
 
@@ -253,12 +251,11 @@ fn tally_the_match(view: Res<MatchView>, mut scoresheet: ResMut<MatchScoresheet>
 fn show_final_screen(
     view: Res<MatchView>,
     animation: Res<BowlAnimation>,
-    headlines: Res<Headlines>,
     restartable: Option<Res<RestartableMatch>>,
     mut screen: Single<&mut Visibility, (With<FinalOverlay>, Without<PlayAgainButton>)>,
     mut play_again: Single<&mut Visibility, (With<PlayAgainButton>, Without<FinalOverlay>)>,
 ) {
-    let played_out = !animation.busy && headlines.are_over();
+    let played_out = !animation.busy;
     let over = view.snapshot.state.phase == Phase::Finished;
     screen.set_if_neq(if over && played_out {
         Visibility::Visible

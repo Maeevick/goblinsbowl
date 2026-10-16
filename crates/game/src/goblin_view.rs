@@ -15,9 +15,11 @@ use goblins_rules::square::Square;
 use goblins_rules::state::{Ball, GameState, Goblin, Presence};
 use goblins_rules::team::TeamId;
 
-use crate::beats::{Beat, RollShown, beats_from_events};
+use crate::beats::{Beat, Headline, RollShown, timeline_of};
 use crate::bowl_view::{BoardClick, square_centre};
+use crate::hud::event_team;
 use crate::local_match::{MatchRestarted, MatchSystems, MatchView};
+use crate::texts::Texts;
 
 const WALK_SPEED: f32 = 7.0;
 const FALL_SPEED: f32 = 6.0;
@@ -36,6 +38,7 @@ const LABEL_COLOUR: Color = Color::srgb(0.97, 0.96, 0.92);
 const CATCH_UP_BEATS: usize = 12;
 const CATCH_UP_PACE: f32 = 3.0;
 const ROLL_HOLD_SECONDS: f32 = 0.9;
+const HEADLINE_HOLD_SECONDS: f32 = 2.2;
 const FOOT_PLATE_LIFT: f32 = 0.016;
 
 /// Where a figure should be and whether it lies on the ground.
@@ -69,11 +72,14 @@ pub fn footing(goblin: &Goblin, active_team: Option<TeamId>) -> Footing {
     }
 }
 
-/// Whether the bowl is still playing out what happened: steps, falls, rolls and flights.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Whether the bowl is still playing out what happened: steps, falls, rolls, flights and the
+/// headlines it holds on.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct BowlAnimation {
     /// Whether beats are still waiting to be shown.
     pub busy: bool,
+    /// The headline the bowl is holding on, to show big.
+    pub headline: Option<Headline>,
 }
 
 /// A goblin figure on the bowl.
@@ -684,9 +690,14 @@ fn forget_the_last_match(
     }
 }
 
-fn queue_beats(view: Res<MatchView>, mut choreography: ResMut<Choreography>) {
+fn queue_beats(view: Res<MatchView>, texts: Res<Texts>, mut choreography: ResMut<Choreography>) {
     if !view.fresh_events.is_empty() {
-        let beats = beats_from_events(&view.fresh_events);
+        let beats = timeline_of(&view.fresh_events, |event| {
+            texts.headline(event).map(|text| Headline {
+                text,
+                team: event_team(event),
+            })
+        });
         choreography.beats.extend(beats);
     }
 }
@@ -771,7 +782,7 @@ fn play_beats(
     let walk = WALK_SPEED * speed_up * time.delta_secs();
     let fall = FALL_SPEED * speed_up * time.delta_secs();
     let fly = BALL_SPEED * speed_up * time.delta_secs();
-    let Some(beat) = choreography.beats.front().copied() else {
+    let Some(beat) = choreography.beats.front().cloned() else {
         settle_figures(&view, &mut figures, &mut bodies, walk, fall);
         return;
     };
@@ -810,6 +821,10 @@ fn play_beats(
             }
             arrived
         }
+        Beat::Headline(_) => {
+            choreography.front_held_for += time.delta_secs();
+            choreography.front_held_for >= HEADLINE_HOLD_SECONDS
+        }
         Beat::BallToGoblin { goblin } => {
             let hands = figures
                 .iter()
@@ -830,8 +845,13 @@ fn play_beats(
 }
 
 fn report_animation(choreography: Res<Choreography>, mut animation: ResMut<BowlAnimation>) {
+    let headline = match choreography.beats.front() {
+        Some(Beat::Headline(headline)) => Some(headline.clone()),
+        _ => None,
+    };
     animation.set_if_neq(BowlAnimation {
         busy: !choreography.beats.is_empty(),
+        headline,
     });
 }
 
