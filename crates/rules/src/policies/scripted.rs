@@ -8,8 +8,8 @@ use crate::arena::Arena;
 use crate::characteristics::Archetype;
 use crate::command::{Action, Activation, Command};
 use crate::odds::Probability;
-use crate::paths::{PlannedPath, reachable_squares};
-use crate::preview::{ActionOdds, activation_odds};
+use crate::paths::{PlannedPath, best_chance_for, reachable_squares};
+use crate::preview::{ActionOdds, activation_odds, board_after_success};
 use crate::roster::GoblinId;
 use crate::ruleset::Ruleset;
 use crate::square::Square;
@@ -92,8 +92,9 @@ enum Risk {
 pub enum Generation {
     /// The coaches of the first batches: orders by priority alone, ties broken by square order.
     First,
-    /// Ties broken the same way for both teams: the square nearest its own den first, then the
-    /// northern one.
+    /// Ties broken the same way for both teams, the square nearest its own den first, then the
+    /// northern one; and before a gamble, another goblin's certain move when it leaves the gamble
+    /// its chance.
     Second,
 }
 
@@ -180,16 +181,24 @@ pub fn styled_command(
         state,
         team,
         style,
+        excluded: None,
     };
-    coach.by_priority().map_or(Command::EndTurn, Command::Act)
+    let chosen = coach.by_priority();
+    let chosen = match (style.generation, chosen) {
+        (Generation::Second, Some(gamble)) => Some(coach.certain_before(&gamble).unwrap_or(gamble)),
+        (_, chosen) => chosen,
+    };
+    chosen.map_or(Command::EndTurn, Command::Act)
 }
 
+#[derive(Clone, Copy)]
 struct Coach<'a> {
     arena: &'a Arena,
     ruleset: &'a Ruleset,
     state: &'a GameState,
     team: TeamId,
     style: Style,
+    excluded: Option<GoblinId>,
 }
 
 impl Coach<'_> {
@@ -205,6 +214,52 @@ impl Coach<'_> {
             .or_else(|| self.hit())
             .or_else(|| self.close_in())
             .or_else(|| self.brace())
+    }
+
+    fn certain_before(&self, gamble: &Activation) -> Option<Activation> {
+        let chance = self.success(gamble)?;
+        if chance == Probability::CERTAIN {
+            return None;
+        }
+        let others = Coach {
+            excluded: Some(gamble.goblin),
+            ..*self
+        };
+        let certain_moves: [&dyn Fn() -> Option<Activation>; 3] = [
+            &|| others.run_ahead(),
+            &|| others.advance_carrier(),
+            &|| others.close_in(),
+        ];
+        certain_moves
+            .into_iter()
+            .filter_map(|move_of| move_of())
+            .filter(|order| self.success(order) == Some(Probability::CERTAIN))
+            .find(|order| self.leaves_its_chance(gamble, chance, order))
+    }
+
+    fn leaves_its_chance(
+        &self,
+        gamble: &Activation,
+        chance: Probability,
+        first: &Activation,
+    ) -> bool {
+        let Some(destination) = self.destination(gamble) else {
+            return false;
+        };
+        board_after_success(self.arena, self.ruleset, self.state, self.team, first)
+            .ok()
+            .and_then(|board| {
+                best_chance_for(
+                    self.arena,
+                    self.ruleset,
+                    &board,
+                    self.team,
+                    gamble.goblin,
+                    destination,
+                    gamble.action,
+                )
+            })
+            .is_some_and(|best| best >= chance)
     }
 
     fn lowest_chance(&self, risk: Risk) -> Probability {
@@ -241,7 +296,7 @@ impl Coach<'_> {
     fn movers(&self) -> impl Iterator<Item = &Goblin> + '_ {
         self.state
             .goblins_of(self.team)
-            .filter(|goblin| goblin.can_act())
+            .filter(|goblin| goblin.can_act() && Some(goblin.id) != self.excluded)
     }
 
     fn actors(&self) -> impl Iterator<Item = &Goblin> + '_ {
@@ -491,7 +546,9 @@ impl Coach<'_> {
     }
 
     fn advance_carrier(&self) -> Option<Activation> {
-        let carrier = self.own_carrier().filter(|carrier| carrier.can_act())?;
+        let carrier = self
+            .own_carrier()
+            .filter(|carrier| carrier.can_act() && Some(carrier.id) != self.excluded)?;
         let here = carrier.square()?;
         let closer: Vec<_> = self
             .paths(carrier.id)
@@ -1097,6 +1154,45 @@ mod tests {
             temper: Temper::Fixed(Appetite::cautious()),
         };
         assert!(mirror_breaks(first, 1..=6, 120) > 0);
+    }
+
+    fn ball_next_to_a_bruiser_and_a_sprinter_far_away() -> Scenario {
+        Scenario::new()
+            .goblin("H1", Sprinter, 6, 7)
+            .goblin("H2", Sprinter, 3, 3)
+            .goblin("A1", Bruiser, 9, 7)
+            .ball_loose_at(8, 7)
+    }
+
+    #[test]
+    fn given_the_first_generation_when_a_pick_up_is_within_its_appetite_then_it_gambles_at_once() {
+        let chosen = activation(choose(ball_next_to_a_bruiser_and_a_sprinter_far_away()));
+        assert_eq!(chosen.goblin, id("H1"));
+    }
+
+    #[test]
+    fn given_the_second_generation_when_a_pick_up_is_within_its_appetite_then_another_goblin_closes_in_without_dice_first()
+     {
+        let game = ball_next_to_a_bruiser_and_a_sprinter_far_away().game([]);
+        let chosen = activation(styled_command(
+            game.arena(),
+            game.ruleset(),
+            game.state(),
+            TeamId::HOME,
+            Style::second(Appetite::cautious()),
+        ));
+        let chance = activation_odds(
+            game.arena(),
+            game.ruleset(),
+            game.state(),
+            TeamId::HOME,
+            &chosen,
+        )
+        .map(|odds| odds.overall_success);
+        assert_eq!(
+            (chosen.goblin, chance),
+            (id("H2"), Ok(Probability::CERTAIN))
+        );
     }
 
     #[test]
