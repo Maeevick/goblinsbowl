@@ -1,17 +1,21 @@
 //! Plays many seeded matches between scripted coaches and reports how the rules play out.
 //!
 //! `make balance ARGS="--games 1000 --home cautious --away bold --rules rules.toml --seed 1"`;
-//! coaches are `cautious`, `bold` or `random`.
+//! coaches are `random`, `cautious`, `bold`, `cautious-2`, `balanced-2` or `bold-2`. With `--risk`,
+//! every match is also replayed to report each coach's own safe-first index, as the assessment
+//! reads it for agents.
 
 use std::error::Error;
 use std::path::PathBuf;
 use std::time::Instant;
 
+use goblins_rules::assessment::{ActivationRow, activation_rows, summarise};
 use goblins_rules::balance::{BalanceSummary, MatchStats};
 use goblins_rules::dice::SeededDice;
-use goblins_rules::host::{MatchHost, MatchSetup, SeatKind};
+use goblins_rules::host::{MatchHost, MatchRecord, MatchSetup, SeatKind};
 use goblins_rules::policies::Bot;
 use goblins_rules::ruleset::Ruleset;
+use goblins_rules::team::TeamId;
 
 const COMMAND_LIMIT: usize = 4_000;
 
@@ -20,6 +24,7 @@ struct Options {
     coaches: [Bot; 2],
     rules: Option<PathBuf>,
     seed: u64,
+    risk: bool,
 }
 
 fn options() -> Result<Options, String> {
@@ -28,9 +33,14 @@ fn options() -> Result<Options, String> {
         coaches: [Bot::Cautious, Bot::Cautious],
         rules: None,
         seed: 1,
+        risk: false,
     };
     let mut arguments = std::env::args().skip(1);
     while let Some(flag) = arguments.next() {
+        if flag == "--risk" {
+            options.risk = true;
+            continue;
+        }
         let value = arguments
             .next()
             .ok_or_else(|| format!("{flag} needs a value"))?;
@@ -48,7 +58,11 @@ fn options() -> Result<Options, String> {
     Ok(options)
 }
 
-fn play(ruleset: &Ruleset, seed: u64, coaches: [Bot; 2]) -> Result<MatchStats, Box<dyn Error>> {
+fn play(
+    ruleset: &Ruleset,
+    seed: u64,
+    coaches: [Bot; 2],
+) -> Result<(MatchStats, MatchRecord), Box<dyn Error>> {
     let (mut host, _) = MatchHost::start(MatchSetup {
         ruleset: ruleset.clone(),
         rosters: [ruleset.default_roster, ruleset.default_roster],
@@ -60,7 +74,10 @@ fn play(ruleset: &Ruleset, seed: u64, coaches: [Bot; 2]) -> Result<MatchStats, B
     let mut coach_dice = SeededDice::from_seed(seed.wrapping_add(1_000_003));
     for _ in 0..COMMAND_LIMIT {
         let Some(team) = host.game().state().active_team() else {
-            return Ok(MatchStats::from_events(host.events_since(0)));
+            return Ok((
+                MatchStats::from_events(host.events_since(0)),
+                host.record().clone(),
+            ));
         };
         let game = host.game();
         let command = coaches[team.index()].command(
@@ -83,12 +100,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     let started = Instant::now();
     let mut summary = BalanceSummary::default();
+    let mut rows_by_team: [Vec<ActivationRow>; 2] = [Vec::new(), Vec::new()];
     for game in 0..options.games {
-        summary.add(&play(
-            &ruleset,
-            options.seed.wrapping_add(game),
-            options.coaches,
-        )?);
+        let (stats, record) = play(&ruleset, options.seed.wrapping_add(game), options.coaches)?;
+        summary.add(&stats);
+        if options.risk {
+            let turns_apart = u32::try_from(game)
+                .unwrap_or(u32::MAX)
+                .saturating_mul(1_000);
+            for row in activation_rows(&record)? {
+                rows_by_team[row.team.index().min(1)].push(ActivationRow {
+                    turn: row.turn.saturating_add(turns_apart),
+                    ..row
+                });
+            }
+        }
     }
     println!(
         "{} (home) vs {} (away), seeds {}..{}, rules {}",
@@ -105,6 +131,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
     for line in summary.report() {
         println!("{line}");
+    }
+    if options.risk {
+        let index = |team: TeamId| {
+            summarise(&rows_by_team[team.index().min(1)], team)
+                .safe_first_index
+                .map_or("none".to_string(), |index| format!("{index:.2}"))
+        };
+        println!(
+            "Safe-first index: home {}, away {}",
+            index(TeamId::HOME),
+            index(TeamId::AWAY)
+        );
     }
     println!("Played in {:.1} s", started.elapsed().as_secs_f64());
     Ok(())
