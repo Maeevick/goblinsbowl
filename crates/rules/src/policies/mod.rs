@@ -10,6 +10,8 @@ use crate::ruleset::Ruleset;
 use crate::state::GameState;
 use crate::team::TeamId;
 
+use scripted::{Appetite, Style};
+
 pub mod random;
 pub mod scripted;
 
@@ -23,6 +25,10 @@ pub enum Bot {
     Cautious,
     /// The scripted coach with a bold appetite.
     Bold,
+    /// The second-generation scripted coach with a cautious appetite.
+    Cautious2,
+    /// The second-generation scripted coach with a bold appetite.
+    Bold2,
 }
 
 impl Bot {
@@ -39,13 +45,27 @@ impl Bot {
             Bot::Random => random::random_command(arena, ruleset, state, team, dice),
             Bot::Cautious => scripted::cautious_command(arena, ruleset, state, team),
             Bot::Bold => scripted::bold_command(arena, ruleset, state, team),
+            Bot::Cautious2 => scripted::styled_command(
+                arena,
+                ruleset,
+                state,
+                team,
+                Style::second(Appetite::cautious()),
+            ),
+            Bot::Bold2 => scripted::styled_command(
+                arena,
+                ruleset,
+                state,
+                team,
+                Style::second(Appetite::bold()),
+            ),
         }
     }
 }
 
-/// A bot name that is not `random`, `cautious` or `bold`.
+/// A bot name that is not one of the built-in coaches.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("unknown bot {0}: random, cautious or bold")]
+#[error("unknown bot {0}: random, cautious, bold, cautious-2 or bold-2")]
 pub struct UnknownBot(pub String);
 
 impl FromStr for Bot {
@@ -56,6 +76,8 @@ impl FromStr for Bot {
             "random" => Ok(Bot::Random),
             "cautious" => Ok(Bot::Cautious),
             "bold" => Ok(Bot::Bold),
+            "cautious-2" => Ok(Bot::Cautious2),
+            "bold-2" => Ok(Bot::Bold2),
             other => Err(UnknownBot(other.to_string())),
         }
     }
@@ -67,6 +89,8 @@ impl fmt::Display for Bot {
             Bot::Random => "random",
             Bot::Cautious => "cautious",
             Bot::Bold => "bold",
+            Bot::Cautious2 => "cautious-2",
+            Bot::Bold2 => "bold-2",
         })
     }
 }
@@ -94,6 +118,14 @@ mod tests {
     #[test]
     fn given_a_bot_when_writing_its_name_then_it_reads_back_the_same() {
         assert_eq!(Bot::Cautious.to_string().parse(), Ok(Bot::Cautious));
+    }
+
+    #[test]
+    fn given_the_second_cautious_coach_when_writing_its_name_then_cautious_2_reads_back() {
+        assert_eq!(
+            (Bot::Cautious2.to_string(), "cautious-2".parse()),
+            ("cautious-2".to_string(), Ok(Bot::Cautious2))
+        );
     }
 
     #[test]

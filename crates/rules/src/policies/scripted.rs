@@ -92,6 +92,9 @@ enum Risk {
 pub enum Generation {
     /// The coaches of the first batches: orders by priority alone, ties broken by square order.
     First,
+    /// Ties broken the same way for both teams: the square nearest its own den first, then the
+    /// northern one.
+    Second,
 }
 
 /// How much a scripted coach risks.
@@ -108,6 +111,16 @@ pub struct Style {
     pub generation: Generation,
     /// How much it risks.
     pub temper: Temper,
+}
+
+impl Style {
+    /// The second-generation coach with a fixed `appetite`.
+    pub fn second(appetite: Appetite) -> Self {
+        Self {
+            generation: Generation::Second,
+            temper: Temper::Fixed(appetite),
+        }
+    }
 }
 
 /// The next command of a careful coach for `team`: [`scripted_command`] with a cautious appetite.
@@ -200,6 +213,31 @@ impl Coach<'_> {
         }
     }
 
+    fn tie_break(&self, square: Square) -> (u8, u8) {
+        match self.style.generation {
+            Generation::First => (0, 0),
+            Generation::Second => {
+                let from_own_den = if self.team == TeamId::HOME {
+                    square.x
+                } else {
+                    self.arena
+                        .width()
+                        .saturating_sub(1)
+                        .saturating_sub(square.x)
+                };
+                (from_own_den, square.y)
+            }
+        }
+    }
+
+    fn destination(&self, activation: &Activation) -> Option<Square> {
+        activation.path.last().copied().or_else(|| {
+            self.state
+                .goblin(activation.goblin)
+                .and_then(Goblin::square)
+        })
+    }
+
     fn movers(&self) -> impl Iterator<Item = &Goblin> + '_ {
         self.state
             .goblins_of(self.team)
@@ -258,7 +296,14 @@ impl Coach<'_> {
         candidates
             .into_iter()
             .filter(|(_, success)| *success >= threshold)
-            .min_by_key(|(activation, success)| (Reverse(*success), activation.path.len()))
+            .min_by_key(|(activation, success)| {
+                (
+                    Reverse(*success),
+                    activation.path.len(),
+                    self.destination(activation)
+                        .map(|square| self.tie_break(square)),
+                )
+            })
             .map(|(activation, _)| activation)
     }
 
@@ -395,7 +440,13 @@ impl Coach<'_> {
                             && distance < self.den_distance(here)
                             && distance < carrier_distance
                     })
-                    .min_by_key(|path| (self.den_distance(path.destination), path.squares.len()))?;
+                    .min_by_key(|path| {
+                        (
+                            self.den_distance(path.destination),
+                            path.squares.len(),
+                            self.tie_break(path.destination),
+                        )
+                    })?;
                 Some(Activation {
                     goblin: runner.id,
                     path: best.squares,
@@ -455,6 +506,7 @@ impl Coach<'_> {
                     self.den_distance(path.destination),
                     self.enemies_next_to(path.destination),
                     path.squares.len(),
+                    self.tie_break(path.destination),
                 )
             });
         let fairly_safe = || {
@@ -466,6 +518,7 @@ impl Coach<'_> {
                         self.den_distance(path.destination),
                         Reverse(path.success),
                         path.squares.len(),
+                        self.tie_break(path.destination),
                     )
                 })
         };
@@ -507,7 +560,7 @@ impl Coach<'_> {
                         .filter(|path| {
                             path.success == Probability::CERTAIN && guard_post(path.destination)
                         })
-                        .min_by_key(|path| path.squares.len())?
+                        .min_by_key(|path| (path.squares.len(), self.tie_break(path.destination)))?
                         .squares
                 };
                 Some(Activation {
@@ -569,6 +622,7 @@ impl Coach<'_> {
                     (
                         path.destination.orthogonal_distance(focus),
                         path.squares.len(),
+                        self.tie_break(path.destination),
                     )
                 })?;
             let braces_in_contact =
@@ -609,6 +663,7 @@ mod tests {
     use crate::game::scenario::Scenario;
     use crate::roster::GoblinId;
     use crate::square::Square;
+    use crate::state::{Phase, Presence};
 
     fn id(text: &str) -> GoblinId {
         text.parse().unwrap()
@@ -905,6 +960,143 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    fn mirrored_square(arena: &Arena, square: Square) -> Square {
+        Square::new(arena.width() - 1 - square.x, square.y)
+    }
+
+    fn mirrored_id(id: GoblinId) -> GoblinId {
+        GoblinId::new(id.team.duel_opponent(), id.number)
+    }
+
+    fn mirrored_presence(arena: &Arena, presence: Presence) -> Presence {
+        match presence {
+            Presence::Standing(square) => Presence::Standing(mirrored_square(arena, square)),
+            Presence::Down(square) => Presence::Down(mirrored_square(arena, square)),
+            Presence::KnockedOut => Presence::KnockedOut,
+        }
+    }
+
+    fn mirrored_state(arena: &Arena, state: &GameState) -> GameState {
+        let mut goblins: Vec<Goblin> = state
+            .goblins
+            .iter()
+            .map(|goblin| Goblin {
+                id: mirrored_id(goblin.id),
+                presence: mirrored_presence(arena, goblin.presence),
+                ..goblin.clone()
+            })
+            .collect();
+        goblins.sort_by_key(|goblin| (goblin.id.team.index(), goblin.id.number));
+        GameState {
+            rosters: state.rosters.iter().rev().copied().collect(),
+            goblins,
+            ball: match state.ball {
+                Ball::Loose { at } => Ball::Loose {
+                    at: mirrored_square(arena, at),
+                },
+                Ball::Carried { by } => Ball::Carried {
+                    by: mirrored_id(by),
+                },
+            },
+            score: state.score.iter().rev().copied().collect(),
+            half: state.half,
+            turns_played: state.turns_played.iter().rev().copied().collect(),
+            phase: match state.phase {
+                Phase::Playing { active_team } => Phase::Playing {
+                    active_team: active_team.duel_opponent(),
+                },
+                Phase::Finished => Phase::Finished,
+            },
+            opening_team: state.opening_team.duel_opponent(),
+        }
+    }
+
+    type Purpose = Option<(GoblinId, Option<Square>, Option<Action>)>;
+
+    fn purpose(state: &GameState, command: &Command) -> Purpose {
+        let Command::Act(activation) = command else {
+            return None;
+        };
+        let destination = activation
+            .path
+            .last()
+            .copied()
+            .or_else(|| state.goblin(activation.goblin).and_then(Goblin::square));
+        Some((activation.goblin, destination, activation.action))
+    }
+
+    fn mirrored_purpose(arena: &Arena, purpose: Purpose) -> Purpose {
+        purpose.map(|(goblin, destination, action)| {
+            (
+                mirrored_id(goblin),
+                destination.map(|square| mirrored_square(arena, square)),
+                action.map(|action| match action {
+                    Action::Assault { target } => Action::Assault {
+                        target: mirrored_id(target),
+                    },
+                    Action::Throw { receiver } => Action::Throw {
+                        receiver: mirrored_id(receiver),
+                    },
+                    Action::Stance => Action::Stance,
+                }),
+            )
+        })
+    }
+
+    fn mirror_breaks(style: Style, seeds: std::ops::RangeInclusive<u64>, commands: usize) -> usize {
+        let mut broken = 0;
+        for seed in seeds {
+            let (mut game, _) = crate::game::Game::start(
+                Ruleset::default(),
+                [crate::roster::Roster::DEFAULT; 2],
+                crate::dice::SeededDice::from_seed(seed),
+            )
+            .unwrap();
+            for _ in 0..commands {
+                let Some(team) = game.state().active_team() else {
+                    break;
+                };
+                let arena = game.arena().clone();
+                let ruleset = game.ruleset().clone();
+                let chosen = styled_command(&arena, &ruleset, game.state(), team, style);
+                let mirror = mirrored_state(&arena, game.state());
+                let chosen_in_the_mirror =
+                    styled_command(&arena, &ruleset, &mirror, team.duel_opponent(), style);
+                if purpose(game.state(), &chosen)
+                    != mirrored_purpose(&arena, purpose(&mirror, &chosen_in_the_mirror))
+                {
+                    broken += 1;
+                }
+                if game.apply(team, chosen).is_err() {
+                    break;
+                }
+            }
+        }
+        broken
+    }
+
+    #[test]
+    fn given_the_second_generation_when_the_bowl_is_mirrored_then_both_teams_choose_mirrored_orders()
+     {
+        assert_eq!(
+            [Appetite::cautious(), Appetite::bold()].map(|appetite| mirror_breaks(
+                Style::second(appetite),
+                1..=6,
+                120
+            )),
+            [0, 0]
+        );
+    }
+
+    #[test]
+    fn given_the_first_generation_when_the_bowl_is_mirrored_then_its_square_order_shows() {
+        let first = Style {
+            generation: Generation::First,
+            temper: Temper::Fixed(Appetite::cautious()),
+        };
+        assert!(mirror_breaks(first, 1..=6, 120) > 0);
     }
 
     #[test]
