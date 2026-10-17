@@ -61,6 +61,53 @@ impl Appetite {
             hit: Probability::new(1, 2),
         }
     }
+
+    fn lowest_chance(&self, risk: Risk) -> Probability {
+        match risk {
+            Risk::Score => self.score,
+            Risk::Sack => self.sack,
+            Risk::Pick => self.pick,
+            Risk::Free => self.free,
+            Risk::Pass => self.pass,
+            Risk::Advance => self.advance,
+            Risk::Hit => self.hit,
+        }
+    }
+}
+
+/// A kind of risk a scripted coach weighs, one per line of its appetite.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Risk {
+    Score,
+    Sack,
+    Pick,
+    Free,
+    Pass,
+    Advance,
+    Hit,
+}
+
+/// Which scripted coach plays.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Generation {
+    /// The coaches of the first batches: orders by priority alone, ties broken by square order.
+    First,
+}
+
+/// How much a scripted coach risks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Temper {
+    /// The same lowest chance per kind of risk, whatever the turn.
+    Fixed(Appetite),
+}
+
+/// A scripted coach: its generation and its temper.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Style {
+    /// Which coach plays.
+    pub generation: Generation,
+    /// How much it risks.
+    pub temper: Temper,
 }
 
 /// The next command of a careful coach for `team`: [`scripted_command`] with a cautious appetite.
@@ -78,15 +125,7 @@ pub fn bold_command(arena: &Arena, ruleset: &Ruleset, state: &GameState, team: T
     scripted_command(arena, ruleset, state, team, Appetite::bold())
 }
 
-/// The next command of a scripted coach for `team` with this `appetite`, without any randomness.
-///
-/// In order of priority: score, assault the enemy carrier, pick up the loose ball, hit the carrier's
-/// markers, run Sprinters ahead into open space while the carrier still has to act, throw to an
-/// open teammate well ahead along a clear line, advance the carrier (without dice if that gets
-/// closer, else within the appetite) and brace it, guard the carrier without standing in front of
-/// it, hit an adjacent enemy, close in on the ball without dice, brace any goblin in contact;
-/// otherwise end the turn. Every risk is taken only within the appetite, and nobody braces or
-/// guards under rules without Stance.
+/// The next command of a first-generation scripted coach for `team` with this `appetite`.
 pub fn scripted_command(
     arena: &Arena,
     ruleset: &Ruleset,
@@ -94,26 +133,42 @@ pub fn scripted_command(
     team: TeamId,
     appetite: Appetite,
 ) -> Command {
+    styled_command(
+        arena,
+        ruleset,
+        state,
+        team,
+        Style {
+            generation: Generation::First,
+            temper: Temper::Fixed(appetite),
+        },
+    )
+}
+
+/// The next command of the scripted coach of this `style` for `team`, without any randomness.
+///
+/// In order of priority: score, assault the enemy carrier, pick up the loose ball, hit the carrier's
+/// markers, run Sprinters ahead into open space while the carrier still has to act, throw to an
+/// open teammate well ahead along a clear line, advance the carrier (without dice if that gets
+/// closer, else within the appetite) and brace it, guard the carrier without standing in front of
+/// it, hit an adjacent enemy, close in on the ball without dice, brace any goblin in contact;
+/// otherwise end the turn. Every risk is taken only within the temper, and nobody braces or
+/// guards under rules without Stance.
+pub fn styled_command(
+    arena: &Arena,
+    ruleset: &Ruleset,
+    state: &GameState,
+    team: TeamId,
+    style: Style,
+) -> Command {
     let coach = Coach {
         arena,
         ruleset,
         state,
         team,
-        appetite,
+        style,
     };
-    coach
-        .score()
-        .or_else(|| coach.sack())
-        .or_else(|| coach.pick())
-        .or_else(|| coach.free_carrier())
-        .or_else(|| coach.run_ahead())
-        .or_else(|| coach.pass())
-        .or_else(|| coach.advance_carrier())
-        .or_else(|| coach.guard_carrier())
-        .or_else(|| coach.hit())
-        .or_else(|| coach.close_in())
-        .or_else(|| coach.brace())
-        .map_or(Command::EndTurn, Command::Act)
+    coach.by_priority().map_or(Command::EndTurn, Command::Act)
 }
 
 struct Coach<'a> {
@@ -121,10 +176,30 @@ struct Coach<'a> {
     ruleset: &'a Ruleset,
     state: &'a GameState,
     team: TeamId,
-    appetite: Appetite,
+    style: Style,
 }
 
 impl Coach<'_> {
+    fn by_priority(&self) -> Option<Activation> {
+        self.score()
+            .or_else(|| self.sack())
+            .or_else(|| self.pick())
+            .or_else(|| self.free_carrier())
+            .or_else(|| self.run_ahead())
+            .or_else(|| self.pass())
+            .or_else(|| self.advance_carrier())
+            .or_else(|| self.guard_carrier())
+            .or_else(|| self.hit())
+            .or_else(|| self.close_in())
+            .or_else(|| self.brace())
+    }
+
+    fn lowest_chance(&self, risk: Risk) -> Probability {
+        match self.style.temper {
+            Temper::Fixed(appetite) => appetite.lowest_chance(risk),
+        }
+    }
+
     fn movers(&self) -> impl Iterator<Item = &Goblin> + '_ {
         self.state
             .goblins_of(self.team)
@@ -175,9 +250,11 @@ impl Coach<'_> {
     }
 
     fn most_likely(
+        &self,
         candidates: impl IntoIterator<Item = (Activation, Probability)>,
-        threshold: Probability,
+        risk: Risk,
     ) -> Option<Activation> {
+        let threshold = self.lowest_chance(risk);
         candidates
             .into_iter()
             .filter(|(_, success)| *success >= threshold)
@@ -202,7 +279,7 @@ impl Coach<'_> {
                 };
                 (walk, path.success)
             });
-        Self::most_likely(candidates, self.appetite.score)
+        self.most_likely(candidates, Risk::Score)
     }
 
     fn sack(&self) -> Option<Activation> {
@@ -232,7 +309,7 @@ impl Coach<'_> {
                     .map(|success| (activation, success))
             })
             .collect();
-        Self::most_likely(candidates, self.appetite.sack)
+        self.most_likely(candidates, Risk::Sack)
     }
 
     fn pick(&self) -> Option<Activation> {
@@ -255,7 +332,7 @@ impl Coach<'_> {
                     })
             })
             .collect();
-        Self::most_likely(candidates, self.appetite.pick)
+        self.most_likely(candidates, Risk::Pick)
     }
 
     fn free_carrier(&self) -> Option<Activation> {
@@ -298,7 +375,7 @@ impl Coach<'_> {
                     .map(|success| (activation, success))
             })
             .collect();
-        Self::most_likely(candidates, self.appetite.free)
+        self.most_likely(candidates, Risk::Free)
     }
 
     fn run_ahead(&self) -> Option<Activation> {
@@ -359,7 +436,7 @@ impl Coach<'_> {
                 clear_line.then_some((throw, odds.overall_success))
             })
             .collect();
-        Self::most_likely(candidates, self.appetite.pass)
+        self.most_likely(candidates, Risk::Pass)
     }
 
     fn advance_carrier(&self) -> Option<Activation> {
@@ -383,7 +460,7 @@ impl Coach<'_> {
         let fairly_safe = || {
             closer
                 .iter()
-                .filter(|path| path.success >= self.appetite.advance)
+                .filter(|path| path.success >= self.lowest_chance(Risk::Advance))
                 .min_by_key(|path| {
                     (
                         self.den_distance(path.destination),
@@ -466,7 +543,7 @@ impl Coach<'_> {
                     .map(|success| (activation, success))
             })
             .collect();
-        Self::most_likely(candidates, self.appetite.hit)
+        self.most_likely(candidates, Risk::Hit)
     }
 
     fn focus(&self) -> Option<Square> {
