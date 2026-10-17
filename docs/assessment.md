@@ -142,3 +142,21 @@ The same records, with the safe-first index of 17 Oct (two orders of the same go
 
 Batch 2 reads the same (0.96): under rules 0.1 no goblin plays two orders in a turn. In batch 3 the goblins walking on after their own action explain only part of the fall from 0.96: Haiku's index rises from 0.63 and 0.64 to 0.69 against both bots, still under 0.90, while the bots stay between 0.31 and 0.37.
 
+### Batches 2 and 3 read a third time, 17 Oct 2026: only orders that could have come first
+
+The same records, with the safe-first index of the second 17 Oct change. Only the safe-first columns move, so the criteria tables of the previous part still hold.
+
+| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| claude-haiku-5-5, batch 2 against cautious | 10 | 0-10-0 | 0-0 | 0.98 | 5.8 | 2.7 | 0.1 pts | 1 | 71.7 % | 68.6 % | 0 | 0 | 0 | 0 | $54.48 | 5.3 |
+| claude-haiku-5-5, batch 3 against cautious | 10 | 3-4-3 | 11-10 | 0.78 | 10.0 | 6.0 | 0.5 pts | 10 | 74.4 % | 72.0 % | 2 | 10 | 2 | 0 | $115.60 | 9.5 |
+| claude-haiku-5-5, batch 3 against bold | 10 | 2-6-2 | 9-11 | 0.76 | 10.1 | 6.1 | 0.5 pts | 10 | 74.5 % | 74.3 % | 4 | 7 | 1 | 0 | $98.46 | 9.6 |
+
+| Bot | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|
+| cautious, batch 2 | 0.33 | 1.4 | 5.4 | 0.0 pts | 0 | 81.2 % | 80.2 % |
+| cautious, batch 3 | 0.37 | 7.3 | 6.2 | 0.3 pts | 7 | 79.2 % | 78.5 % |
+| bold, batch 3 | 0.43 | 13.7 | 5.8 | 0.8 pts | 21 | 72.4 % | 73.0 % |
+
+Over the three readings of batch 3, Haiku's index went from 0.63 and 0.64 to 0.69, then to 0.78 and 0.76: about a third of the gap to 1.0 came from orders that could not have come first. The rest is real: Haiku played a risky order before another goblin's order that was already certain, often enough to stay under the 0.90 criterion.
+
