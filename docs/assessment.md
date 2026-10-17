@@ -120,3 +120,24 @@ Seeds 1 to 5 from both seats against each bot, full hints, 60 s turns, five matc
 
 The safe-first index still pairs every order of a turn, so a goblin's certain walk after its own risky action counts as out of order even though it could not have come first (the measure question of 12 Oct, still open on the day of this reading).
 
+### Batches 2 and 3 read again, 17 Oct 2026: safe-first without a goblin's own pairs
+
+The same records, with the safe-first index of 17 Oct (two orders of the same goblin are not paired). Only the safe-first columns move.
+
+| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| claude-haiku-5-5 against cautious | 10 | 3-4-3 | 11-10 | 0.69 | 10.0 | 6.0 | 0.5 pts | 10 | 74.4 % | 72.0 % | 2 | 10 | 2 | 0 | $115.60 | 9.5 |
+| claude-haiku-5-5 against bold | 10 | 2-6-2 | 9-11 | 0.69 | 10.1 | 6.1 | 0.5 pts | 10 | 74.5 % | 74.3 % | 4 | 7 | 1 | 0 | $98.46 | 9.6 |
+
+| Bot | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|
+| cautious | 0.31 | 7.3 | 6.2 | 0.3 pts | 7 | 79.2 % | 78.5 % |
+| bold | 0.37 | 13.7 | 5.8 | 0.8 pts | 21 | 72.4 % | 73.0 % |
+
+| Batch | Safe-first at least 0.90 | Mean gap under 5 pts | Under 10 % of risky orders 5 pts below the best | No tilt (within 5 pts after a failure) | Under one refused call per two turns | Goal difference not negative |
+|---|---|---|---|---|---|---|
+| against cautious | fail | pass | pass | pass | pass | pass |
+| against bold | fail | pass | pass | pass | pass | fail |
+
+Batch 2 reads the same (0.96): under rules 0.1 no goblin plays two orders in a turn. In batch 3 the goblins walking on after their own action explain only part of the fall from 0.96: Haiku's index rises from 0.63 and 0.64 to 0.69 against both bots, still under 0.90, while the bots stay between 0.31 and 0.37.
+
