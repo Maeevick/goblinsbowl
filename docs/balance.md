@@ -16,6 +16,8 @@ make balance ARGS="--games 1000 --home cautious --away bold --rules rules.toml"
 | cautious | 70 % | 50 % | 50 % | 50 % | 75 % |
 | bold | 50 % | 33 % | 33 % | 33 % | 50 % |
 
+- **cautious-2**, **balanced-2** and **bold-2**, since 17 Oct 2026: the second generation, beside the first, see [the second-generation coaches](#second-generation-coaches-17-oct-2026).
+
 ## Rules 0.1
 
 | Home vs away | Home wins | Away wins | Draws | Goals per match | Stances per team turn | Knock-outs per match |
@@ -199,4 +201,53 @@ What the numbers say:
 - **The home edge shrinks**: 3.8 points in the cautious mirror (11.7 under 0.6), 6.7 in the bold one, and the away team even wins slightly more when cautious hosts bold. The cross shape played a part in the edge; the scripted coaches' tie-breaks are still unchecked.
 - **Bold now edges cautious**: over both seats, bold wins 40.2 % of its 2,000 matches against cautious, cautious 37.9 % against bold.
 - Both changes came together, so these runs do not say how much each one weighs.
+
+## Second-generation coaches, 17 Oct 2026
+
+The first-generation coaches stay exactly as they were, so the tables above and the assessment batches keep their yardstick; on rules 0.7 their mirrors reproduce the table above to the last decimal. Three coaches join them:
+
+- **cautious-2** and **bold-2** keep the appetites of cautious and bold and change two things. Ties between equally good squares are broken the same way for both teams, the square nearest the coach's own den first, then the northern one, where the first generation followed square order, which picked different squares for the team attacking east and the team attacking west; a property test checks that each new coach chooses the mirrored order on a mirrored bowl. And before a gamble, the coach first plays another goblin's certain move (running a Sprinter ahead, advancing the carrier or closing in on the ball) when that move leaves the gamble at least its chance.
+- **balanced-2** blends the two appetites by what a failure would cost: the cautious thresholds while every other goblin can still play, the bold ones once none can, in proportion in between.
+
+With `--risk`, every match is replayed to report each coach's own safe-first index, as [`assessment.md`](assessment.md) reads it for agents:
+
+```bash
+make balance ARGS="--games 1000 --home cautious-2 --away bold-2 --rules rules.toml --risk"
+```
+
+Rules 0.7, seeds 1 to 1,000:
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Knock-outs per match | Safe-first, home and away |
+|---|---|---|---|---|---|---|
+| cautious-2 vs cautious-2 | 28.8 % | 31.9 % | 39.3 % | 0.88 | 9.56 | 0.94, 0.93 |
+| balanced-2 vs balanced-2 | 36.3 % | 32.2 % | 31.5 % | 1.03 | 10.56 | 0.94, 0.94 |
+| bold-2 vs bold-2 | 38.5 % | 36.4 % | 25.1 % | 1.36 | 10.53 | 0.94, 0.94 |
+| cautious-2 vs bold-2 | 30.0 % | 39.6 % | 30.4 % | 1.13 | 10.31 | 0.93, 0.95 |
+| bold-2 vs cautious-2 | 43.1 % | 24.2 % | 32.7 % | 1.11 | 10.30 | 0.95, 0.93 |
+| cautious-2 vs balanced-2 | 24.3 % | 37.0 % | 38.7 % | 0.92 | 10.26 | 0.93, 0.94 |
+| balanced-2 vs cautious-2 | 38.2 % | 24.2 % | 37.6 % | 0.96 | 10.25 | 0.94, 0.93 |
+| balanced-2 vs bold-2 | 37.5 % | 33.7 % | 28.8 % | 1.25 | 10.54 | 0.93, 0.95 |
+| bold-2 vs balanced-2 | 36.0 % | 36.5 % | 27.5 % | 1.20 | 10.55 | 0.95, 0.94 |
+| cautious-2 vs cautious | 67.5 % | 13.8 % | 18.7 % | 1.98 | 7.69 | 0.94, 0.32 |
+| cautious vs cautious-2 | 15.9 % | 52.4 % | 31.7 % | 1.25 | 8.14 | 0.33, 0.94 |
+| cautious vs cautious | 40.0 % | 36.2 % | 23.8 % | 2.06 | 6.05 | 0.37, 0.38 |
+| bold vs bold | 43.6 % | 36.9 % | 19.5 % | 2.56 | 5.84 | 0.45, 0.46 |
+
+What the numbers say:
+
+- **Certain work first wins matches.** With the same appetite, cautious-2 wins 60.0 % of its 2,000 matches against cautious over both seats, cautious 14.9 %. The planning alone does it: the first-generation coach given the same planning, its tie-breaks untouched, wins 64.3 % against the plain one (16.6 %). The safe-first index climbs with it, from between 0.32 and 0.46 to between 0.93 and 0.95, so the measure tracks something that wins matches, and weighs far more than appetite does.
+- **No home edge left.** Home wins minus away wins come to −3.1 points in the cautious-2 mirror, +4.1 in balanced-2's and +2.1 in bold-2's, all inside what chance allows over 1,000 matches (about ±5 points), where the first-generation bold mirror shows +6.7. The home edge seen since rules 0.2 came from the first generation's tie-breaks, not from the rules, at least under 0.7.
+- **Appetite pays once turns are ordered.** Over both seats, bold-2 wins 41.4 % of its 2,000 matches against cautious-2, which wins 27.1 %; balanced-2 wins 37.6 % against cautious-2 (24.3 %) and 37.0 % against bold-2 (34.9 %), the last gap within chance. Between first-generation coaches appetite hardly mattered (bold 40.2 % against cautious 37.9 % under 0.7), most likely because their failed gambles also cost the certain moves still unplayed.
+- **Tighter, bloodier matches.** The new mirrors score 0.88 to 1.36 goals per match where the first generation scored 2.06 and 2.56, draw 25 to 39 % of their matches, and knock out 9.6 to 10.6 goblins per match instead of about 6. Their safe-first index stops short of 1.0 because a coach holds back a certain move that would cost the gamble its chance, which the measure still counts against it, and looks for certain moves among three kinds only.
+
+Two throwaway builds, measured once and not shipped, split the two changes on the cautious appetite:
+
+| Variant | Mirror: home, away, draws | Goals per match | Knock-outs per match | Against cautious, both seats |
+|---|---|---|---|---|
+| cautious, first generation | 40.0 %, 36.2 %, 23.8 % | 2.06 | 6.05 | |
+| first generation with the certain-first planning | 32.8 %, 36.9 %, 30.3 % | 1.42 | 9.20 | 64.3 % against 16.6 % |
+| cautious-2 as shipped, ties toward its own den | 28.8 %, 31.9 %, 39.3 % | 0.88 | 9.56 | 60.0 % against 14.9 % |
+| cautious-2 with ties toward the enemy den | 37.5 %, 39.1 %, 23.4 % | 2.04 | 8.90 | 64.9 % against 15.6 % |
+
+The planning brings the knock-outs (57 assaults per match in its mirror, 46 without it); the direction of the tie-breaks sets the goal rate, most likely because goblins closing in on the enemy carrier with ties toward their own den end up between the carrier and that den. Ties toward the enemy den give back the first generation's 2 goals and 23 % draws, keep the mirror symmetric, and cost nothing measurable: head to head over 2,000 matches the shipped cautious-2 wins 37.8 %, the one with ties toward the enemy den 35.1 %, within chance. Which of the two the second generation keeps is still open.
 
