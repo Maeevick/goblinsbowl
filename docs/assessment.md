@@ -79,3 +79,43 @@ An agent meeting all six manages risk well under these conditions; the report sa
 - **13 Oct 2026, rules 0.5.** Stance is gone: no goblin can brace any more, so no Defense bonus, no braced enemy weighing 2 on a dodge, and an action is an assault or a throw. Agents can no longer order a Stance (the `play` schema has no `stance` action) and their view no longer carries `in_stance`; the window shows no Garde button and a single defences line on its scoresheet. The engine still knows Stance for records whose ruleset has one, so the 61 local records replay and assess as before. No measure changed, but the safe-first index (1) loses a whole kind of certain order: a Stance never failed.
 - **14 Oct 2026, rules 0.6.** Three rules changed: a goblin of the team on turn missing a bouncing ball (after an assault knocked the carrier down) no longer ends the turn, as in Blood Bowl; the goblin holding the ball can no longer assault; and a throw to an adjacent teammate is a hand-off, with no throw roll and only the receiver's catch, reported as a new `handed_off` event. Agents' assault options leave out the carrier, and `get_rules` describes 0.6. Records embed their ruleset, so the 61 local records replay and assess as before. Exposure at failure (2) and failure rates by cause (6) read slightly differently: a fumble now needs a failed pick-up, a failed throw, the team's own throw or hand-off not caught, or an interception.
 - **16 Oct 2026, rules 0.7.** The bowl is round: a pixelated disc 21 squares across (349 squares), each den the 11-square arc at its west or east edge, and an agent's view now gives the columns a den spans. Health lasts the whole match: nobody heals at a kick-off and a knocked-out goblin stays out, the others sharing the formation's squares. `get_rules` describes 0.7. Records embed their ruleset, so the 61 local records replay and assess as before. No measure changed, but health exposure (5) now weighs more, since every point lost is lost for the match. The window also holds each headline before showing what came next, and its bot waits for the bowl to play out; neither touches a record or a measure.
+
+## Results
+
+Each batch as `make assess ARGS="--batch runs/<batch>"` reported it, read on 17 Oct 2026 with the measures of that day. A batch read again after a measure changes gets its own dated part below; these tables stay as they are. Calibration (8) is not reported: every batch so far ran with full odds hints, where agents see the true chances.
+
+### Batch 2, 10 Oct 2026: Haiku 5.5 against the cautious bot, rules 0.1
+
+Seeds 1 to 5 from both seats, full hints, 60 s turns, one match at a time, $25 per coach run.
+
+| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| claude-haiku-5-5 | 10 | 0-10-0 | 0-0 | 0.96 | 5.8 | 2.7 | 0.1 pts | 1 | 71.7 % | 68.6 % | 0 | 0 | 0 | 0 | $54.48 | 5.3 |
+
+| Bot | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|
+| cautious | 0.32 | 1.4 | 5.4 | 0.0 pts | 0 | 81.2 % | 80.2 % |
+
+All six criteria pass, in matches where neither side scored.
+
+### Batch 3, 16 and 17 Oct 2026: Haiku 5.5 against the cautious and the bold bots, rules 0.7
+
+Seeds 1 to 5 from both seats against each bot, full hints, 60 s turns, five matches at a time, $10 per coach run. No session limit was hit; three coaches stopped early and were resumed once, and every match reached its final whistle.
+
+| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| claude-haiku-5-5 against cautious | 10 | 3-4-3 | 11-10 | 0.63 | 10.0 | 6.0 | 0.5 pts | 10 | 74.4 % | 72.0 % | 2 | 10 | 2 | 0 | $115.60 | 9.5 |
+| claude-haiku-5-5 against bold | 10 | 2-6-2 | 9-11 | 0.64 | 10.1 | 6.1 | 0.5 pts | 10 | 74.5 % | 74.3 % | 4 | 7 | 1 | 0 | $98.46 | 9.6 |
+
+| Bot | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|
+| cautious | 0.31 | 7.3 | 6.2 | 0.3 pts | 7 | 79.2 % | 78.5 % |
+| bold | 0.38 | 13.7 | 5.8 | 0.8 pts | 21 | 72.4 % | 73.0 % |
+
+| Batch | Safe-first at least 0.90 | Mean gap under 5 pts | Under 10 % of risky orders 5 pts below the best | No tilt (within 5 pts after a failure) | Under one refused call per two turns | Goal difference not negative |
+|---|---|---|---|---|---|---|
+| against cautious | fail | pass | pass | pass | pass | pass |
+| against bold | fail | pass | pass | pass | pass | fail |
+
+The safe-first index still pairs every order of a turn, so a goblin's certain walk after its own risky action counts as out of order even though it could not have come first (the measure question of 12 Oct, still open on the day of this reading).
+
