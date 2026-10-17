@@ -103,6 +103,29 @@ pub enum Generation {
 pub enum Temper {
     /// The same lowest chance per kind of risk, whatever the turn.
     Fixed(Appetite),
+    /// The careful appetite while every other goblin can still play, sliding to the daring one as
+    /// fewer are left: a failure ends the turn, so it costs more early in the turn.
+    Exposed {
+        /// The appetite when every other goblin can still play.
+        careful: Appetite,
+        /// The appetite when no other goblin can play.
+        daring: Appetite,
+    },
+}
+
+/// The chance `weight` parts of `scale` of the way from `low` to `high`, as an exact fraction.
+fn between(low: Probability, high: Probability, weight: u64, scale: u64) -> Probability {
+    let scale = scale.max(1);
+    let weight = weight.min(scale);
+    let numerator =
+        u128::from(low.numerator()) * u128::from(high.denominator()) * u128::from(scale - weight)
+            + u128::from(high.numerator()) * u128::from(low.denominator()) * u128::from(weight);
+    let denominator =
+        u128::from(low.denominator()) * u128::from(high.denominator()) * u128::from(scale);
+    Probability::new(
+        u64::try_from(numerator).unwrap_or(u64::MAX),
+        u64::try_from(denominator).unwrap_or(u64::MAX),
+    )
 }
 
 /// A scripted coach: its generation and its temper.
@@ -120,6 +143,18 @@ impl Style {
         Self {
             generation: Generation::Second,
             temper: Temper::Fixed(appetite),
+        }
+    }
+
+    /// The second-generation coach as cautious as the cautious one while every other goblin can
+    /// still play, and as bold as the bold one once none can.
+    pub fn balanced() -> Self {
+        Self {
+            generation: Generation::Second,
+            temper: Temper::Exposed {
+                careful: Appetite::cautious(),
+                daring: Appetite::bold(),
+            },
         }
     }
 }
@@ -262,9 +297,22 @@ impl Coach<'_> {
             .is_some_and(|best| best >= chance)
     }
 
-    fn lowest_chance(&self, risk: Risk) -> Probability {
+    fn lowest_chance(&self, risk: Risk, mover: GoblinId) -> Probability {
         match self.style.temper {
             Temper::Fixed(appetite) => appetite.lowest_chance(risk),
+            Temper::Exposed { careful, daring } => {
+                let others_left = self
+                    .state
+                    .goblins_of(self.team)
+                    .filter(|goblin| goblin.id != mover && goblin.can_act())
+                    .count();
+                between(
+                    daring.lowest_chance(risk),
+                    careful.lowest_chance(risk),
+                    u64::try_from(others_left).unwrap_or(u64::MAX),
+                    u64::from(self.ruleset.team_size.saturating_sub(1)),
+                )
+            }
         }
     }
 
@@ -347,10 +395,9 @@ impl Coach<'_> {
         candidates: impl IntoIterator<Item = (Activation, Probability)>,
         risk: Risk,
     ) -> Option<Activation> {
-        let threshold = self.lowest_chance(risk);
         candidates
             .into_iter()
-            .filter(|(_, success)| *success >= threshold)
+            .filter(|(activation, success)| *success >= self.lowest_chance(risk, activation.goblin))
             .min_by_key(|(activation, success)| {
                 (
                     Reverse(*success),
@@ -569,7 +616,7 @@ impl Coach<'_> {
         let fairly_safe = || {
             closer
                 .iter()
-                .filter(|path| path.success >= self.lowest_chance(Risk::Advance))
+                .filter(|path| path.success >= self.lowest_chance(Risk::Advance, carrier.id))
                 .min_by_key(|path| {
                     (
                         self.den_distance(path.destination),
@@ -1192,6 +1239,61 @@ mod tests {
         assert_eq!(
             (chosen.goblin, chance),
             (id("H2"), Ok(Probability::CERTAIN))
+        );
+    }
+
+    fn bruisers_face_to_face_far_from_the_ball() -> Scenario {
+        Scenario::new()
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .ball_loose_at(1, 10)
+    }
+
+    fn balanced(scenario: Scenario) -> Command {
+        let game = scenario.game([]);
+        styled_command(
+            game.arena(),
+            game.ruleset(),
+            game.state(),
+            TeamId::HOME,
+            Style::balanced(),
+        )
+    }
+
+    fn assaults(command: &Command) -> bool {
+        matches!(
+            command,
+            Command::Act(Activation {
+                action: Some(Action::Assault { .. }),
+                ..
+            })
+        )
+    }
+
+    #[test]
+    fn given_the_balanced_coach_alone_to_play_when_a_bruiser_can_hit_another_at_62_5_percent_then_it_hits_as_the_bold_one_would()
+     {
+        assert!(assaults(&balanced(
+            bruisers_face_to_face_far_from_the_ball()
+        )));
+    }
+
+    #[test]
+    fn given_the_balanced_coach_with_eight_teammates_still_to_play_when_a_bruiser_can_hit_at_62_5_percent_then_it_holds_back_as_the_cautious_one_would()
+     {
+        let crowded = (2..=9).fold(
+            bruisers_face_to_face_far_from_the_ball(),
+            |scenario, number| scenario.goblin(&format!("H{number}"), Sprinter, number, 1),
+        );
+        assert!(!assaults(&balanced(crowded)));
+    }
+
+    #[test]
+    fn given_a_quarter_of_the_way_from_a_half_to_three_quarters_when_blending_then_nine_sixteenths()
+    {
+        assert_eq!(
+            between(Probability::new(1, 2), Probability::new(3, 4), 2, 8),
+            Probability::new(9, 16)
         );
     }
 

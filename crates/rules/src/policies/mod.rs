@@ -29,6 +29,9 @@ pub enum Bot {
     Cautious2,
     /// The second-generation scripted coach with a bold appetite.
     Bold2,
+    /// The second-generation scripted coach, cautious while many goblins are left to play and
+    /// bold once few are.
+    Balanced2,
 }
 
 impl Bot {
@@ -59,13 +62,16 @@ impl Bot {
                 team,
                 Style::second(Appetite::bold()),
             ),
+            Bot::Balanced2 => {
+                scripted::styled_command(arena, ruleset, state, team, Style::balanced())
+            }
         }
     }
 }
 
 /// A bot name that is not one of the built-in coaches.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("unknown bot {0}: random, cautious, bold, cautious-2 or bold-2")]
+#[error("unknown bot {0}: random, cautious, bold, cautious-2, balanced-2 or bold-2")]
 pub struct UnknownBot(pub String);
 
 impl FromStr for Bot {
@@ -78,6 +84,7 @@ impl FromStr for Bot {
             "bold" => Ok(Bot::Bold),
             "cautious-2" => Ok(Bot::Cautious2),
             "bold-2" => Ok(Bot::Bold2),
+            "balanced-2" => Ok(Bot::Balanced2),
             other => Err(UnknownBot(other.to_string())),
         }
     }
@@ -91,6 +98,7 @@ impl fmt::Display for Bot {
             Bot::Bold => "bold",
             Bot::Cautious2 => "cautious-2",
             Bot::Bold2 => "bold-2",
+            Bot::Balanced2 => "balanced-2",
         })
     }
 }
