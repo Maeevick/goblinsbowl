@@ -432,6 +432,7 @@ mod tests {
         ActivationRow {
             entry,
             team: TeamId::AWAY,
+            goblin: "A1".parse().unwrap(),
             turn: 1,
             success,
             best_success: success,
@@ -464,9 +465,10 @@ mod tests {
         }
     }
 
-    fn turn_row(team: TeamId, turn: u32, success: Probability) -> ActivationRow {
+    fn turn_row(team: TeamId, goblin: &str, turn: u32, success: Probability) -> ActivationRow {
         ActivationRow {
             team,
+            goblin: goblin.parse().unwrap(),
             turn,
             ..row(0, success, false)
         }
@@ -498,12 +500,12 @@ mod tests {
     #[test]
     fn given_the_same_turn_number_in_two_matches_when_pooling_then_their_orders_are_not_mixed() {
         let well_ordered = vec![
-            turn_row(TeamId::HOME, 1, Probability::CERTAIN),
-            turn_row(TeamId::HOME, 1, Probability::new(1, 2)),
+            turn_row(TeamId::HOME, "H1", 1, Probability::CERTAIN),
+            turn_row(TeamId::HOME, "H2", 1, Probability::new(1, 2)),
         ];
         let badly_ordered = vec![
-            turn_row(TeamId::AWAY, 1, Probability::new(1, 2)),
-            turn_row(TeamId::AWAY, 1, Probability::CERTAIN),
+            turn_row(TeamId::AWAY, "A1", 1, Probability::new(1, 2)),
+            turn_row(TeamId::AWAY, "A2", 1, Probability::CERTAIN),
         ];
         let matches = [
             batch_match("haiku", TeamId::HOME, [0, 0], well_ordered),
@@ -518,8 +520,8 @@ mod tests {
     #[test]
     fn given_the_bot_rows_when_judging_the_batch_then_they_feed_the_yardstick_not_the_agent() {
         let rows = vec![
-            turn_row(TeamId::HOME, 1, Probability::CERTAIN),
-            turn_row(TeamId::AWAY, 1, Probability::new(1, 2)),
+            turn_row(TeamId::HOME, "H1", 1, Probability::CERTAIN),
+            turn_row(TeamId::AWAY, "A1", 1, Probability::new(1, 2)),
         ];
         let verdict = &model_verdicts(&[batch_match("haiku", TeamId::HOME, [0, 0], rows)])[0];
         assert_eq!((verdict.agent.activations, verdict.bot.activations), (1, 1));

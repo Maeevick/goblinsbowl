@@ -10,6 +10,7 @@ use crate::host::{MatchRecord, ReplayError};
 use crate::odds::Probability;
 use crate::paths::reachable_squares;
 use crate::preview::activation_odds;
+use crate::roster::GoblinId;
 use crate::ruleset::Ruleset;
 use crate::square::Square;
 use crate::state::GameState;
@@ -22,6 +23,8 @@ pub struct ActivationRow {
     pub entry: usize,
     /// The team acting.
     pub team: TeamId,
+    /// The goblin ordered.
+    pub goblin: GoblinId,
     /// Which turn of that team it belongs to, counted from 1 across both halves.
     pub turn: u32,
     /// Exact chance it ends without a knockdown or a fumble.
@@ -48,7 +51,8 @@ pub struct RiskSummary {
     pub activations: u32,
     /// Activations with a chance below certain.
     pub risky: u32,
-    /// Share of (certain, risky) pairs within a turn where the certain one came first.
+    /// Share of (certain, risky) pairs of two goblins' orders within a turn where the certain one
+    /// came first; a goblin's own orders are not paired, its walk after acting could not come first.
     pub safe_first_index: Option<f64>,
     /// Activations that ended the turn with a failed roll.
     pub failures: u32,
@@ -181,6 +185,7 @@ pub fn activation_rows(record: &MatchRecord) -> Result<Vec<ActivationRow>, Repla
                         described,
                         u8::try_from(others_ready).unwrap_or(u8::MAX),
                         i16::from(own) - i16::from(theirs),
+                        activation.goblin,
                     )
                 })
             }
@@ -189,10 +194,11 @@ pub fn activation_rows(record: &MatchRecord) -> Result<Vec<ActivationRow>, Repla
         let events = game
             .apply(team, entry.command.clone())
             .map_err(|violation| ReplayError::Diverged { index, violation })?;
-        if let Some(((success, best_success), others_ready, score_difference)) = before {
+        if let Some(((success, best_success), others_ready, score_difference, ordered)) = before {
             rows.push(ActivationRow {
                 entry: index,
                 team,
+                goblin: ordered,
                 turn: tracker.turns[side],
                 success,
                 best_success,
@@ -245,16 +251,16 @@ pub fn summarise(rows: &[ActivationRow], team: TeamId) -> RiskSummary {
     let mut turns: Vec<u32> = own.iter().map(|row| row.turn).collect();
     turns.dedup();
     for turn in turns {
-        let certain: Vec<bool> = own
+        let orders: Vec<(GoblinId, bool)> = own
             .iter()
             .filter(|row| row.turn == turn)
-            .map(|row| row.success == Probability::CERTAIN)
+            .map(|row| (row.goblin, row.success == Probability::CERTAIN))
             .collect();
-        for (position, first) in certain.iter().enumerate() {
-            for later in &certain[position + 1..] {
-                if first != later {
+        for (position, (goblin, certain)) in orders.iter().enumerate() {
+            for (later_goblin, later_certain) in &orders[position + 1..] {
+                if certain != later_certain && goblin != later_goblin {
                     mixed_pairs += 1;
-                    well_ordered += u32::from(*first);
+                    well_ordered += u32::from(*certain);
                 }
             }
         }
@@ -402,6 +408,7 @@ mod tests {
         ActivationRow {
             entry: 0,
             team: TeamId::HOME,
+            goblin: id("H1"),
             turn,
             success,
             best_success: success,
@@ -413,10 +420,20 @@ mod tests {
         }
     }
 
+    fn order_of(goblin: &str, turn: u32, success: Probability) -> ActivationRow {
+        ActivationRow {
+            goblin: id(goblin),
+            ..row(turn, success)
+        }
+    }
+
     #[test]
     fn given_a_gamble_before_a_certain_order_in_a_turn_when_summarising_then_the_safe_first_index_is_zero()
      {
-        let rows = [row(1, Probability::new(1, 2)), row(1, Probability::CERTAIN)];
+        let rows = [
+            order_of("H1", 1, Probability::new(1, 2)),
+            order_of("H2", 1, Probability::CERTAIN),
+        ];
         assert_eq!(summarise(&rows, TeamId::HOME).safe_first_index, Some(0.0));
     }
 
@@ -424,12 +441,33 @@ mod tests {
     fn given_certain_orders_first_in_every_turn_when_summarising_then_the_safe_first_index_is_one()
     {
         let rows = [
-            row(1, Probability::CERTAIN),
-            row(1, Probability::new(1, 2)),
-            row(2, Probability::CERTAIN),
-            row(2, Probability::new(3, 4)),
+            order_of("H1", 1, Probability::CERTAIN),
+            order_of("H2", 1, Probability::new(1, 2)),
+            order_of("H1", 2, Probability::CERTAIN),
+            order_of("H2", 2, Probability::new(3, 4)),
         ];
         assert_eq!(summarise(&rows, TeamId::HOME).safe_first_index, Some(1.0));
+    }
+
+    #[test]
+    fn given_a_goblin_walking_on_after_its_own_risky_assault_when_summarising_then_that_pair_is_left_out()
+     {
+        let rows = [
+            order_of("H2", 1, Probability::CERTAIN),
+            order_of("H1", 1, Probability::new(1, 2)),
+            order_of("H1", 1, Probability::CERTAIN),
+        ];
+        assert_eq!(summarise(&rows, TeamId::HOME).safe_first_index, Some(1.0));
+    }
+
+    #[test]
+    fn given_a_turn_where_only_one_goblin_mixed_certain_and_risky_orders_when_summarising_then_no_index()
+     {
+        let rows = [
+            order_of("H1", 1, Probability::new(1, 2)),
+            order_of("H1", 1, Probability::CERTAIN),
+        ];
+        assert_eq!(summarise(&rows, TeamId::HOME).safe_first_index, None);
     }
 
     #[test]
