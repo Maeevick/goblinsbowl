@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::arena::Arena;
-use crate::command::Activation;
+use crate::command::{Action, Activation};
 use crate::odds::Probability;
 use crate::preview::activation_odds;
 use crate::roster::GoblinId;
@@ -86,6 +86,47 @@ pub fn reachable_squares(
     best.into_values().collect()
 }
 
+/// The best chance on `state` of an order for `goblin` with the same purpose: the same assault or
+/// throw along any legal path, or else a walk ending on `destination`; none when no such order is legal.
+pub fn best_chance_for(
+    arena: &Arena,
+    ruleset: &Ruleset,
+    state: &GameState,
+    team: TeamId,
+    goblin: GoblinId,
+    destination: Square,
+    action: Option<Action>,
+) -> Option<Probability> {
+    let start = state.goblin(goblin)?.square()?;
+    let same_purpose = |path: &Vec<Square>| match action {
+        Some(Action::Assault { .. } | Action::Throw { .. }) => true,
+        Some(Action::Stance) | None => path.last().copied().unwrap_or(start) == destination,
+    };
+    std::iter::once(Vec::new())
+        .chain(
+            reachable_squares(arena, ruleset, state, goblin)
+                .into_iter()
+                .map(|planned| planned.squares),
+        )
+        .filter(same_purpose)
+        .filter_map(|path| {
+            activation_odds(
+                arena,
+                ruleset,
+                state,
+                team,
+                &Activation {
+                    goblin,
+                    path,
+                    action,
+                },
+            )
+            .ok()
+            .map(|odds| odds.overall_success)
+        })
+        .max()
+}
+
 struct PathSearch<'a> {
     arena: &'a Arena,
     state: &'a GameState,
@@ -145,6 +186,47 @@ mod tests {
 
     fn id(text: &str) -> GoblinId {
         text.parse().unwrap()
+    }
+
+    #[test]
+    fn given_a_free_walk_when_asking_its_best_chance_then_certain() {
+        let game = Scenario::new()
+            .goblin("H5", Sprinter, 5, 7)
+            .ball_loose_at(1, 10)
+            .game([]);
+        assert_eq!(
+            best_chance_for(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                TeamId::HOME,
+                id("H5"),
+                Square::new(7, 7),
+                None
+            ),
+            Some(Probability::CERTAIN)
+        );
+    }
+
+    #[test]
+    fn given_a_standing_bruiser_when_asking_the_best_chance_of_assaulting_it_then_below_certain() {
+        let game = Scenario::new()
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .ball_loose_at(1, 10)
+            .game([]);
+        assert_eq!(
+            best_chance_for(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                TeamId::HOME,
+                id("H1"),
+                Square::new(5, 7),
+                Some(Action::Assault { target: id("A1") })
+            ),
+            Some(Probability::new(5, 8))
+        );
     }
 
     fn reachable(scenario: Scenario, goblin: &str) -> Vec<PlannedPath> {
