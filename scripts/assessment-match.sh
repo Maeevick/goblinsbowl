@@ -66,5 +66,5 @@ until grep -q "Final whistle" "$dir/server.log" || [ "$(date +%s)" -ge "$deadlin
 finished=$(grep -q "Final whistle" "$dir/server.log" && echo true || echo false)
 kill "$server" 2>/dev/null; wait "$server" 2>/dev/null
 cost=$(grep -o '"total_cost_usd":[0-9.]*' "$dir/$seat-transcript.jsonl" | cut -d: -f2 | awk '{ total += $1 } END { printf "%.4f", total }')
-printf '{"model":"%s","seed":%s,"seat":"%s","finished":%s,"coach_runs":%s,"coach_seconds":%s,"match_seconds":%s,"cost_usd":%s}\n' \
-  "$model" "$seed" "$seat" "$finished" "$coach_runs" "$coach_seconds" "$(( $(date +%s) - started ))" "$cost" > "$dir/match.json"
+printf '{"model":"%s","bot":"%s","seed":%s,"seat":"%s","finished":%s,"coach_runs":%s,"coach_seconds":%s,"match_seconds":%s,"cost_usd":%s}\n' \
+  "$model" "${GB_BOT:-cautious}" "$seed" "$seat" "$finished" "$coach_runs" "$coach_seconds" "$(( $(date +%s) - started ))" "$cost" > "$dir/match.json"
