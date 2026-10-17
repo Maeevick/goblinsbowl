@@ -9,7 +9,7 @@ Goblin football in a bowl: a minimalist, turn-based tactics game played with dic
 
 ```bash
 make run                              # two humans on this machine (Bevy window)
-make run ARGS="--away bot"            # play against the computer (--bot cautious, bold or random)
+make run ARGS="--away bot"            # play against the computer (--bot cautious, bold, random, cautious-2, balanced-2 or bold-2)
 make run ARGS="--away bot --record"   # the same, its record saved to runs/ (make assess ARGS="runs/<file>.jsonl" reads it)
 make run ARGS="--home-turn-seconds 90 --lang en"
 make check                            # lint + unit + integrated tests

@@ -42,7 +42,7 @@ pub struct GameOptions {
     /// Who plays the away team (gold, east den).
     #[arg(long, value_enum, default_value_t = LocalSeat::Human)]
     pub away: LocalSeat,
-    /// How the bot seats play: random, cautious or bold.
+    /// How the bot seats play: random, cautious, bold, cautious-2, balanced-2 or bold-2.
     #[arg(long, default_value_t = Bot::Cautious)]
     pub bot: Bot,
     /// Dice seed; random when left out.
