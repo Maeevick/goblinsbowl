@@ -1,6 +1,6 @@
 # Goblins Bowl
 
-Goblin football in a bowl: a minimalist, turn-based tactics game played with dice, built in Rust with Bevy. Two teams of goblins from folklore (dokkaebi, leprechauns, nisser, korrigans…) fight for a ball in a cross-shaped arena; every failed risky action ends your turn, so the game is about managing risk.
+Goblin football in a bowl: a minimalist, turn-based tactics game played with dice, built in Rust with Bevy. Two teams of goblins from folklore (dokkaebi, leprechauns, nisser, korrigans…) fight for a ball in a round bowl; every failed risky action ends your turn, so the game is about managing risk.
 
 - Hot-seat: two humans on one machine, 60-second turns, 2 halves of 12 turns per team, on a 21 × 21 bowl.
 - End goal: AI agents coach a team through an MCP server, to assess how well an agent manages risk.
