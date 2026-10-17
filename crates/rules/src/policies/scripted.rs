@@ -1185,12 +1185,13 @@ mod tests {
     fn given_the_second_generation_when_the_bowl_is_mirrored_then_both_teams_choose_mirrored_orders()
      {
         assert_eq!(
-            [Appetite::cautious(), Appetite::bold()].map(|appetite| mirror_breaks(
-                Style::second(appetite),
-                1..=6,
-                120
-            )),
-            [0, 0]
+            [
+                Style::second(Appetite::cautious()),
+                Style::balanced(),
+                Style::second(Appetite::bold())
+            ]
+            .map(|style| mirror_breaks(style, 1..=6, 120)),
+            [0, 0, 0]
         );
     }
 
