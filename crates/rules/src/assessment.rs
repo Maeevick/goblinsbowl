@@ -42,6 +42,9 @@ pub struct ActivationRow {
     pub after_failure: bool,
     /// Health the team's goblins lost through it.
     pub own_health_lost: u32,
+    /// Entries of the team's risky orders earlier in this turn, by other goblins, before which this
+    /// order was already certain: it could have been played first.
+    pub already_certain_before: Vec<usize>,
 }
 
 /// Risk taken by one team over a match.
@@ -52,7 +55,8 @@ pub struct RiskSummary {
     /// Activations with a chance below certain.
     pub risky: u32,
     /// Share of (certain, risky) pairs of two goblins' orders within a turn where the certain one
-    /// came first; a goblin's own orders are not paired, its walk after acting could not come first.
+    /// came first; a goblin's own orders are not paired, and a certain order played after a risky
+    /// one only counts against when it was already certain before it, so it could have come first.
     pub safe_first_index: Option<f64>,
     /// Activations that ended the turn with a failed roll.
     pub failures: u32,
@@ -88,14 +92,38 @@ pub fn describe_activation(
             .map(|odds| odds.overall_success)
     };
     let success = chance(activation)?;
-    let goblin = activation.goblin;
-    let start = state.goblin(goblin)?.square()?;
+    let start = state.goblin(activation.goblin)?.square()?;
     let destination = activation.path.last().copied().unwrap_or(start);
-    let same_purpose = |path: &Vec<Square>| match activation.action {
+    let best = best_chance_for(
+        arena,
+        ruleset,
+        state,
+        team,
+        activation.goblin,
+        destination,
+        activation.action,
+    )
+    .map_or(success, |best| best.max(success));
+    Some((success, best))
+}
+
+/// The best chance on `state` of an order for `goblin` with the same purpose: the same assault or
+/// throw along any legal path, or else a walk ending on `destination`; none when no such order is legal.
+pub fn best_chance_for(
+    arena: &Arena,
+    ruleset: &Ruleset,
+    state: &GameState,
+    team: TeamId,
+    goblin: GoblinId,
+    destination: Square,
+    action: Option<Action>,
+) -> Option<Probability> {
+    let start = state.goblin(goblin)?.square()?;
+    let same_purpose = |path: &Vec<Square>| match action {
         Some(Action::Assault { .. } | Action::Throw { .. }) => true,
         Some(Action::Stance) | None => path.last().copied().unwrap_or(start) == destination,
     };
-    let best = std::iter::once(Vec::new())
+    std::iter::once(Vec::new())
         .chain(
             reachable_squares(arena, ruleset, state, goblin)
                 .into_iter()
@@ -103,15 +131,30 @@ pub fn describe_activation(
         )
         .filter(same_purpose)
         .filter_map(|path| {
-            chance(&Activation {
-                goblin,
-                path,
-                action: activation.action,
-            })
+            activation_odds(
+                arena,
+                ruleset,
+                state,
+                team,
+                &Activation {
+                    goblin,
+                    path,
+                    action,
+                },
+            )
+            .ok()
+            .map(|odds| odds.overall_success)
         })
         .max()
-        .map_or(success, |best| best.max(success));
-    Some((success, best))
+}
+
+/// A risky order of the turn being replayed, with the board it was played on.
+struct EarlierRisky {
+    entry: usize,
+    team: TeamId,
+    turn: u32,
+    goblin: GoblinId,
+    board: GameState,
 }
 
 fn ends_in_failure(events: &[GameEvent], team: TeamId) -> bool {
@@ -166,9 +209,11 @@ pub fn activation_rows(record: &MatchRecord) -> Result<Vec<ActivationRow>, Repla
     let mut tracker = TurnTracker::default();
     tracker.follow(&opening);
     let mut rows = Vec::new();
+    let mut earlier_risky: Vec<EarlierRisky> = Vec::new();
     for (index, entry) in record.entries.iter().enumerate() {
         let team = entry.team;
         let side = team.index().min(1);
+        earlier_risky.retain(|risky| risky.turn == tracker.turns[risky.team.index().min(1)]);
         let before = match &entry.command {
             Command::Act(activation) => {
                 let state = game.state();
@@ -180,12 +225,52 @@ pub fn activation_rows(record: &MatchRecord) -> Result<Vec<ActivationRow>, Repla
                     .count();
                 let own = state.score.get(side).copied().unwrap_or_default();
                 let theirs = state.score.get(1 - side).copied().unwrap_or_default();
+                let turn = tracker.turns[side];
                 described.map(|described| {
+                    let destination = activation.path.last().copied().or_else(|| {
+                        state
+                            .goblin(activation.goblin)
+                            .and_then(|goblin| goblin.square())
+                    });
+                    let already_certain_before = if described.0 == Probability::CERTAIN {
+                        earlier_risky
+                            .iter()
+                            .filter(|risky| {
+                                risky.team == team
+                                    && risky.turn == turn
+                                    && risky.goblin != activation.goblin
+                            })
+                            .filter(|risky| {
+                                destination.is_some_and(|destination| {
+                                    best_chance_for(
+                                        game.arena(),
+                                        game.ruleset(),
+                                        &risky.board,
+                                        team,
+                                        activation.goblin,
+                                        destination,
+                                        activation.action,
+                                    ) == Some(Probability::CERTAIN)
+                                })
+                            })
+                            .map(|risky| risky.entry)
+                            .collect()
+                    } else {
+                        earlier_risky.push(EarlierRisky {
+                            entry: index,
+                            team,
+                            turn,
+                            goblin: activation.goblin,
+                            board: state.clone(),
+                        });
+                        Vec::new()
+                    };
                     (
                         described,
                         u8::try_from(others_ready).unwrap_or(u8::MAX),
                         i16::from(own) - i16::from(theirs),
                         activation.goblin,
+                        already_certain_before,
                     )
                 })
             }
@@ -194,7 +279,14 @@ pub fn activation_rows(record: &MatchRecord) -> Result<Vec<ActivationRow>, Repla
         let events = game
             .apply(team, entry.command.clone())
             .map_err(|violation| ReplayError::Diverged { index, violation })?;
-        if let Some(((success, best_success), others_ready, score_difference, ordered)) = before {
+        if let Some((
+            (success, best_success),
+            others_ready,
+            score_difference,
+            ordered,
+            already_certain_before,
+        )) = before
+        {
             rows.push(ActivationRow {
                 entry: index,
                 team,
@@ -215,6 +307,7 @@ pub fn activation_rows(record: &MatchRecord) -> Result<Vec<ActivationRow>, Repla
                         _ => 0,
                     })
                     .sum(),
+                already_certain_before,
             });
         }
         tracker.follow(&events);
@@ -251,16 +344,20 @@ pub fn summarise(rows: &[ActivationRow], team: TeamId) -> RiskSummary {
     let mut turns: Vec<u32> = own.iter().map(|row| row.turn).collect();
     turns.dedup();
     for turn in turns {
-        let orders: Vec<(GoblinId, bool)> = own
-            .iter()
-            .filter(|row| row.turn == turn)
-            .map(|row| (row.goblin, row.success == Probability::CERTAIN))
-            .collect();
-        for (position, (goblin, certain)) in orders.iter().enumerate() {
-            for (later_goblin, later_certain) in &orders[position + 1..] {
-                if certain != later_certain && goblin != later_goblin {
+        let orders: Vec<&ActivationRow> =
+            own.iter().copied().filter(|row| row.turn == turn).collect();
+        for (position, first) in orders.iter().enumerate() {
+            for later in &orders[position + 1..] {
+                let certain = first.success == Probability::CERTAIN;
+                let later_certain = later.success == Probability::CERTAIN;
+                if certain == later_certain || first.goblin == later.goblin {
+                    continue;
+                }
+                if certain {
                     mixed_pairs += 1;
-                    well_ordered += u32::from(*certain);
+                    well_ordered += 1;
+                } else if later.already_certain_before.contains(&first.entry) {
+                    mixed_pairs += 1;
                 }
             }
         }
@@ -417,6 +514,7 @@ mod tests {
             others_ready: 0,
             after_failure: false,
             own_health_lost: 0,
+            already_certain_before: Vec::new(),
         }
     }
 
@@ -428,13 +526,100 @@ mod tests {
     }
 
     #[test]
-    fn given_a_gamble_before_a_certain_order_in_a_turn_when_summarising_then_the_safe_first_index_is_zero()
+    fn given_a_gamble_before_an_order_that_was_already_certain_when_summarising_then_the_safe_first_index_is_zero()
      {
         let rows = [
             order_of("H1", 1, Probability::new(1, 2)),
-            order_of("H2", 1, Probability::CERTAIN),
+            ActivationRow {
+                entry: 1,
+                already_certain_before: vec![0],
+                ..order_of("H2", 1, Probability::CERTAIN)
+            },
         ];
         assert_eq!(summarise(&rows, TeamId::HOME).safe_first_index, Some(0.0));
+    }
+
+    #[test]
+    fn given_a_certain_order_made_possible_by_another_goblin_s_gamble_when_summarising_then_that_pair_is_left_out()
+     {
+        let rows = [
+            order_of("H1", 1, Probability::new(1, 2)),
+            ActivationRow {
+                entry: 1,
+                ..order_of("H2", 1, Probability::CERTAIN)
+            },
+        ];
+        assert_eq!(summarise(&rows, TeamId::HOME).safe_first_index, None);
+    }
+
+    #[test]
+    fn given_a_free_walk_when_asking_its_best_chance_then_certain() {
+        let game = Scenario::new()
+            .goblin("H5", Sprinter, 5, 7)
+            .ball_loose_at(1, 10)
+            .game([]);
+        assert_eq!(
+            best_chance_for(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                TeamId::HOME,
+                id("H5"),
+                Square::new(7, 7),
+                None
+            ),
+            Some(Probability::CERTAIN)
+        );
+    }
+
+    #[test]
+    fn given_a_standing_bruiser_when_asking_the_best_chance_of_assaulting_it_then_below_certain() {
+        let game = Scenario::new()
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .ball_loose_at(1, 10)
+            .game([]);
+        assert_eq!(
+            best_chance_for(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                TeamId::HOME,
+                id("H1"),
+                Square::new(5, 7),
+                Some(Action::Assault { target: id("A1") })
+            ),
+            Some(Probability::new(5, 8))
+        );
+    }
+
+    #[test]
+    fn given_a_recorded_match_when_replayed_then_every_order_said_already_certain_follows_another_goblin_s_risky_order_of_its_turn()
+     {
+        let record =
+            MatchRecord::from_json_lines(include_str!("../tests/fixtures/golden_match.jsonl"))
+                .unwrap();
+        let rows = activation_rows(&record).unwrap();
+        let earlier = |entry: usize| rows.iter().find(|row| row.entry == entry);
+        let pairs: Vec<(&ActivationRow, &ActivationRow)> = rows
+            .iter()
+            .flat_map(|row| {
+                row.already_certain_before
+                    .iter()
+                    .filter_map(move |entry| earlier(*entry).map(|risky| (risky, row)))
+            })
+            .collect();
+        assert!(
+            !pairs.is_empty()
+                && pairs.iter().all(|(risky, certain)| {
+                    risky.entry < certain.entry
+                        && risky.team == certain.team
+                        && risky.turn == certain.turn
+                        && risky.goblin != certain.goblin
+                        && risky.success < Probability::CERTAIN
+                        && certain.success == Probability::CERTAIN
+                })
+        );
     }
 
     #[test]

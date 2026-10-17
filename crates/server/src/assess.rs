@@ -441,6 +441,7 @@ mod tests {
             others_ready: 0,
             after_failure: false,
             own_health_lost: 0,
+            already_certain_before: Vec::new(),
         }
     }
 
@@ -505,7 +506,11 @@ mod tests {
         ];
         let badly_ordered = vec![
             turn_row(TeamId::AWAY, "A1", 1, Probability::new(1, 2)),
-            turn_row(TeamId::AWAY, "A2", 1, Probability::CERTAIN),
+            ActivationRow {
+                entry: 1,
+                already_certain_before: vec![0],
+                ..turn_row(TeamId::AWAY, "A2", 1, Probability::CERTAIN)
+            },
         ];
         let matches = [
             batch_match("haiku", TeamId::HOME, [0, 0], well_ordered),
