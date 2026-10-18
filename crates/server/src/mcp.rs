@@ -153,8 +153,9 @@ pub enum PlannedAction {
         /// Teammate id such as H5.
         target: String,
         /// How to throw, where the rules allow styles: simple (default) or chaos (no throw roll,
-        /// the ball bounces three times from the receiver's square; the thrower must not have
-        /// moved this turn and spends its whole move).
+        /// the ball bounces three times from the receiver's square and the turn ends unless a
+        /// teammate then holds it; the thrower must not have moved this turn and spends its whole
+        /// move).
         style: Option<PlannedThrowStyle>,
     },
     /// Brace in stance after moving: +1 defense until your next turn, at the cost of every step left.
@@ -184,7 +185,8 @@ pub enum PlannedAssaultStyle {
 pub enum PlannedThrowStyle {
     /// A throw roll, then the catch.
     Simple,
-    /// No throw roll and no catch: the ball bounces three times from the receiver's square.
+    /// No throw roll and no catch: the ball bounces three times from the receiver's square, and
+    /// the turn ends unless a teammate then holds it.
     Chaos,
 }
 

@@ -612,9 +612,9 @@ impl Coach<'_> {
     }
 
     /// Where the rules have styles, a second-generation coach whose carrier has not moved and finds
-    /// no pass worth its appetite throws into chaos towards the teammate nearest the enemy den,
-    /// three squares closer at least, with nobody on the line and no enemy within two squares of
-    /// it; otherwise nothing.
+    /// no pass worth its appetite throws into chaos towards a teammate three squares closer to the
+    /// enemy den at least, the one around whom a teammate most likely ends up holding the ball, when
+    /// that chance is worth its appetite for passes; otherwise nothing.
     fn chaos_pass(&self, carrier: &Goblin) -> Option<Activation> {
         if self.style.generation != Generation::Second
             || !self.ruleset.throws_have_styles
@@ -623,19 +623,16 @@ impl Coach<'_> {
             return None;
         }
         let carrier_distance = self.den_distance(carrier.square()?);
-        self.state
+        let candidates: Vec<_> = self
+            .state
             .goblins_of(self.team)
             .filter(|receiver| receiver.id != carrier.id && receiver.is_standing())
+            .filter(|receiver| {
+                receiver.square().is_some_and(|square| {
+                    self.den_distance(square).saturating_add(3) <= carrier_distance
+                })
+            })
             .filter_map(|receiver| {
-                let square = receiver.square()?;
-                let crowded = self.state.goblins.iter().any(|enemy| {
-                    enemy.team() != self.team
-                        && enemy.is_standing()
-                        && enemy.square().is_some_and(|at| {
-                            at.x.abs_diff(square.x) <= 2 && at.y.abs_diff(square.y) <= 2
-                        })
-                });
-                let closer = self.den_distance(square).saturating_add(3) <= carrier_distance;
                 let chaos = Activation {
                     goblin: carrier.id,
                     path: Vec::new(),
@@ -644,11 +641,11 @@ impl Coach<'_> {
                         style: ThrowStyle::Chaos,
                     }),
                 };
-                (closer && !crowded && self.success(&chaos) == Some(Probability::CERTAIN))
-                    .then_some((chaos, square))
+                let success = self.success(&chaos)?;
+                Some((chaos, success))
             })
-            .min_by_key(|(_, square)| (self.den_distance(*square), self.tie_break(*square)))
-            .map(|(chaos, _)| chaos)
+            .collect();
+        self.most_likely(candidates, Risk::Pass)
     }
 
     /// How a second-generation coach assaults to knock a goblin down where the rules have styles:
@@ -1349,15 +1346,25 @@ mod tests {
         ));
     }
 
+    fn marked_thrower_with_the_ball() -> Scenario {
+        Scenario::new()
+            .goblin("H9", Thrower, 4, 7)
+            .goblin("H2", Thrower, 11, 7)
+            .goblin("A1", Sprinter, 4, 8)
+            .ball_carried_by("H9")
+    }
+
     #[test]
-    fn given_throw_styles_when_a_marked_thrower_finds_no_pass_worth_its_appetite_then_it_throws_into_chaos()
+    fn given_throw_styles_when_a_marked_thrower_finds_no_pass_worth_its_appetite_then_it_throws_into_chaos_towards_a_ring_of_teammates()
      {
         let scenario = with_styles(
-            Scenario::new()
-                .goblin("H9", Thrower, 4, 7)
-                .goblin("H2", Bruiser, 11, 7)
-                .goblin("A1", Sprinter, 4, 8)
-                .ball_carried_by("H9"),
+            marked_thrower_with_the_ball()
+                .goblin("H3", Thrower, 10, 6)
+                .goblin("H4", Thrower, 11, 6)
+                .goblin("H5", Thrower, 12, 6)
+                .goblin("H6", Thrower, 10, 8)
+                .goblin("H7", Thrower, 11, 8)
+                .goblin("H8", Thrower, 12, 8),
         );
         assert_eq!(
             styled_command_of(scenario, Style::second(Appetite::cautious())),
@@ -1370,6 +1377,21 @@ mod tests {
                 }),
             })
         );
+    }
+
+    #[test]
+    fn given_throw_styles_when_a_marked_thrower_s_teammate_stands_alone_then_no_chaos_throw() {
+        let scenario = with_styles(marked_thrower_with_the_ball());
+        assert!(!matches!(
+            styled_command_of(scenario, Style::second(Appetite::cautious())),
+            Command::Act(Activation {
+                action: Some(Action::Throw {
+                    style: ThrowStyle::Chaos,
+                    ..
+                }),
+                ..
+            })
+        ));
     }
 
     fn rules_where_goblins_act_often_at_a_cost() -> Ruleset {

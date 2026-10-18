@@ -1,8 +1,14 @@
 //! What a planned activation risks, computed exactly before any die is rolled.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::arena::Arena;
+use crate::bounces::{
+    CHAOS_BOUNCES, MOST_DIRECTION_ROLLS, MOST_MOVES_IN_A_BOUNCE, direction_die, landing,
+    settling_square,
+};
 use crate::command::{Action, Activation, AssaultStyle, ThrowStyle};
 use crate::flight::squares_crossed;
 use crate::odds::{AgilityDice, ContestDice, Probability, agility_success};
@@ -82,13 +88,16 @@ pub enum ActionOdds {
         /// Chance nobody falls: a tie, under rules where ties stand off.
         stand_off: Probability,
     },
-    /// Chances of a chaos throw: no throw roll and no catch, only the interceptions on the way.
+    /// Chances of a chaos throw: no throw roll and no catch, the interceptions on the way, then
+    /// three bounces from the receiver's square that a teammate has to end up holding.
     Chaos {
         /// The teammate the ball flies towards.
         receiver: GoblinId,
         /// Each opponent on or next to the flight line, in order, with its chance to intercept.
         interceptions: Vec<(GoblinId, Probability)>,
-        /// Chance nobody intercepts it, so the turn goes on.
+        /// Chance a teammate holds the ball once its three bounces are over.
+        kept: Probability,
+        /// Chance nobody intercepts it and a teammate holds it after its bounces, so the turn goes on.
         success: Probability,
     },
     /// Chances along a throw: the throw roll, each interception, the catch.
@@ -298,7 +307,7 @@ pub fn activation_odds(
     } else {
         activation
             .action
-            .map(|action| action_odds(ruleset, &sketch, id, action))
+            .map(|action| action_odds(arena, ruleset, &sketch, id, action))
     };
     let action_success = match &action {
         None | Some(ActionOdds::Stance | ActionOdds::Focus) => Probability::CERTAIN,
@@ -400,6 +409,7 @@ pub fn board_after_success(
 }
 
 fn action_odds(
+    arena: &Arena,
     ruleset: &Ruleset,
     sketch: &GameState,
     actor: GoblinId,
@@ -436,7 +446,7 @@ fn action_odds(
         Action::Throw {
             receiver,
             style: ThrowStyle::Chaos,
-        } => chaos_odds(ruleset, sketch, actor, receiver),
+        } => chaos_odds(arena, ruleset, sketch, actor, receiver),
     }
 }
 
@@ -558,8 +568,10 @@ fn interception_chances(
         .collect()
 }
 
-/// Chances of a chaos throw towards `receiver`: only interceptions can stop it.
+/// Chances of a chaos throw towards `receiver`: each interception on the way, then a teammate
+/// holding the ball once it bounced three times from the receiver's square.
 fn chaos_odds(
+    arena: &Arena,
     ruleset: &Ruleset,
     sketch: &GameState,
     thrower: GoblinId,
@@ -571,16 +583,108 @@ fn chaos_odds(
         .zip(to)
         .map(|(from, to)| interception_chances(ruleset, sketch, from, to, thrower.team))
         .unwrap_or_default();
+    let kept = to.map_or(Probability::IMPOSSIBLE, |to| {
+        ChaosBounces::new(arena, ruleset, sketch, thrower.team).chance_kept_from(to)
+    });
     let success = interceptions
         .iter()
-        .fold(Probability::CERTAIN, |chance, (_, interception)| {
+        .fold(kept, |chance, (_, interception)| {
             chance.and(interception.complement())
         });
     ActionOdds::Chaos {
         receiver,
         interceptions,
+        kept,
         success,
     }
+}
+
+/// The bounces of a ball thrown into chaos, weighed for the chance a goblin of `team` ends up
+/// holding it: every square the direction die may send it to, each catch a goblin standing there
+/// may make or miss, the ball going on past a miss or a goblin lying down.
+struct ChaosBounces<'a> {
+    arena: &'a Arena,
+    ruleset: &'a Ruleset,
+    state: &'a GameState,
+    team: TeamId,
+    known: HashMap<(Square, u8, usize), f64>,
+}
+
+impl<'a> ChaosBounces<'a> {
+    fn new(arena: &'a Arena, ruleset: &'a Ruleset, state: &'a GameState, team: TeamId) -> Self {
+        Self {
+            arena,
+            ruleset,
+            state,
+            team,
+            known: HashMap::new(),
+        }
+    }
+
+    /// Chance a teammate holds the ball once it bounced [`CHAOS_BOUNCES`] times from `square`.
+    fn chance_kept_from(mut self, square: Square) -> Probability {
+        Probability::nearest(self.kept(square, CHAOS_BOUNCES, 0))
+    }
+
+    /// Chance a teammate ends up holding a ball on `square` with `bounces_left` bounces to make,
+    /// `moves` squares into the current one; a bounce sent on [`MOST_MOVES_IN_A_BOUNCE`] times in a
+    /// row counts as lost.
+    fn kept(&mut self, square: Square, bounces_left: u8, moves: usize) -> f64 {
+        if bounces_left == 0 || moves == MOST_MOVES_IN_A_BOUNCE {
+            return 0.0;
+        }
+        if let Some(chance) = self.known.get(&(square, bounces_left, moves)) {
+            return *chance;
+        }
+        let chance = bounce_chances(self.arena, self.ruleset, square)
+            .into_iter()
+            .map(|(to, weight)| weight * self.kept_after_landing(to, bounces_left, moves))
+            .sum();
+        self.known.insert((square, bounces_left, moves), chance);
+        chance
+    }
+
+    fn kept_after_landing(&mut self, square: Square, bounces_left: u8, moves: usize) -> f64 {
+        let state = self.state;
+        let Some(goblin) = state.goblin_at(square) else {
+            return self.kept(square, bounces_left - 1, 0);
+        };
+        if !goblin.is_standing() {
+            return self.kept(square, bounces_left, moves + 1);
+        }
+        let catch = share(agility_success(
+            goblin.characteristics.agility,
+            opponents_in_reach(self.ruleset, state, square, goblin.team()),
+            self.ruleset.ball_roll_target,
+        ));
+        let caught_by_a_teammate = if goblin.team() == self.team {
+            catch
+        } else {
+            0.0
+        };
+        caught_by_a_teammate + (1.0 - catch) * self.kept(square, bounces_left, moves + 1)
+    }
+}
+
+/// Where a ball on `from` may bounce, with the chance of each square: the in-bounds squares the
+/// direction die points to, alike, and its settling square once every roll pointed out of bounds.
+fn bounce_chances(arena: &Arena, ruleset: &Ruleset, from: Square) -> Vec<(Square, f64)> {
+    let faces = direction_die(ruleset);
+    let landings: Vec<Square> = (1..=faces)
+        .filter_map(|face| landing(arena, ruleset, from, face))
+        .collect();
+    let pointing_out = (f64::from(faces) - landings.len() as f64) / f64::from(faces);
+    let out_every_roll = (0..MOST_DIRECTION_ROLLS).fold(1.0, |chance, _| chance * pointing_out);
+    let each = (1.0 - out_every_roll) / landings.len().max(1) as f64;
+    landings
+        .into_iter()
+        .map(|square| (square, each))
+        .chain((out_every_roll > 0.0).then(|| (settling_square(arena, from), out_every_roll)))
+        .collect()
+}
+
+fn share(chance: Probability) -> f64 {
+    chance.numerator() as f64 / chance.denominator() as f64
 }
 
 fn opponents_in_reach(ruleset: &Ruleset, state: &GameState, square: Square, team: TeamId) -> u8 {
@@ -1257,17 +1361,58 @@ mod tests {
             }),
         );
         let preview = odds(scenario, &chaos).unwrap();
-        assert_eq!(
-            (preview.action, preview.overall_success),
-            (
-                Some(ActionOdds::Chaos {
-                    receiver: id("H2"),
-                    interceptions: vec![(id("A1"), Probability::new(1, 2))],
-                    success: Probability::new(1, 2)
-                }),
-                Probability::new(1, 2)
-            )
-        );
+        assert!(matches!(
+            preview.action,
+            Some(ActionOdds::Chaos { interceptions, kept, success, .. })
+                if interceptions == vec![(id("A1"), Probability::new(1, 2))]
+                    && success == kept.and(Probability::new(1, 2))
+        ));
+    }
+
+    fn chaos_towards(receiver: &str) -> Activation {
+        order(
+            "H1",
+            &[],
+            Some(Action::Throw {
+                receiver: id(receiver),
+                style: ThrowStyle::Chaos,
+            }),
+        )
+    }
+
+    fn sure_hands_and_chaos(bouncing_all_around: bool) -> Scenario {
+        Scenario::new()
+            .rules(|ruleset| {
+                ruleset.throws_have_styles = true;
+                ruleset.ball_roll_target = 1;
+                ruleset.ball_bounces_all_around = bouncing_all_around;
+            })
+            .goblin("H1", Thrower, 4, 7)
+            .goblin("H2", Sprinter, 8, 7)
+            .ball_carried_by("H1")
+    }
+
+    #[test]
+    fn given_a_lone_receiver_with_sure_hands_when_previewing_a_chaos_throw_then_only_a_bounce_back_to_it_keeps_the_ball()
+     {
+        let preview = odds(sure_hands_and_chaos(true), &chaos_towards("H2")).unwrap();
+        assert!(matches!(
+            preview.action,
+            Some(ActionOdds::Chaos { kept, success, .. })
+                if kept == Probability::new(11, 64) && success == kept
+        ));
+    }
+
+    #[test]
+    fn given_a_receiver_ringed_by_teammates_with_sure_hands_when_previewing_a_chaos_throw_then_the_ball_is_kept()
+     {
+        let scenario = sure_hands_and_chaos(false)
+            .goblin("H3", Sprinter, 8, 6)
+            .goblin("H4", Sprinter, 9, 7)
+            .goblin("H5", Sprinter, 8, 8)
+            .goblin("H6", Sprinter, 7, 7);
+        let preview = odds(scenario, &chaos_towards("H2")).unwrap();
+        assert_eq!(preview.overall_success, Probability::CERTAIN);
     }
 
     #[test]

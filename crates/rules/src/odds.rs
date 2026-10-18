@@ -150,6 +150,14 @@ impl Probability {
         )
     }
 
+    /// The fraction over 2³² nearest to `chance`, capped between impossible and certain: for chances
+    /// too intricate to keep exact, such as where a ball's bounces end.
+    pub fn nearest(chance: f64) -> Probability {
+        const SHARES: u64 = 1 << 32;
+        let shares = (chance.clamp(0.0, 1.0) * SHARES as f64).round();
+        Probability::new(shares as u64, SHARES)
+    }
+
     /// Probability that this event does not happen.
     pub fn complement(self) -> Probability {
         Probability::new(self.denominator - self.numerator, self.denominator)
@@ -288,6 +296,16 @@ mod tests {
         let near_quarter = near_half.and(near_half);
 
         assert!((near_quarter.as_percentage() - 25.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn given_eleven_sixty_fourths_as_a_float_when_kept_as_a_fraction_then_eleven_sixty_fourths() {
+        assert_eq!(Probability::nearest(11.0 / 64.0), Probability::new(11, 64));
+    }
+
+    #[test]
+    fn given_a_float_above_one_when_kept_as_a_fraction_then_certain() {
+        assert_eq!(Probability::nearest(1.25), Probability::CERTAIN);
     }
 
     #[test]

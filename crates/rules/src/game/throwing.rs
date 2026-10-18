@@ -78,7 +78,7 @@ impl<D: DiceRoller> Game<D> {
 
     /// Throws the ball into chaos towards `receiver`: no throw roll; enemies near the line may
     /// intercept, which ends the turn; otherwise the ball bounces three times from the receiver's
-    /// square, and the turn goes on unless a missed bounce ends it under these rules.
+    /// square, and the turn ends on a fumble unless a teammate holds it by then.
     pub(super) fn throw_into_chaos(
         &mut self,
         thrower: GoblinId,
@@ -107,17 +107,18 @@ impl<D: DiceRoller> Game<D> {
             }
         }
         let mut from = receiver_square;
-        let mut missed_catches = Vec::new();
         for _ in 0..CHAOS_BOUNCES {
-            missed_catches.extend(self.bounce_ball(from, events));
+            self.bounce_ball(from, events);
             match self.state.ball {
                 Ball::Loose { at } => from = at,
                 Ball::Carried { .. } => break,
             }
         }
-        let a_teammate_missed = missed_catches.iter().any(|goblin| goblin.team == team);
-        (self.ruleset.missed_bounces_end_the_turn && a_teammate_missed)
-            .then_some(TurnEndReason::Fumble)
+        let a_teammate_holds_it = self
+            .state
+            .carrier()
+            .is_some_and(|carrier| carrier.team == team);
+        (!a_teammate_holds_it).then_some(TurnEndReason::Fumble)
     }
 
     fn receiver_catches(
