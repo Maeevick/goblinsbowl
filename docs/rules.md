@@ -1,10 +1,10 @@
-# Goblins Bowl, règles 0.7
+# Goblins Bowl, règles 0.8
 
 *English version below.*
 
 ## Le bowl
 
-Un grand bol rond : un disque de 21 cases de diamètre, dessiné case par case (349 cases). À chaque bout, l'arc de 11 cases au bord du bol est la **tanière** : les gobelins de gauche (domicile) défendent la tanière ouest (D), ceux de droite (visiteurs) la tanière est (V). Au nord et au sud, le bord du bol laisse de la place pour contourner.
+Un grand bol rond : un disque de 21 cases de diamètre, dessiné case par case (349 cases). À chaque bout, les 7 cases de la colonne la plus à l'extérieur sont la **tanière** : les gobelins de gauche (domicile) défendent la tanière ouest (D), ceux de droite (visiteurs) la tanière est (V). Au nord et au sud, le bord du bol laisse de la place pour contourner.
 
 ```
        .......
@@ -12,8 +12,8 @@ Un grand bol rond : un disque de 21 cases de diamètre, dessiné case par case (
     .............
    ...............
   .................
- D.................V
- D.................V
+ ...................
+ ...................
 D...................V
 D...................V
 D...................V
@@ -21,8 +21,8 @@ D...................V
 D...................V
 D...................V
 D...................V
- D.................V
- D.................V
+ ...................
+ ...................
   .................
    ...............
     .............
@@ -30,7 +30,7 @@ D...................V
        .......
 ```
 
-On se déplace et on est voisin **en ligne droite seulement** (haut, bas, gauche, droite), jamais en diagonale.
+On se déplace et on attaque **en ligne droite seulement** (haut, bas, gauche, droite), jamais en diagonale. Mais un gobelin debout pèse sur les **8 cases autour de lui**, diagonales comprises : c'est sa **zone**.
 
 ## Les équipes
 
@@ -44,7 +44,7 @@ On se déplace et on est voisin **en ligne droite seulement** (haut, bas, gauche
 
 ## Un tour
 
-Chaque équipe a **60 secondes** par tour et **12 tours par mi-temps**, deux mi-temps. Pendant son tour, chaque gobelin a son **Mouvement** en cases et **une action** : **Assaut** ou **Lancer**. Il les dépense en autant d'ordres que tu veux, quand tu veux : il peut avancer, agir, laisser jouer un coéquipier, puis repartir avec les cases qui lui restent, sans jamais traverser personne.
+Chaque équipe a **60 secondes** par tour et **12 tours par mi-temps**, deux mi-temps. Pendant son tour, chaque gobelin a son **Mouvement** en cases et peut faire **un Assaut, un Lancer et une Garde**, une fois chacun, dans l'ordre qu'il veut. Un Assaut ou un Lancer **coûte 1 case** de Mouvement, une Garde coûte **toutes les cases qui restent**. Il dépense tout ça en autant d'ordres que tu veux, quand tu veux : il peut avancer, agir, laisser jouer un coéquipier, puis repartir avec les cases qui lui restent, sans jamais traverser personne. Un gobelin qui n'a plus de case ne peut plus agir.
 
 Le tour s'arrête quand tu appuies sur **Fin du tour**, quand le temps est écoulé, quand une équipe marque ou quand une action rate, même si plus aucun gobelin ne peut jouer.
 
@@ -52,32 +52,34 @@ Le tour s'arrête quand tu appuies sur **Fin du tour**, quand le temps est écou
 
 ## Se battre
 
-Le chiffre Δ = mon dé moins le dé adverse. **En cas d'égalité, celui qui agit gagne.**
+Le chiffre Δ = mon dé moins le dé adverse.
 
-- **Assaut** sur un ennemi voisin, si je ne porte pas la balle : je lance mon dé d'Attaque, il lance son dé de Défense.
-  - Je gagne : il tombe, lâche la balle et perd Δ points de Santé (rien si égalité).
+- **Assaut** sur un ennemi voisin en ligne droite, si je ne porte pas la balle : je lance mon dé d'Attaque, il lance son dé de Défense. Le gobelin qui porte la balle se défend avec −1.
+  - Je gagne : il tombe, lâche la balle et perd Δ points de Santé.
+  - **Égalité : personne ne tombe**, et le tour continue.
   - Je perds : c'est moi qui tombe, je perds Δ − 1 points de Santé (rien si je perds de 1), et **le tour s'arrête**.
-- **Esquive** : quand je quitte une case à côté d'un ennemi debout, je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi, et il faut faire **2 ou plus**. Si je rate, je tombe sur place, je perds en Santé ce qui me manquait moins 1 (rien s'il ne manquait que 1) et **le tour s'arrête**. Un Cogneur (dé à 3 faces) n'échappe qu'à un seul ennemi, une fois sur trois.
+- **Garde** : je me mets en garde, +1 à ma Défense jusqu'au prochain tour de mon équipe. Ça coûte toutes les cases qu'il me reste.
+- **Esquive** : quand je quitte une case dans la zone d'un ennemi debout, je lance mon dé d'Agilité, j'enlève 1 par ennemi debout autour de moi (les 8 cases), et il faut faire **2 ou plus**. Si je rate, je tombe sur place, je perds en Santé ce qui me manquait moins 1 (rien s'il ne manquait que 1) et **le tour s'arrête**. Un Cogneur (dé à 3 faces) n'échappe qu'à un seul ennemi, une fois sur trois.
 
 ## La balle
 
-Lancer de balle : je lance mon dé d'Agilité, j'enlève 1 par ennemi debout à côté de moi, et il faut faire **2 ou plus** (un 1 rate toujours).
+Lancer de balle : je lance mon dé d'Agilité, j'enlève 1 par ennemi debout autour de moi (les 8 cases), et il faut faire **2 ou plus** (un 1 rate toujours).
 
 - **Ramasser** : obligatoire quand j'entre sur la case de la balle.
-- **Lancer** (c'est mon action) : vers un coéquipier debout, à n'importe quelle distance, avec −1 par case au-delà de 6. Chaque ennemi debout sous la trajectoire tente une **interception** (encore −1 pour la surprise). Sinon, mon coéquipier doit **attraper**.
+- **Lancer** (ça coûte 1 case) : vers un coéquipier debout, à n'importe quelle distance, avec −1 par case au-delà de 6. Chaque ennemi debout sous la trajectoire **ou juste à côté** (dans les 8 cases autour d'une case survolée) tente une **interception** (encore −1 pour la surprise). Sinon, mon coéquipier doit **attraper**.
 - **Transmission** : un lancer vers un coéquipier collé à moi ne rate jamais, pas de jet de lancer ; seul mon coéquipier lance son jet pour attraper.
 - **Attraper** : quand la balle arrive sur moi (passe, transmission, rebond, coup d'envoi).
 - Un ramassage ou un lancer raté par mon équipe pendant son tour, ma passe ou ma transmission pas attrapée, ou une interception : c'est un **fumble**, la balle rebondit et **le tour s'arrête**. Rater une balle qui rebondit n'arrête jamais le tour.
 
-La balle rebondit d'une case au hasard (dé à 4 faces : 1 haut, 2 droite, 3 bas, 4 gauche), jamais hors du bowl.
+La balle rebondit sur l'une des 8 cases autour, au hasard (dé à 8 faces dans le sens des aiguilles d'une montre : 1 haut, 2 haut-droite, 3 droite, 4 bas-droite, 5 bas, 6 bas-gauche, 7 gauche, 8 haut-gauche), jamais hors du bowl.
 
 ## Tomber, être KO
 
-Un gobelin à terre ne bloque plus personne, lâche la balle et peut encore être attaqué (avec −2 à sa Défense). Il se relève tout seul au début du tour suivant de son équipe, mais ne joue pas pendant ce tour-là. La Santé compte pour tout le match, personne n'en récupère. À 0 Santé, il est **KO** : il sort pour le reste du match.
+Un gobelin à terre n'a plus de zone, lâche la balle et peut encore être attaqué (avec −2 à sa Défense). Il se relève tout seul au début du tour suivant de son équipe, mais ne joue pas pendant ce tour-là. Un gobelin blessé ne récupère rien de tout le match. À 0 Santé, il est **KO** et sort. À chaque coup d'envoi, chaque gobelin KO lance son dé de Santé moins 1 : sur 0 il reste dehors jusqu'au coup d'envoi suivant, sinon il revient avec autant de Santé (il s'est reposé sur le banc).
 
 ## Marquer
 
-Un gobelin debout avec la balle dans la tanière ennemie marque 1 point, même pendant le tour adverse. Ensuite, **coup d'envoi** : tout le monde reprend sa place de départ sans retrouver de Santé, les KO restent dehors et les autres se répartissent les places de départ, la balle tombe chez l'équipe qui vient d'encaisser, et c'est elle qui joue en premier.
+Un gobelin debout avec la balle dans la tanière ennemie marque 1 point, même pendant le tour adverse. Ensuite, **coup d'envoi** : tout le monde reprend sa place de départ, les blessés sans retrouver de Santé, les KO tentent de revenir, ceux qui restent dehors laissent leurs places aux autres, la balle tombe chez l'équipe qui vient d'encaisser, et c'est elle qui joue en premier.
 
 ## Le coup d'envoi
 
@@ -93,30 +95,32 @@ Puis la balle tombe dans la moitié de l'équipe qui reçoit : 4 à 7 colonnes d
 
 ## Pour jouer sur papier
 
-Un quadrillage 21 × 21 où l'on recopie le disque du plan, des jetons avec les numéros et de quoi noter la Santé, une pièce pour le dé à 2 faces, un dé à 4 faces, un dé à 6 faces (qui sert aussi de dé à 3 faces : 1-2 = 1, 3-4 = 2, 5-6 = 3) et un dé à 12 faces pour le coup d'envoi. Le chronomètre du téléphone pour les 60 secondes (ou 90 pour commencer).
+Un quadrillage 21 × 21 où l'on recopie le disque du plan, des jetons avec les numéros et de quoi noter la Santé, une pièce pour le dé à 2 faces, un dé à 4 faces, un dé à 6 faces (qui sert aussi de dé à 3 faces : 1-2 = 1, 3-4 = 2, 5-6 = 3), un dé à 8 faces pour les rebonds et un dé à 12 faces pour le coup d'envoi. Pour les retours de KO, un dé à 6 ou à 8 faces : on relance au-dessus de la Santé du gobelin. Le chronomètre du téléphone pour les 60 secondes (ou 90 pour commencer).
 
 ## Quelques chances
 
-| Situation | Réussite |
+| Situation | Chances |
 |---|---|
-| Cogneur contre Cogneur | 62 % |
-| Cogneur contre Sprinteur | 88 % |
-| Cogneur contre un Cogneur à terre | 94 % |
-| Sprinteur contre Cogneur | 50 % |
+| Cogneur contre Cogneur | renverse 38 %, égalité 25 %, tombe 38 % |
+| Cogneur contre Sprinteur | renverse 62 %, égalité 25 %, tombe 12 % |
+| Cogneur contre un Sprinteur qui porte la balle | renverse 88 %, égalité 12 % |
+| Cogneur contre un Cogneur à terre | blesse 81 %, égalité 12 %, tombe 6 % |
+| Sprinteur contre Cogneur | renverse 25 %, égalité 25 %, tombe 50 % |
 | Sprinteur qui quitte 1 / 2 / 3 ennemis | 67 / 50 / 33 % |
 | Cogneur qui quitte 1 / 2 ennemis | 33 / 0 % |
-| Balle avec Agilité 6, 0 / 1 / 2 ennemis à côté | 83 / 67 / 50 % |
-| Transmission à un Sprinteur sans ennemi à côté | 83 % |
+| Balle avec Agilité 6, 0 / 1 / 2 ennemis autour | 83 / 67 / 50 % |
+| Transmission à un Sprinteur sans ennemi autour | 83 % |
+| Retour d'un KO : Cogneur / Lanceur / Sprinteur | 86 / 83 / 80 % |
 
 ---
 
-# Goblins Bowl, rules 0.7
+# Goblins Bowl, rules 0.8
 
 ## The bowl
 
-A round bowl: a pixelated disc 21 squares across (349 squares). At each end, the 11-square arc on the rim is a **den**: home defends the west den, away the east den; north and south, the rim leaves room to go round.
+A round bowl: a pixelated disc 21 squares across (349 squares). At each end, the 7 squares of the outermost column are a **den**: home defends the west den, away the east den; north and south, the rim leaves room to go round.
 
-Moves and adjacency are **orthogonal only**, never diagonal.
+Moves and assaults are **orthogonal only**, never diagonal. But a standing goblin weighs on the **eight squares around it**, diagonals included: its **reach**.
 
 ## Teams
 
@@ -130,7 +134,7 @@ Moves and adjacency are **orthogonal only**, never diagonal.
 
 ## A turn
 
-**60 seconds** per turn, **12 turns per team per half**, two halves. In its team's turn each goblin has its **Move** in steps and **one action**: **Assault** or **Throw**. It spends them over as many orders as its coach likes, in any order: it may walk, act, let a teammate play, then walk on with the steps it has left, never through a goblin.
+**60 seconds** per turn, **12 turns per team per half**, two halves. In its team's turn each goblin has its **Move** in steps and may take **one Assault, one Throw and one Stance**, once each, in any order. An Assault or a Throw **costs one step** of its Move, a Stance **every step it has left**. It spends them over as many orders as its coach likes, in any order: it may walk, act, let a teammate play, then walk on with the steps it has left, never through a goblin. A goblin with no step left can no longer act.
 
 A turn ends when its coach ends it, when its clock runs out, when a team scores or when an action fails, even once no goblin can act.
 
@@ -138,30 +142,31 @@ A turn ends when its coach ends it, when its clock runs out, when a team scores 
 
 ## Fight actions
 
-Δ = actor's roll − opponent's roll. **Ties go to the actor.**
+Δ = actor's roll − opponent's roll.
 
-- **Assault** an adjacent enemy, unless holding the ball: d(Attack) vs d(Defense). Win: it falls, drops the ball, loses Δ Health (nothing on a tie). Lose: the attacker falls, loses |Δ| − 1 Health (nothing when losing by 1), and the turn ends.
-- **Dodge**, each step out of a square next to a standing enemy: d(Agility) minus 1 per adjacent standing enemy must reach **2**. Miss: it falls where it stands, loses its shortfall minus 1 in Health (nothing when 1 short), and the turn ends. A Bruiser (d3) gets away from a single enemy one time in three, and from two never.
+- **Assault** an orthogonally adjacent enemy, unless holding the ball: d(Attack) vs d(Defense); the goblin holding the ball defends at −1. Win: it falls, drops the ball and loses Δ Health. **Tie: nobody falls** and the turn goes on. Lose: the attacker falls, loses |Δ| − 1 Health (nothing when losing by 1), and the turn ends.
+- **Stance**: +1 to the goblin's Defense until its team's next turn, at the cost of every step it has left.
+- **Dodge**, each step out of a square within a standing enemy's reach: d(Agility) minus 1 per standing enemy in the eight squares around must reach **2**. Miss: it falls where it stands, loses its shortfall minus 1 in Health (nothing when 1 short), and the turn ends. A Bruiser (d3) gets away from a single enemy one time in three, and from two never.
 
 ## Ball actions
 
-d(Agility) minus 1 per adjacent standing enemy must reach **2** (a 1 always fails).
+d(Agility) minus 1 per standing enemy in the eight squares around must reach **2** (a 1 always fails).
 
 - **Pick**: forced when entering the ball's square.
-- **Throw** (the action): to a standing teammate at any distance, −1 per step beyond 6. Each standing opponent under the flight line tries to **intercept** (extra −1 for surprise); otherwise the receiver must **catch**.
+- **Throw** (costs a step): to a standing teammate at any distance, −1 per step beyond 6. Each standing opponent under the flight line **or next to it** (in the eight squares around a square the ball flies over) tries to **intercept** (extra −1 for surprise); otherwise the receiver must **catch**.
 - **Hand-off**: a throw to an adjacent teammate never fails, with no throw roll; only the receiver rolls to catch.
 - **Catch**: a throw, a hand-off, a bounce or the kick-off.
 - A failed Pick or Throw by the active team, its own throw or hand-off not caught, or an interception, is a **fumble**: the ball bounces and the turn ends. Missing a bouncing ball never ends a turn.
 
-The ball bounces one square in a random orthogonal direction (d4: 1 north, 2 east, 3 south, 4 west), never out of the bowl.
+The ball bounces to one of the eight squares around at random (d8 clockwise from north: 1 north, 2 north-east, 3 east, 4 south-east, 5 south, 6 south-west, 7 west, 8 north-west), never out of the bowl.
 
 ## Down and knocked out
 
-A downed goblin has no reach, drops the ball and can still be assaulted (−2 Defense). It stands up at the start of its team's next turn but cannot act during it. Health lasts the whole match, nobody heals. At 0 Health it is **KO** for the rest of the match.
+A downed goblin has no reach, drops the ball and can still be assaulted (−2 Defense). It stands up at the start of its team's next turn but cannot act during it. A hurt goblin heals nothing for the whole match. At 0 Health it is **KO** and leaves the bowl. At each kick-off, each KO goblin rolls its Health die minus 1: on 0 it stays out until the next kick-off, otherwise it comes back with that much Health (it rested on the bench).
 
 ## Scoring
 
-A standing goblin holding the ball in the enemy den scores, in either team's turn. Then the **kick-off**: everyone goes back to the kick-off formation without healing, KO goblins stay out and the others share the formation's squares, the ball drops in the half of the team that conceded, and that team plays first.
+A standing goblin holding the ball in the enemy den scores, in either team's turn. Then the **kick-off**: everyone goes back to the kick-off formation, hurt goblins without healing, KO goblins try to come back, those staying out leave their squares to the others, the ball drops in the half of the team that conceded, and that team plays first.
 
 ## Kick-off formation
 
@@ -175,8 +180,23 @@ With the default team: the 3 Bruisers on the scrimmage line, the 4 Sprinters on 
 
 Then the ball drops in the receiving team's half, 4 to 7 columns behind the centre (d4 + 3) and up to 5 rows to either side (d11 − 6), and bounces three times unless a standing goblin catches it on the way.
 
+## Some odds
+
+| Situation | Odds |
+|---|---|
+| Bruiser on Bruiser | knocks down 38 %, tie 25 %, falls 38 % |
+| Bruiser on Sprinter | knocks down 62 %, tie 25 %, falls 12 % |
+| Bruiser on a Sprinter holding the ball | knocks down 88 %, tie 12 % |
+| Bruiser on a downed Bruiser | hurts 81 %, tie 12 %, falls 6 % |
+| Sprinter on Bruiser | knocks down 25 %, tie 25 %, falls 50 % |
+| Sprinter leaving 1 / 2 / 3 enemies | 67 / 50 / 33 % |
+| Bruiser leaving 1 / 2 enemies | 33 / 0 % |
+| Ball roll with Agility 6, 0 / 1 / 2 enemies around | 83 / 67 / 50 % |
+| Hand-off to a Sprinter with no enemy around | 83 % |
+| Back from a knock-out: Bruiser / Thrower / Sprinter | 86 / 83 / 80 % |
+
 ## Paper playtest kit
 
-A 21 × 21 grid with the disc of the French plan drawn on it, numbered tokens and a way to mark Health, a coin for the d2, a d4, a d6 (also the d3: 1-2, 3-4, 5-6) and a d12 for the kick-off (reroll the 12), and a phone timer (90 s for the first games).
+A 21 × 21 grid with the disc of the French plan drawn on it, numbered tokens and a way to mark Health, a coin for the d2, a d4, a d6 (also the d3: 1-2, 3-4, 5-6), a d8 for bounces and a d12 for the kick-off (reroll the 12); for returns from a knock-out, a d6 or a d8 rerolled above the goblin's Health. A phone timer (90 s for the first games).
 
 Every number above is tunable in `rules.toml`.
