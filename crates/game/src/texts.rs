@@ -12,6 +12,7 @@ use goblins_rules::team::TeamId;
 
 use crate::beats::ShownRoll;
 use crate::final_whistle::SheetEntry;
+use crate::orders::Variation;
 
 const FRENCH_QUIPS: [&str; 16] = [
     "Un dokkaebi a perdu son gourdin magique. Il fouille sous les gradins.",
@@ -145,6 +146,45 @@ impl Texts {
     /// Label of the stance button.
     pub fn stance_button(&self) -> &'static str {
         if self.french() { "Garde" } else { "Stance" }
+    }
+
+    /// Label of the focus button.
+    pub fn focus_button(&self) -> &'static str {
+        if self.french() {
+            "Concentration"
+        } else {
+            "Focus"
+        }
+    }
+
+    /// Name of a way to play an assault or a throw, as its button shows it.
+    pub fn variation_name(&self, variation: Variation) -> &'static str {
+        match (variation, self.french()) {
+            (Variation::Simple, _) => "Simple",
+            (Variation::Chirurgical, true) => "Chirurgical",
+            (Variation::Chirurgical, false) => "Accurate",
+            (Variation::Brutal, _) => "Brutal",
+            (Variation::Projection, _) => "Projection",
+            (Variation::Chaos, _) => "Chaos",
+        }
+    }
+
+    /// Hint shown while the coach must pick how to play the aimed assault or throw.
+    pub fn pick_a_variation(&self) -> &'static str {
+        if self.french() {
+            "Choisis comment jouer l'ordre ci-dessous"
+        } else {
+            "Pick how to play the order below"
+        }
+    }
+
+    /// Line shown while the coach picks where a projected goblin falls.
+    pub fn choose_landing(&self) -> &'static str {
+        if self.french() {
+            "Projection : clique la case où il tombe"
+        } else {
+            "Projection: click the square where it falls"
+        }
     }
 
     /// Label of the cancel button.

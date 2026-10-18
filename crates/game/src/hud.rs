@@ -539,6 +539,32 @@ pub(crate) fn button(
     )
 }
 
+/// A button smaller than [`button`], for choices that come in a row.
+pub(crate) fn small_button(
+    label: &str,
+    font: &Handle<Font>,
+    label_marker: impl Component,
+) -> impl Bundle {
+    (
+        Button,
+        Hovered::default(),
+        Node {
+            padding: UiRect::axes(px(16), px(8)),
+            border: UiRect::all(px(3)),
+            border_radius: BorderRadius::all(px(12)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BorderColor::all(BUTTON_BORDER),
+        BackgroundColor(BUTTON_IDLE),
+        children![(
+            text_bundle(label, font, 20.0, Color::srgb(1.0, 0.95, 0.85)),
+            label_marker
+        )],
+    )
+}
+
 fn end_turn_pressed(
     _activate: On<Activate>,
     view: Res<MatchView>,

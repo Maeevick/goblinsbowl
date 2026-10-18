@@ -7,22 +7,24 @@ use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::ui_widgets::{Activate, observe};
 use goblins_rules::arena::Arena;
-use goblins_rules::command::{Action, Activation, Command};
+use goblins_rules::command::{Action, Activation, AssaultStyle, Command, ThrowStyle};
 use goblins_rules::host::{MatchSnapshot, TurnClock};
 use goblins_rules::odds::Probability;
 use goblins_rules::paths::{reachable_squares, safest_path};
-use goblins_rules::preview::activation_odds;
+use goblins_rules::preview::{ActionOdds, activation_odds};
 use goblins_rules::roster::GoblinId;
 use goblins_rules::ruleset::Ruleset;
-use goblins_rules::square::Square;
+use goblins_rules::square::{Compass, Square};
 use goblins_rules::state::{GameState, Goblin};
 use goblins_rules::team::TeamId;
-use goblins_rules::validation::validate_activation;
+use goblins_rules::validation::{projection_landing, validate_activation};
 
 use crate::bowl_view::{BoardClick, square_centre};
 use crate::goblin_cards::{CardSide, goblin_card};
 use crate::goblin_view::GoblinFigure;
-use crate::hud::{BOLD_FONT, READING_FONT, button, human_team_in_control, text_bundle};
+use crate::hud::{
+    BOLD_FONT, READING_FONT, button, human_team_in_control, small_button, text_bundle,
+};
 use crate::local_match::{MatchOrder, MatchRestarted, MatchSystems, MatchView};
 use crate::texts::Texts;
 
@@ -38,6 +40,8 @@ pub struct Draft {
     pub activation: Activation,
     /// What the coach aimed at, if anything yet.
     pub aim: Option<BoardClick>,
+    /// Whether the coach picked a projection and must now click where the target falls.
+    pub choosing_landing: bool,
 }
 
 impl Draft {
@@ -50,8 +54,188 @@ impl Draft {
                 action: None,
             },
             aim: None,
+            choosing_landing: false,
         }
     }
+
+    /// The aimed `activation`, `aim` the thing clicked.
+    pub fn aiming(activation: Activation, aim: BoardClick) -> Self {
+        Self {
+            activation,
+            aim: Some(aim),
+            choosing_landing: false,
+        }
+    }
+}
+
+/// A way to play the aimed assault or throw, picked in the order bar where the rules have styles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Variation {
+    /// The plain assault or throw.
+    Simple,
+    /// +1 to win, and the target loses no Health.
+    Chirurgical,
+    /// −1 to win, and the target loses one more Health.
+    Brutal,
+    /// −1 to win, and the target falls on a square picked around the attacker.
+    Projection,
+    /// No throw roll: the ball bounces three times from the receiver's square.
+    Chaos,
+}
+
+/// The variations offered for the aimed order of `draft`, each with the chance it does what it is
+/// played for (a knock-down for an assault, the turn going on for a throw); none where the rules
+/// have no styles for that action, so a second click on the aim still sends it.
+pub fn variations(
+    arena: &Arena,
+    ruleset: &Ruleset,
+    state: &GameState,
+    team: TeamId,
+    draft: &Draft,
+) -> Vec<(Variation, Probability)> {
+    let candidates: &[Variation] = match draft.activation.action {
+        Some(Action::Assault { .. }) if ruleset.assaults_have_styles => &[
+            Variation::Simple,
+            Variation::Chirurgical,
+            Variation::Brutal,
+            Variation::Projection,
+        ],
+        Some(Action::Throw { .. }) if ruleset.throws_have_styles => {
+            &[Variation::Simple, Variation::Chaos]
+        }
+        _ => &[],
+    };
+    candidates
+        .iter()
+        .filter_map(|variation| {
+            let activation = varied(arena, state, &draft.activation, *variation)?;
+            let odds = activation_odds(arena, ruleset, state, team, &activation).ok()?;
+            let chance = match &odds.action {
+                Some(ActionOdds::Assault { knock_down, .. }) => odds.path_success.and(*knock_down),
+                _ => odds.overall_success,
+            };
+            Some((*variation, chance))
+        })
+        .collect()
+}
+
+/// What picking `variation` in the order bar does: sends the aimed order in that style, or, for a
+/// projection, waits for the square where the target falls.
+pub fn pick_variation(
+    arena: &Arena,
+    ruleset: &Ruleset,
+    state: &GameState,
+    team: TeamId,
+    draft: &Draft,
+    variation: Variation,
+) -> Reaction {
+    if variation == Variation::Projection {
+        return Reaction::Prepare(Draft {
+            choosing_landing: true,
+            ..draft.clone()
+        });
+    }
+    varied(arena, state, &draft.activation, variation)
+        .filter(|activation| validate_activation(arena, ruleset, state, team, activation).is_ok())
+        .map_or(Reaction::Ignore, Reaction::Send)
+}
+
+/// `activation` played in `variation`; a projection gets the first free square around the
+/// attacker, enough to tell whether one exists.
+fn varied(
+    arena: &Arena,
+    state: &GameState,
+    activation: &Activation,
+    variation: Variation,
+) -> Option<Activation> {
+    let action = match (activation.action?, variation) {
+        (Action::Assault { target, .. }, Variation::Simple) => Action::assault(target),
+        (Action::Assault { target, .. }, Variation::Chirurgical) => Action::Assault {
+            target,
+            style: AssaultStyle::Chirurgical,
+        },
+        (Action::Assault { target, .. }, Variation::Brutal) => Action::Assault {
+            target,
+            style: AssaultStyle::Brutal,
+        },
+        (Action::Assault { target, .. }, Variation::Projection) => Action::Assault {
+            target,
+            style: AssaultStyle::Projection(
+                landing_directions(arena, state, activation, target)
+                    .into_iter()
+                    .next()?,
+            ),
+        },
+        (Action::Throw { receiver, .. }, Variation::Simple) => Action::throw(receiver),
+        (Action::Throw { receiver, .. }, Variation::Chaos) => Action::Throw {
+            receiver,
+            style: ThrowStyle::Chaos,
+        },
+        _ => return None,
+    };
+    Some(Activation {
+        action: Some(action),
+        ..activation.clone()
+    })
+}
+
+/// The directions, 1 to 8 clockwise from north, a projection of `target` may land it on from the
+/// end of `activation`'s walk.
+pub fn landing_directions(
+    arena: &Arena,
+    state: &GameState,
+    activation: &Activation,
+    target: GoblinId,
+) -> Vec<Compass> {
+    let Some(start) = state.goblin(activation.goblin).and_then(Goblin::square) else {
+        return Vec::new();
+    };
+    let attacker_square = activation.path.last().copied().unwrap_or(start);
+    Compass::ALL
+        .into_iter()
+        .filter(|direction| {
+            projection_landing(
+                arena,
+                state,
+                activation.goblin,
+                attacker_square,
+                target,
+                *direction,
+            )
+            .is_some()
+        })
+        .collect()
+}
+
+/// The projection a click on `square` sends while the coach chooses where the target falls.
+fn projection_onto(
+    arena: &Arena,
+    ruleset: &Ruleset,
+    state: &GameState,
+    team: TeamId,
+    draft: &Draft,
+    square: Square,
+) -> Option<Activation> {
+    let Some(Action::Assault { target, .. }) = draft.activation.action else {
+        return None;
+    };
+    let start = state
+        .goblin(draft.activation.goblin)
+        .and_then(Goblin::square)?;
+    let attacker_square = draft.activation.path.last().copied().unwrap_or(start);
+    let direction = landing_directions(arena, state, &draft.activation, target)
+        .into_iter()
+        .find(|direction| direction.step_from(attacker_square) == Some(square))?;
+    let projection = Activation {
+        action: Some(Action::Assault {
+            target,
+            style: AssaultStyle::Projection(direction),
+        }),
+        ..draft.activation.clone()
+    };
+    validate_activation(arena, ruleset, state, team, &projection)
+        .is_ok()
+        .then_some(projection)
 }
 
 /// What a click does to the order being prepared.
@@ -149,8 +333,23 @@ pub fn react_to_click(
             _ => Reaction::Ignore,
         };
     };
+    if draft.choosing_landing {
+        let landing = match click {
+            BoardClick::Square(square) => Some(square),
+            BoardClick::Goblin(goblin) => state.goblin(goblin).and_then(Goblin::square),
+        };
+        if let Some(projection) =
+            landing.and_then(|square| projection_onto(arena, ruleset, state, team, draft, square))
+        {
+            return Reaction::Send(projection);
+        }
+    }
     if draft.aim == Some(click) {
-        return Reaction::Send(draft.activation.clone());
+        return if variations(arena, ruleset, state, team, draft).is_empty() {
+            Reaction::Send(draft.activation.clone())
+        } else {
+            Reaction::Ignore
+        };
     }
     let selected = draft.activation.goblin;
     match click {
@@ -168,10 +367,7 @@ pub fn react_to_click(
                 action: Some(Action::throw(goblin)),
             };
             if validate_activation(arena, ruleset, state, team, &throw).is_ok() {
-                Reaction::Prepare(Draft {
-                    activation: throw,
-                    aim: Some(click),
-                })
+                Reaction::Prepare(Draft::aiming(throw, click))
             } else if can_be_activated(state, team, goblin) {
                 Reaction::Prepare(Draft::selecting(goblin))
             } else {
@@ -180,14 +376,14 @@ pub fn react_to_click(
         }
         BoardClick::Square(square) => {
             safest_path(arena, ruleset, state, selected, square).map_or(Reaction::Ignore, |path| {
-                Reaction::Prepare(Draft {
-                    activation: Activation {
+                Reaction::Prepare(Draft::aiming(
+                    Activation {
                         goblin: selected,
                         path: path.squares,
                         action: None,
                     },
-                    aim: Some(click),
-                })
+                    click,
+                ))
             })
         }
     }
@@ -242,10 +438,7 @@ fn aim_assault(
     if validate_activation(arena, ruleset, state, team, &activation).is_err() {
         return Reaction::Ignore;
     }
-    Reaction::Prepare(Draft {
-        activation,
-        aim: Some(BoardClick::Goblin(target)),
-    })
+    Reaction::Prepare(Draft::aiming(activation, BoardClick::Goblin(target)))
 }
 
 /// What is prepared once `reaction` happened: a goblin sent off stays selected, so it can keep
@@ -335,6 +528,28 @@ pub fn square_marks(
     for square in draft.activation.path.iter().copied().chain(target_square) {
         marks.insert(square, aimed);
     }
+    if draft.choosing_landing
+        && let Some(Action::Assault { target, .. }) = draft.activation.action
+        && let Some(start) = state
+            .goblin(draft.activation.goblin)
+            .and_then(Goblin::square)
+    {
+        let attacker_square = draft.activation.path.last().copied().unwrap_or(start);
+        let landing_risk = varied(arena, state, &draft.activation, Variation::Projection)
+            .and_then(|projection| activation_odds(arena, ruleset, state, team, &projection).ok())
+            .map_or(aimed.risk, |odds| risk_of(odds.overall_success));
+        for direction in landing_directions(arena, state, &draft.activation, target) {
+            if let Some(square) = direction.step_from(attacker_square) {
+                marks.insert(
+                    square,
+                    SquareMark {
+                        risk: landing_risk,
+                        aimed: true,
+                    },
+                );
+            }
+        }
+    }
     marks
 }
 
@@ -370,6 +585,29 @@ struct StanceButton;
 
 #[derive(Component)]
 struct CancelLabel;
+
+#[derive(Component)]
+struct FocusLabel;
+
+#[derive(Component)]
+struct FocusButton;
+
+#[derive(Component)]
+struct VariationRow;
+
+#[derive(Component)]
+struct VariationButton(Variation);
+
+#[derive(Component)]
+struct VariationLabel(Variation);
+
+const ALL_VARIATIONS: [Variation; 5] = [
+    Variation::Simple,
+    Variation::Chirurgical,
+    Variation::Brutal,
+    Variation::Projection,
+    Variation::Chaos,
+];
 
 #[derive(Resource)]
 struct MarkLooks(HashMap<SquareMark, Handle<StandardMaterial>>);
@@ -415,6 +653,8 @@ impl Plugin for OrdersPlugin {
                     follow_selected_goblin,
                     refresh_order_bar,
                     refresh_stance_button,
+                    refresh_focus_button,
+                    refresh_variation_buttons,
                 )
                     .chain()
                     .in_set(MatchSystems::Present),
@@ -505,6 +745,17 @@ fn spawn_order_bar(mut commands: Commands, assets: Res<AssetServer>, texts: Res<
             ),
             (
                 Node {
+                    column_gap: px(8),
+                    row_gap: px(8),
+                    flex_wrap: FlexWrap::Wrap,
+                    max_width: px(560),
+                    ..default()
+                },
+                Pickable::IGNORE,
+                VariationRow,
+            ),
+            (
+                Node {
                     column_gap: px(12),
                     ..default()
                 },
@@ -516,6 +767,11 @@ fn spawn_order_bar(mut commands: Commands, assets: Res<AssetServer>, texts: Res<
                         observe(stance_pressed)
                     ),
                     (
+                        button(texts.focus_button(), &bold, FocusLabel),
+                        FocusButton,
+                        observe(focus_pressed)
+                    ),
+                    (
                         button(texts.cancel_button(), &bold, CancelLabel),
                         observe(cancel_pressed)
                     ),
@@ -523,6 +779,82 @@ fn spawn_order_bar(mut commands: Commands, assets: Res<AssetServer>, texts: Res<
             ),
         ],
     ));
+    commands.queue(move |world: &mut World| {
+        let row = world
+            .query_filtered::<Entity, With<VariationRow>>()
+            .iter(world)
+            .next();
+        let Some(row) = row else {
+            return;
+        };
+        for variation in ALL_VARIATIONS {
+            let label = texts_name(world, variation);
+            let bold = bold.clone();
+            world.spawn((
+                small_button(&label, &bold, VariationLabel(variation)),
+                VariationButton(variation),
+                ChildOf(row),
+                observe(variation_pressed(variation)),
+            ));
+        }
+    });
+}
+
+fn texts_name(world: &World, variation: Variation) -> String {
+    world
+        .get_resource::<Texts>()
+        .map_or_else(String::new, |texts| {
+            texts.variation_name(variation).to_string()
+        })
+}
+
+fn variation_pressed(
+    variation: Variation,
+) -> impl FnMut(On<Activate>, Res<MatchView>, ResMut<PreparedOrder>, MessageWriter<MatchOrder>) {
+    move |_activate, view, mut prepared, mut orders| {
+        let (Some(draft), Some(team)) = (prepared.0.clone(), coach_giving_orders(&view.snapshot))
+        else {
+            return;
+        };
+        let reaction = pick_variation(
+            &view.arena,
+            &view.ruleset,
+            &view.snapshot.state,
+            team,
+            &draft,
+            variation,
+        );
+        if let Reaction::Send(activation) = &reaction {
+            orders.write(MatchOrder::Command {
+                team,
+                command: Command::Act(activation.clone()),
+            });
+        }
+        prepared.0 = prepared_after(reaction, Some(draft));
+    }
+}
+
+fn focus_pressed(
+    _activate: On<Activate>,
+    view: Res<MatchView>,
+    mut prepared: ResMut<PreparedOrder>,
+    mut orders: MessageWriter<MatchOrder>,
+) {
+    let Some(draft) = prepared.0.take() else {
+        return;
+    };
+    if let Some(team) = coach_giving_orders(&view.snapshot) {
+        let order = Activation {
+            goblin: draft.activation.goblin,
+            path: Vec::new(),
+            action: Some(Action::Focus),
+        };
+        prepared.0 = prepared_after(Reaction::Send(order.clone()), None);
+        orders.write(MatchOrder::Command {
+            team,
+            command: Command::Act(order),
+        });
+    }
 }
 
 fn stance_pressed(
@@ -697,6 +1029,72 @@ fn refresh_stance_button(
     }
 }
 
+fn refresh_focus_button(
+    view: Res<MatchView>,
+    prepared: Res<PreparedOrder>,
+    mut focus_button: Single<&mut Node, (With<FocusButton>, Without<StanceButton>)>,
+) {
+    let focuses = prepared.0.as_ref().is_some_and(|draft| {
+        view.snapshot
+            .state
+            .goblin(draft.activation.goblin)
+            .is_some_and(|goblin| {
+                goblin.may_act_after(Action::Focus, draft.activation.path.len(), &view.ruleset)
+            })
+    });
+    let display = if focuses {
+        Display::Flex
+    } else {
+        Display::None
+    };
+    if focus_button.display != display {
+        focus_button.display = display;
+    }
+}
+
+fn refresh_variation_buttons(
+    view: Res<MatchView>,
+    prepared: Res<PreparedOrder>,
+    texts: Res<Texts>,
+    mut buttons: Query<(&VariationButton, &mut Node)>,
+    mut labels: Query<(&VariationLabel, &mut Text)>,
+) {
+    let offered = match (&prepared.0, coach_giving_orders(&view.snapshot)) {
+        (Some(draft), Some(team)) if draft.aim.is_some() && !draft.choosing_landing => variations(
+            &view.arena,
+            &view.ruleset,
+            &view.snapshot.state,
+            team,
+            draft,
+        ),
+        _ => Vec::new(),
+    };
+    for (button, mut node) in &mut buttons {
+        let display = if offered.iter().any(|(variation, _)| *variation == button.0) {
+            Display::Flex
+        } else {
+            Display::None
+        };
+        if node.display != display {
+            node.display = display;
+        }
+    }
+    for (label, mut text) in &mut labels {
+        if let Some((variation, chance)) =
+            offered.iter().find(|(variation, _)| *variation == label.0)
+        {
+            let wanted = format!(
+                "{} {}",
+                texts.variation_name(*variation),
+                texts.chance(*chance)
+            );
+            if text.0 != wanted {
+                text.0 = wanted;
+            }
+        }
+    }
+}
+
 fn refresh_order_bar(
     view: Res<MatchView>,
     prepared: Res<PreparedOrder>,
@@ -712,15 +1110,31 @@ fn refresh_order_bar(
     };
     bar.set_if_neq(Visibility::Inherited);
     let state = &view.snapshot.state;
-    let odds = draft.aim.and_then(|_| {
-        activation_odds(&view.arena, &view.ruleset, state, team, &draft.activation).ok()
+    let shown = if draft.choosing_landing {
+        varied(&view.arena, state, &draft.activation, Variation::Projection)
+    } else {
+        Some(draft.activation.clone())
+    };
+    let odds = draft.aim.and(shown).and_then(|activation| {
+        activation_odds(&view.arena, &view.ruleset, state, team, &activation).ok()
     });
+    let hint = if variations(&view.arena, &view.ruleset, state, team, draft).is_empty() {
+        texts.confirm_hint()
+    } else {
+        texts.pick_a_variation()
+    };
     let (line, colour, dice, hint) = match odds {
+        Some(odds) if draft.choosing_landing => (
+            texts.choose_landing().to_string(),
+            risk_colour(risk_of(odds.overall_success)),
+            texts.dice_detail(&odds),
+            String::new(),
+        ),
         Some(odds) => (
             texts.describe_draft(&draft.activation, &odds),
             risk_colour(risk_of(odds.overall_success)),
             texts.dice_detail(&odds),
-            texts.confirm_hint().to_string(),
+            hint.to_string(),
         ),
         None => (
             texts.pick_a_target().to_string(),
@@ -802,14 +1216,14 @@ mod tests {
     }
 
     fn aimed(goblin: &str, path: &[(u8, u8)], action: Option<Action>, aim: BoardClick) -> Draft {
-        Draft {
-            activation: Activation {
+        Draft::aiming(
+            Activation {
                 goblin: id(goblin),
                 path: path.iter().map(|(x, y)| square(*x, *y)).collect(),
                 action,
             },
-            aim: Some(aim),
-        }
+            aim,
+        )
     }
 
     fn started(seats: [SeatKind; 2]) -> MatchSnapshot {
@@ -1046,6 +1460,135 @@ mod tests {
             react(&state, Some(&draft), click),
             Reaction::Send(draft.activation.clone())
         );
+    }
+
+    fn with_styles() -> Ruleset {
+        Ruleset {
+            assaults_have_styles: true,
+            throws_have_styles: true,
+            ..Ruleset::default()
+        }
+    }
+
+    fn react_with_styles(state: &GameState, draft: &Draft, click: BoardClick) -> Reaction {
+        react_to_click(
+            &Arena::bowl_15(),
+            &with_styles(),
+            state,
+            TeamId::HOME,
+            Some(draft),
+            click,
+        )
+    }
+
+    fn assault_aimed_at_a1() -> (GameState, Draft) {
+        let state = board(&[("H1", 7, 7), ("A1", 8, 7)], None);
+        let draft = aimed(
+            "H1",
+            &[],
+            Some(Action::assault(id("A1"))),
+            BoardClick::Goblin(id("A1")),
+        );
+        (state, draft)
+    }
+
+    #[test]
+    fn given_assault_styles_when_an_enemy_is_aimed_then_simple_chirurgical_brutal_and_projection_are_offered()
+     {
+        let (state, draft) = assault_aimed_at_a1();
+        let offered: Vec<Variation> = variations(
+            &Arena::bowl_15(),
+            &with_styles(),
+            &state,
+            TeamId::HOME,
+            &draft,
+        )
+        .into_iter()
+        .map(|(variation, _)| variation)
+        .collect();
+        assert_eq!(
+            offered,
+            [
+                Variation::Simple,
+                Variation::Chirurgical,
+                Variation::Brutal,
+                Variation::Projection
+            ]
+        );
+    }
+
+    #[test]
+    fn given_assault_styles_when_the_aimed_enemy_is_clicked_again_then_nothing_is_sent() {
+        let (state, draft) = assault_aimed_at_a1();
+        assert_eq!(
+            react_with_styles(&state, &draft, BoardClick::Goblin(id("A1"))),
+            Reaction::Ignore
+        );
+    }
+
+    #[test]
+    fn given_assault_styles_when_brutal_is_picked_then_a_brutal_assault_is_sent() {
+        let (state, draft) = assault_aimed_at_a1();
+        assert_eq!(
+            pick_variation(
+                &Arena::bowl_15(),
+                &with_styles(),
+                &state,
+                TeamId::HOME,
+                &draft,
+                Variation::Brutal
+            ),
+            Reaction::Send(Activation {
+                action: Some(Action::Assault {
+                    target: id("A1"),
+                    style: AssaultStyle::Brutal
+                }),
+                ..draft.activation.clone()
+            })
+        );
+    }
+
+    #[test]
+    fn given_a_projection_being_placed_when_the_square_south_of_the_attacker_is_clicked_then_the_projection_lands_there()
+     {
+        let (state, draft) = assault_aimed_at_a1();
+        let placing = Draft {
+            choosing_landing: true,
+            ..draft.clone()
+        };
+        assert_eq!(
+            react_with_styles(&state, &placing, BoardClick::Square(square(7, 8))),
+            Reaction::Send(Activation {
+                action: Some(Action::Assault {
+                    target: id("A1"),
+                    style: AssaultStyle::Projection(Compass::South)
+                }),
+                ..draft.activation.clone()
+            })
+        );
+    }
+
+    #[test]
+    fn given_throw_styles_when_a_carrier_that_has_not_moved_aims_a_teammate_then_simple_and_chaos_are_offered()
+     {
+        let state = board(&[("H9", 5, 7), ("H5", 9, 7)], Some("H9"));
+        let draft = aimed(
+            "H9",
+            &[],
+            Some(Action::throw(id("H5"))),
+            BoardClick::Goblin(id("H5")),
+        );
+        let offered: Vec<Variation> = variations(
+            &Arena::bowl_15(),
+            &with_styles(),
+            &state,
+            TeamId::HOME,
+            &draft,
+        )
+        .into_iter()
+        .map(|(variation, _)| variation)
+        .collect();
+        assert_eq!(offered, [Variation::Simple, Variation::Chaos]);
     }
 
     #[test]
