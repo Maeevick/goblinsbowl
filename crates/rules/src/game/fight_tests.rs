@@ -10,6 +10,8 @@ use crate::state::{Ball, Presence};
 use crate::team::TeamId;
 use crate::violation::RuleViolation;
 
+const BOUNCE_NORTH: u8 = 1;
+
 fn id(text: &str) -> GoblinId {
     text.parse().unwrap()
 }
@@ -125,6 +127,20 @@ fn given_ties_that_stand_off_when_the_carrier_ties_then_it_keeps_the_ball() {
         .game([3, 3]);
     game.apply(TeamId::HOME, assault("H1", &[], "A1")).unwrap();
     assert_eq!(game.state().ball, Ball::Carried { by: id("A1") });
+}
+
+#[test]
+fn given_a_carrier_malus_of_one_when_the_carrier_is_assaulted_then_its_roll_loses_one() {
+    let mut game = bruisers_face_to_face()
+        .rules(|ruleset| ruleset.carrier_defense_malus = 1)
+        .ball_carried_by("A1")
+        .game([3, 3, BOUNCE_NORTH]);
+    let events = game.apply(TeamId::HOME, assault("H1", &[], "A1")).unwrap();
+    assert!(matches!(
+        events.first(),
+        Some(GameEvent::AssaultResolved { contest, .. })
+            if (contest.opponent_modifier, contest.margin) == (-1, 1)
+    ));
 }
 
 #[test]

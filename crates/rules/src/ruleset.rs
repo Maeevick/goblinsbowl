@@ -105,6 +105,9 @@ pub struct Ruleset {
     /// nobody falls and the turn goes on.
     #[serde(default = "ties_knock_down")]
     pub assault_ties_knock_down: bool,
+    /// Malus on the defense roll of the goblin holding the ball when it is assaulted.
+    #[serde(default)]
+    pub carrier_defense_malus: u8,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -211,6 +214,7 @@ impl Default for Ruleset {
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
             assault_ties_knock_down: ties_knock_down(),
+            carrier_defense_malus: 0,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

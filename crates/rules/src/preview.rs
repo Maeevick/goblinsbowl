@@ -121,7 +121,8 @@ pub fn stance_bonus(ruleset: &Ruleset, state: &GameState, id: GoblinId) -> u8 {
 }
 
 /// The dice of `attacker` assaulting `defender`: Attack against Defense plus the defender's Stance
-/// bonus, minus the downed malus when the defender lies on the ground.
+/// bonus, minus the downed malus when the defender lies on the ground and the carrier's malus when
+/// it holds the ball.
 pub fn assault_dice(
     ruleset: &Ruleset,
     state: &GameState,
@@ -135,7 +136,12 @@ pub fn assault_dice(
     } else {
         0
     };
-    let modifier = i16::from(stance_bonus(ruleset, state, defender)) - downed_malus;
+    let carrier_malus = if state.carrier() == Some(defender) {
+        i16::from(ruleset.carrier_defense_malus)
+    } else {
+        0
+    };
+    let modifier = i16::from(stance_bonus(ruleset, state, defender)) - downed_malus - carrier_malus;
     Some(ContestDice {
         actor_faces,
         opponent_faces: target.characteristics.defense,
@@ -672,6 +678,46 @@ mod tests {
             ))
             .map(|dice| dice.opponent_modifier),
             Some(-2)
+        );
+    }
+
+    #[test]
+    fn given_a_carrier_malus_of_one_when_reading_the_dice_against_the_carrier_then_its_die_loses_one()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.carrier_defense_malus = 1)
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Sprinter, 6, 7)
+            .ball_carried_by("A1");
+        assert_eq!(
+            dice_of(scenario, |ruleset, state| assault_dice(
+                ruleset,
+                state,
+                id("H1"),
+                id("A1")
+            ))
+            .map(|dice| dice.opponent_modifier),
+            Some(-1)
+        );
+    }
+
+    #[test]
+    fn given_a_carrier_malus_of_one_when_reading_the_dice_against_another_goblin_then_none() {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.carrier_defense_malus = 1)
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Sprinter, 6, 7)
+            .goblin("A2", Sprinter, 9, 9)
+            .ball_carried_by("A2");
+        assert_eq!(
+            dice_of(scenario, |ruleset, state| assault_dice(
+                ruleset,
+                state,
+                id("H1"),
+                id("A1")
+            ))
+            .map(|dice| dice.opponent_modifier),
+            Some(0)
         );
     }
 
