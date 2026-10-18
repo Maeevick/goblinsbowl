@@ -323,7 +323,7 @@ pub fn board_after_success(
                 goblin.in_stance = true;
             }
         }
-        Some(Action::Assault { target }) => {
+        Some(Action::Assault { target, .. }) => {
             let target_carried_the_ball = board.carrier() == Some(target);
             if let Some(defender) = board.goblin_mut(target)
                 && let Presence::Standing(square) = defender.presence
@@ -335,7 +335,7 @@ pub fn board_after_success(
                 }
             }
         }
-        Some(Action::Throw { receiver }) => board.ball = Ball::Carried { by: receiver },
+        Some(Action::Throw { receiver, .. }) => board.ball = Ball::Carried { by: receiver },
     }
     Ok(board)
 }
@@ -348,7 +348,7 @@ fn action_odds(
 ) -> ActionOdds {
     match action {
         Action::Stance => ActionOdds::Stance,
-        Action::Assault { target } => {
+        Action::Assault { target, .. } => {
             let dice = assault_dice(ruleset, sketch, actor, target);
             let chance_of = |chance: fn(ContestDice) -> Probability| {
                 dice.map_or(Probability::IMPOSSIBLE, chance)
@@ -369,7 +369,7 @@ fn action_odds(
                 stand_off,
             }
         }
-        Action::Throw { receiver } => throw_odds(ruleset, sketch, actor, receiver),
+        Action::Throw { receiver, .. } => throw_odds(ruleset, sketch, actor, receiver),
     }
 }
 
@@ -554,7 +554,7 @@ mod tests {
                 .goblin("H9", Thrower, 4, 7)
                 .goblin("H5", Sprinter, 8, 7)
                 .ball_carried_by("H9"),
-            &order("H9", &[], Some(Action::Throw { receiver: id("H5") })),
+            &order("H9", &[], Some(Action::throw(id("H5")))),
         )
         .unwrap();
         assert_eq!(
@@ -571,7 +571,7 @@ mod tests {
                 .goblin("H1", Bruiser, 5, 7)
                 .goblin("A5", Sprinter, 6, 7)
                 .ball_carried_by("A5"),
-            &order("H1", &[], Some(Action::Assault { target: id("A5") })),
+            &order("H1", &[], Some(Action::assault(id("A5")))),
         )
         .unwrap();
         assert_eq!(
@@ -874,7 +874,7 @@ mod tests {
             .goblin("H2", Sprinter, 8, 7)
             .goblin("A1", Sprinter, 6, 8)
             .ball_carried_by("H1");
-        let pass = order("H1", &[], Some(Action::Throw { receiver: id("H2") }));
+        let pass = order("H1", &[], Some(Action::throw(id("H2"))));
         assert!(matches!(
             odds(scenario, &pass).unwrap().action,
             Some(ActionOdds::Throw { interceptions, .. })
@@ -921,7 +921,7 @@ mod tests {
             .goblin("H1", Thrower, 4, 7)
             .goblin("H2", Sprinter, 5, 7)
             .ball_carried_by("H1");
-        let hand_off = order("H1", &[], Some(Action::Throw { receiver: id("H2") }));
+        let hand_off = order("H1", &[], Some(Action::throw(id("H2"))));
         let preview = odds(scenario, &hand_off).unwrap();
         assert!(matches!(
             preview.action,
@@ -984,7 +984,7 @@ mod tests {
             .goblin("H1", Bruiser, 5, 7)
             .goblin("A1", Bruiser, 6, 7)
             .edit("A1", |goblin| goblin.in_stance = true);
-        let assault = order("H1", &[], Some(Action::Assault { target: id("A1") }));
+        let assault = order("H1", &[], Some(Action::assault(id("A1"))));
         assert_eq!(
             odds(scenario, &assault).unwrap().action,
             Some(ActionOdds::Assault {
@@ -1008,7 +1008,7 @@ mod tests {
             .rules(|ruleset| ruleset.assault_ties_knock_down = false)
             .goblin("H1", Bruiser, 5, 7)
             .goblin("A1", Bruiser, 6, 7);
-        let assault = order("H1", &[], Some(Action::Assault { target: id("A1") }));
+        let assault = order("H1", &[], Some(Action::assault(id("A1"))));
         assert!(matches!(
             odds(scenario, &assault).unwrap().action,
             Some(ActionOdds::Assault { success, knock_down, stand_off, .. })
@@ -1030,7 +1030,7 @@ mod tests {
             .goblin("H1", Bruiser, 5, 7)
             .goblin("A1", Bruiser, 6, 7)
             .edit("A1", |goblin| goblin.in_stance = true);
-        let assault = order("H1", &[], Some(Action::Assault { target: id("A1") }));
+        let assault = order("H1", &[], Some(Action::assault(id("A1"))));
         assert_eq!(
             odds(scenario, &assault).unwrap().overall_success,
             Probability::new(3, 8)
@@ -1044,7 +1044,7 @@ mod tests {
             .goblin("H2", Sprinter, 8, 7)
             .goblin("A1", Sprinter, 6, 7)
             .ball_carried_by("H1");
-        let pass = order("H1", &[], Some(Action::Throw { receiver: id("H2") }));
+        let pass = order("H1", &[], Some(Action::throw(id("H2"))));
         assert_eq!(
             odds(scenario, &pass).unwrap().overall_success,
             Probability::new(9, 32)
@@ -1058,7 +1058,7 @@ mod tests {
             .goblin("H2", Sprinter, 8, 7)
             .goblin("A1", Sprinter, 6, 7)
             .ball_carried_by("H1");
-        let pass = order("H1", &[], Some(Action::Throw { receiver: id("H2") }));
+        let pass = order("H1", &[], Some(Action::throw(id("H2"))));
         assert!(matches!(
             odds(scenario, &pass).unwrap().action,
             Some(ActionOdds::Throw { interceptions, .. })

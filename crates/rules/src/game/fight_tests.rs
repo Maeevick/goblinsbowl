@@ -25,7 +25,7 @@ fn order(goblin: &str, path: &[(u8, u8)], action: Action) -> Command {
 }
 
 fn assault(goblin: &str, path: &[(u8, u8)], target: &str) -> Command {
-    order(goblin, path, Action::Assault { target: id(target) })
+    order(goblin, path, Action::assault(id(target)))
 }
 
 fn bruisers_face_to_face() -> Scenario {

@@ -84,8 +84,8 @@ pub fn validate_activation(
         {
             Err(RuleViolation::CarrierCannotAssault { goblin: id })
         }
-        Some(Action::Assault { target }) => validate_assault(state, team, final_square, target),
-        Some(Action::Throw { receiver }) => {
+        Some(Action::Assault { target, .. }) => validate_assault(state, team, final_square, target),
+        Some(Action::Throw { receiver, .. }) => {
             validate_throw(state, team, id, &activation.path, receiver)
         }
     }
@@ -193,9 +193,7 @@ mod tests {
             .ball_carried_by("H1")
             .game([]);
         let assault = Activation {
-            action: Some(Action::Assault {
-                target: "A1".parse().unwrap(),
-            }),
+            action: Some(Action::assault("A1".parse().unwrap())),
             ..order("H1", &[])
         };
         assert_eq!(
@@ -222,9 +220,7 @@ mod tests {
             .ball_loose_at(4, 7)
             .game([]);
         let assault = Activation {
-            action: Some(Action::Assault {
-                target: "A1".parse().unwrap(),
-            }),
+            action: Some(Action::assault("A1".parse().unwrap())),
             ..order("H1", &[(4, 7)])
         };
         assert_eq!(

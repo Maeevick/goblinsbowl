@@ -23,7 +23,7 @@ fn order(goblin: &str, path: &[(u8, u8)], action: Option<Action>) -> Command {
 }
 
 fn assault(target: &str) -> Option<Action> {
-    Some(Action::Assault { target: id(target) })
+    Some(Action::assault(id(target)))
 }
 
 fn actions_cost_a_step(scenario: Scenario) -> Scenario {
@@ -128,7 +128,7 @@ fn given_one_action_of_each_kind_when_a_thrower_threw_then_it_may_still_assault(
     .game([3, 3, 2, 1]);
     game.apply(
         TeamId::HOME,
-        order("H9", &[], Some(Action::Throw { receiver: id("H5") })),
+        order("H9", &[], Some(Action::throw(id("H5")))),
     )
     .unwrap();
 
@@ -178,7 +178,7 @@ fn given_each_kind_once_at_a_step_each_when_a_sprinter_assaults_picks_up_and_thr
         .unwrap();
     game.apply(
         TeamId::HOME,
-        order("H5", &[], Some(Action::Throw { receiver: id("H2") })),
+        order("H5", &[], Some(Action::throw(id("H2")))),
     )
     .unwrap();
 

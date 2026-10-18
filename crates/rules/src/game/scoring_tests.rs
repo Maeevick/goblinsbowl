@@ -135,11 +135,8 @@ fn given_a_throw_caught_in_the_enemy_den_when_resolved_then_its_team_scores() {
         .goblin("H3", Sprinter, 3, 3)
         .ball_carried_by("H1")
         .game([3, 3, KICK_OFF_BOUNCE_NORTH]);
-    game.apply(
-        TeamId::HOME,
-        act("H1", &[], Some(Action::Throw { receiver: id("H2") })),
-    )
-    .unwrap();
+    game.apply(TeamId::HOME, act("H1", &[], Some(Action::throw(id("H2")))))
+        .unwrap();
     assert_eq!(game.state().score, vec![1, 0]);
 }
 

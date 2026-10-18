@@ -58,8 +58,8 @@ impl<D: DiceRoller> Game<D> {
                 self.take_stance(id, events);
                 None
             }
-            Some(Action::Assault { target }) => self.resolve_assault(id, target, events),
-            Some(Action::Throw { receiver }) => {
+            Some(Action::Assault { target, .. }) => self.resolve_assault(id, target, events),
+            Some(Action::Throw { receiver, .. }) => {
                 (!self.throw_completes(id, receiver, events)).then_some(TurnEndReason::Fumble)
             }
         };
@@ -164,9 +164,7 @@ mod tests {
         Command::Act(Activation {
             goblin: id(goblin),
             path: path.iter().map(|(x, y)| Square::new(*x, *y)).collect(),
-            action: Some(Action::Throw {
-                receiver: id(receiver),
-            }),
+            action: Some(Action::throw(id(receiver))),
         })
     }
 

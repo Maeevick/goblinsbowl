@@ -165,7 +165,7 @@ pub fn react_to_click(
             let throw = Activation {
                 goblin: selected,
                 path: draft.activation.path.clone(),
-                action: Some(Action::Throw { receiver: goblin }),
+                action: Some(Action::throw(goblin)),
             };
             if validate_activation(arena, ruleset, state, team, &throw).is_ok() {
                 Reaction::Prepare(Draft {
@@ -237,7 +237,7 @@ fn aim_assault(
     let activation = Activation {
         goblin: selected,
         path,
-        action: Some(Action::Assault { target }),
+        action: Some(Action::assault(target)),
     };
     if validate_activation(arena, ruleset, state, team, &activation).is_err() {
         return Reaction::Ignore;
@@ -324,9 +324,12 @@ pub fn square_marks(
         aimed: true,
     };
     let target_square = match draft.activation.action {
-        Some(Action::Assault { target: other } | Action::Throw { receiver: other }) => {
-            state.goblin(other).and_then(Goblin::square)
-        }
+        Some(
+            Action::Assault { target: other, .. }
+            | Action::Throw {
+                receiver: other, ..
+            },
+        ) => state.goblin(other).and_then(Goblin::square),
         Some(Action::Stance) | None => None,
     };
     for square in draft.activation.path.iter().copied().chain(target_square) {
@@ -992,12 +995,7 @@ mod tests {
         let click = BoardClick::Goblin(id("A1"));
         assert_eq!(
             react(&state, Some(&Draft::selecting(id("H1"))), click),
-            Reaction::Prepare(aimed(
-                "H1",
-                &[],
-                Some(Action::Assault { target: id("A1") }),
-                click
-            ))
+            Reaction::Prepare(aimed("H1", &[], Some(Action::assault(id("A1"))), click))
         );
     }
 
@@ -1011,7 +1009,7 @@ mod tests {
             Reaction::Prepare(aimed(
                 "H1",
                 &[(6, 7), (7, 7)],
-                Some(Action::Assault { target: id("A1") }),
+                Some(Action::assault(id("A1"))),
                 click
             ))
         );
@@ -1033,7 +1031,7 @@ mod tests {
             Reaction::Prepare(aimed(
                 "H5",
                 &[(7, 8), (7, 9), (8, 9)],
-                Some(Action::Assault { target: id("A1") }),
+                Some(Action::assault(id("A1"))),
                 click
             ))
         );
@@ -1043,7 +1041,7 @@ mod tests {
     fn given_an_aimed_assault_when_clicking_the_enemy_again_then_it_is_sent() {
         let state = board(&[("H1", 7, 7), ("A1", 8, 7)], None);
         let click = BoardClick::Goblin(id("A1"));
-        let draft = aimed("H1", &[], Some(Action::Assault { target: id("A1") }), click);
+        let draft = aimed("H1", &[], Some(Action::assault(id("A1"))), click);
         assert_eq!(
             react(&state, Some(&draft), click),
             Reaction::Send(draft.activation.clone())
@@ -1056,12 +1054,7 @@ mod tests {
         let click = BoardClick::Goblin(id("H5"));
         assert_eq!(
             react(&state, Some(&Draft::selecting(id("H9"))), click),
-            Reaction::Prepare(aimed(
-                "H9",
-                &[],
-                Some(Action::Throw { receiver: id("H5") }),
-                click
-            ))
+            Reaction::Prepare(aimed("H9", &[], Some(Action::throw(id("H5"))), click))
         );
     }
 
@@ -1284,7 +1277,7 @@ mod tests {
         let assault = aimed(
             "H1",
             &[],
-            Some(Action::Assault { target: id("A1") }),
+            Some(Action::assault(id("A1"))),
             BoardClick::Goblin(id("A1")),
         );
         let marks = square_marks(

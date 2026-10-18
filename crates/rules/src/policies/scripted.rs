@@ -446,7 +446,7 @@ impl Coach<'_> {
     fn sack(&self) -> Option<Activation> {
         let carrier = self.enemy_carrier()?;
         let target = carrier.square()?;
-        let assault = Some(Action::Assault { target: carrier.id });
+        let assault = Some(Action::assault(carrier.id));
         let candidates: Vec<_> = self
             .actors()
             .flat_map(|mover| {
@@ -527,7 +527,7 @@ impl Coach<'_> {
                         .map(move |path| Activation {
                             goblin: mover.id,
                             path,
-                            action: Some(Action::Assault { target: *marker }),
+                            action: Some(Action::assault(*marker)),
                         })
                 })
             })
@@ -590,9 +590,7 @@ impl Coach<'_> {
                 let throw = Activation {
                     goblin: carrier.id,
                     path: Vec::new(),
-                    action: Some(Action::Throw {
-                        receiver: receiver.id,
-                    }),
+                    action: Some(Action::throw(receiver.id)),
                 };
                 let odds = activation_odds(self.arena, self.ruleset, self.state, self.team, &throw)
                     .ok()?;
@@ -710,7 +708,7 @@ impl Coach<'_> {
                     .map(move |enemy| Activation {
                         goblin: mover.id,
                         path: Vec::new(),
-                        action: Some(Action::Assault { target: enemy.id }),
+                        action: Some(Action::assault(enemy.id)),
                     })
             })
             .filter_map(|activation| {
@@ -843,7 +841,7 @@ mod tests {
             Activation {
                 goblin: id("H1"),
                 path: Vec::new(),
-                action: Some(Action::Assault { target: id("A5") }),
+                action: Some(Action::assault(id("A5"))),
             }
         );
     }
@@ -886,7 +884,7 @@ mod tests {
             Activation {
                 goblin: id("H1"),
                 path: Vec::new(),
-                action: Some(Action::Assault { target: id("A5") }),
+                action: Some(Action::assault(id("A5"))),
             }
         );
     }
@@ -917,7 +915,7 @@ mod tests {
             Activation {
                 goblin: id("H9"),
                 path: Vec::new(),
-                action: Some(Action::Throw { receiver: id("H5") }),
+                action: Some(Action::throw(id("H5"))),
             }
         );
     }
@@ -1155,12 +1153,8 @@ mod tests {
                 mirrored_id(goblin),
                 destination.map(|square| mirrored_square(arena, square)),
                 action.map(|action| match action {
-                    Action::Assault { target } => Action::Assault {
-                        target: mirrored_id(target),
-                    },
-                    Action::Throw { receiver } => Action::Throw {
-                        receiver: mirrored_id(receiver),
-                    },
+                    Action::Assault { target, .. } => Action::assault(mirrored_id(target)),
+                    Action::Throw { receiver, .. } => Action::throw(mirrored_id(receiver)),
                     Action::Stance => Action::Stance,
                 }),
             )

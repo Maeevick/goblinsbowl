@@ -212,14 +212,8 @@ impl Texts {
             };
         }
         let left: Vec<&str> = [
-            (Action::Assault { target: goblin.id }, "assaut", "assault"),
-            (
-                Action::Throw {
-                    receiver: goblin.id,
-                },
-                "passe",
-                "throw",
-            ),
+            (Action::assault(goblin.id), "assaut", "assault"),
+            (Action::throw(goblin.id), "passe", "throw"),
             (Action::Stance, "garde", "stance"),
         ]
         .into_iter()
@@ -249,24 +243,26 @@ impl Texts {
         match (odds.scores_on_the_way, activation.action, self.french()) {
             (true, _, true) => format!("Marquer ! {chance}"),
             (true, _, false) => format!("Score! {chance}"),
-            (false, Some(Action::Assault { target }), french) => match stand_off_chances(odds) {
-                Some((knock_down, tie)) if french => format!(
-                    "Assaut sur {target} : renverse {} · égalité {}",
-                    self.chance(knock_down),
-                    self.chance(tie)
-                ),
-                Some((knock_down, tie)) => format!(
-                    "Assault {target}: knocks down {} · tie {}",
-                    self.chance(knock_down),
-                    self.chance(tie)
-                ),
-                None if french => format!("Assaut sur {target} : {chance}"),
-                None => format!("Assault {target}: {chance}"),
-            },
-            (false, Some(Action::Throw { receiver }), true) => {
+            (false, Some(Action::Assault { target, .. }), french) => {
+                match stand_off_chances(odds) {
+                    Some((knock_down, tie)) if french => format!(
+                        "Assaut sur {target} : renverse {} · égalité {}",
+                        self.chance(knock_down),
+                        self.chance(tie)
+                    ),
+                    Some((knock_down, tie)) => format!(
+                        "Assault {target}: knocks down {} · tie {}",
+                        self.chance(knock_down),
+                        self.chance(tie)
+                    ),
+                    None if french => format!("Assaut sur {target} : {chance}"),
+                    None => format!("Assault {target}: {chance}"),
+                }
+            }
+            (false, Some(Action::Throw { receiver, .. }), true) => {
                 format!("Passe à {receiver} : {chance}")
             }
-            (false, Some(Action::Throw { receiver }), false) => {
+            (false, Some(Action::Throw { receiver, .. }), false) => {
                 format!("Throw to {receiver}: {chance}")
             }
             (false, Some(Action::Stance), true) => format!("Garde : {chance}"),
@@ -1034,7 +1030,7 @@ mod tests {
     fn given_french_when_describing_an_aimed_assault_then_target_and_chance() {
         assert_eq!(
             FRENCH.describe_draft(
-                &order("H1", 0, Some(Action::Assault { target: id("A3") })),
+                &order("H1", 0, Some(Action::assault(id("A3")))),
                 &odds(Probability::new(5, 8), false)
             ),
             "Assaut sur A3 : 62,5 %"
@@ -1045,7 +1041,7 @@ mod tests {
     fn given_english_when_describing_an_aimed_throw_then_receiver_and_chance() {
         assert_eq!(
             ENGLISH.describe_draft(
-                &order("H9", 0, Some(Action::Throw { receiver: id("H5") })),
+                &order("H9", 0, Some(Action::throw(id("H5")))),
                 &odds(Probability::new(3, 4), false)
             ),
             "Throw to H5: 75.0 %"
@@ -1180,7 +1176,7 @@ mod tests {
         let assault = Activation {
             goblin: id("H1"),
             path: Vec::new(),
-            action: Some(Action::Assault { target: id("A1") }),
+            action: Some(Action::assault(id("A1"))),
         };
         assert_eq!(
             FRENCH.describe_draft(&assault, &preview),

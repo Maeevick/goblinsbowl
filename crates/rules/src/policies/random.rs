@@ -41,17 +41,13 @@ pub fn random_command(
             .goblins
             .iter()
             .filter(|other| other.team() != team)
-            .map(|other| Some(Action::Assault { target: other.id })),
+            .map(|other| Some(Action::assault(other.id))),
     );
     actions.extend(
         state
             .goblins_of(team)
             .filter(|teammate| teammate.id != mover)
-            .map(|teammate| {
-                Some(Action::Throw {
-                    receiver: teammate.id,
-                })
-            }),
+            .map(|teammate| Some(Action::throw(teammate.id))),
     );
     let legal_actions: Vec<_> = actions
         .into_iter()

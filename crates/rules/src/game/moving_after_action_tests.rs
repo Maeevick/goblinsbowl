@@ -49,7 +49,7 @@ fn given_a_sprinter_that_walked_two_of_its_five_squares_when_the_order_is_done_t
 #[test]
 fn given_a_bruiser_that_won_its_assault_when_ordered_to_walk_then_it_walks_its_three_steps() {
     let mut game = a_sprinter_behind_two_bruisers_face_to_face().game([4, 2]);
-    let assault = Action::Assault { target: id("A1") };
+    let assault = Action::assault(id("A1"));
     game.apply(TeamId::HOME, order("H1", &[], Some(assault)))
         .unwrap();
 
@@ -71,7 +71,7 @@ fn given_a_thrower_whose_pass_was_caught_when_ordered_to_walk_then_it_runs_on() 
             .ball_carried_by("H9"),
     )
     .game([3, 3]);
-    let pass = Action::Throw { receiver: id("H5") };
+    let pass = Action::throw(id("H5"));
     game.apply(TeamId::HOME, order("H9", &[], Some(pass)))
         .unwrap();
 
@@ -130,7 +130,7 @@ fn given_a_bruiser_that_braced_when_ordered_to_assault_then_its_action_is_alread
 
     let refusal = game.apply(
         TeamId::HOME,
-        order("H1", &[], Some(Action::Assault { target: id("A1") })),
+        order("H1", &[], Some(Action::assault(id("A1")))),
     );
 
     assert_eq!(

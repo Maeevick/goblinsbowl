@@ -223,7 +223,7 @@ mod tests {
                 TeamId::HOME,
                 id("H1"),
                 Square::new(5, 7),
-                Some(Action::Assault { target: id("A1") })
+                Some(Action::assault(id("A1")))
             ),
             Some(Probability::new(5, 8))
         );

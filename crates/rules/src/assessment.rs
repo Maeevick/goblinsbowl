@@ -452,7 +452,7 @@ mod tests {
         let assault = walk(
             "H5",
             &[(6, 7), (7, 7), (7, 6), (8, 6)],
-            Some(Action::Assault { target: id("A1") }),
+            Some(Action::assault(id("A1"))),
         );
         assert_eq!(
             described(scenario, &assault),

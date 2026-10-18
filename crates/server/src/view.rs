@@ -473,13 +473,8 @@ fn goblin_view(goblin: &Goblin, ruleset: &Ruleset) -> GoblinView {
         steps_left: goblin.steps_left,
         has_action_left: goblin.has_action_left,
         actions_left: [
-            (Action::Assault { target: goblin.id }, "assault"),
-            (
-                Action::Throw {
-                    receiver: goblin.id,
-                },
-                "throw",
-            ),
+            (Action::assault(goblin.id), "assault"),
+            (Action::throw(goblin.id), "throw"),
             (Action::Stance, "stance"),
         ]
         .into_iter()
@@ -521,9 +516,7 @@ fn assault_options(
             let order = Activation {
                 goblin: attacker.id,
                 path: Vec::new(),
-                action: Some(Action::Assault {
-                    target: defender.id,
-                }),
+                action: Some(Action::assault(defender.id)),
             };
             let odds = activation_odds(arena, ruleset, state, seat, &order).ok()?;
             let knock_down = match &odds.action {

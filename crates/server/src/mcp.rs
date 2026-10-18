@@ -612,12 +612,8 @@ impl CoachServer {
 fn parse_action(planned: &PlannedAction) -> Result<Action, String> {
     let goblin = |text: &str| text.parse::<GoblinId>().map_err(|error| format!("{error}"));
     Ok(match planned {
-        PlannedAction::Assault { target } => Action::Assault {
-            target: goblin(target)?,
-        },
-        PlannedAction::Throw { target } => Action::Throw {
-            receiver: goblin(target)?,
-        },
+        PlannedAction::Assault { target } => Action::assault(goblin(target)?),
+        PlannedAction::Throw { target } => Action::throw(goblin(target)?),
         PlannedAction::Stance => Action::Stance,
     })
 }
