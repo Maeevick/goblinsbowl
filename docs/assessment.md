@@ -86,6 +86,7 @@ An agent meeting all six manages risk well under these conditions; the report sa
 - **18 Oct 2026, later the same day, rules 0.9.** Assaults come in styles, chirurgical (+1 to win, no Health lost), brutal (−1 to win, one more Health lost) and projection (−1 to win, the target falling on a square picked around the attacker, numbered 1 to 8 clockwise from north), the style's modifier deciding who wins and the Health lost counting the dice as rolled. A goblin that has not moved may throw into chaos, with no throw roll, the ball bouncing three times from the receiver's square, or focus for +1 to its throws on its team's next turn, either one costing its whole Move. Agents order them with a `style` (and `to` for a projection) and a `focus` action, and read `focused`. No measure changed; a chaos throw and a focus cannot end the turn except by an interception, so they read as certain orders when no enemy can intercept. The second-generation bots sack and free chirurgically, finish a downed or nearly knocked-out goblin brutally, and throw into chaos when no pass is worth it; the first generation keeps simple assaults and throws.
 - **18 Oct 2026, rules 0.9 corrected.** Three points of 0.9 had been read wrongly and were put right after the designer's review. A chaos throw ends the turn on a fumble unless a teammate holds the ball once its three bounces are over: a teammate catching it on the way keeps the turn going, while a loose ball or an enemy's catch ends it. Focus belongs to the goblin holding the ball, which may no longer brace in stance (a new setting, `carriers_can_brace`, false in the shipped rules and true for older rulesets). The previous entry's note that chaos throws read as certain orders no longer holds: a chaos throw's chance is now the chance that nobody intercepts and a teammate ends up holding the ball, worked out over every square the d8 may send it to and every catch made or missed on the way, so a lone receiver keeps it about one time in seven and a ring of eight teammates with Agility 6 more than nine times in ten. A dry run gives that chance on its own line, and `actions_left` offers focus to the carrier only and no stance to it. The chance of a long plan no longer reads as certain when its fraction outgrows 64 bits; no local record was long enough for that, and the 83 local records assess exactly as before. The second-generation bots weigh a chaos throw like a pass, against their appetite for passes, towards the teammate around whom the ball is most likely kept. How the corrected 0.9 plays between bots: [`balance.md`](balance.md).
 - **18 Oct 2026, evening, rules 0.10.** After a match against `balanced-2` on the medium circle, where the bot braced 70 times and 47 of the 56 assaults were chirurgical, Stance is gone again (`goblins_can_take_stance = false`), and focus becomes part of a throw: a Thrower may throw focused, every step it has left after the throw sacrificed for +1 to its throw roll. A new setting, `focused_throws_spend_steps_left`, is true in the shipped rules; older rulesets keep the whole-turn focus of 0.9, which 0.10 refuses with its own violation. Agents order it as a throw `style`, `focused`; a dry run's throw chance counts the bonus, and `actions_left` no longer lists a stance or a focus. No measure changed: a focused throw is a throw, read with its chance like any other. The 84 local records, that match included, replay and assess. The second-generation bots weigh a Thrower's focused pass against the plain one and keep the better chance; the first generation never focuses.
+- **18 Oct 2026, night, before the fourth batch.** The fourth batch plays Haiku 5.5 against the second-generation bots (`balanced-2`, `cautious-2`, `bold-2`) under rules 0.10, with batch 3's settings: seeds 1 to 5 from both seats, full hints, 60 s turns, five matches at a time, $10 per coach run, `prompts/coach.md` unchanged. Its first launch was stopped after eight minutes and thrown away: the `play` schema still offered agents the stance and the stand-alone focus that rules 0.10 refuse, and one coach ordered a stance in its first turn. Since then the schema offers neither, the server still reading them for older rulesets, so agents see what batch 3's agents saw, whose rules had no stance either.
 
 ## Results
 
@@ -165,3 +166,42 @@ The same records, with the safe-first index of the second 17 Oct change. Only th
 
 Over the three readings of batch 3, Haiku's index went from 0.63 and 0.64 to 0.69, then to 0.78 and 0.76: about a third of the gap to 1.0 came from orders that could not have come first. The rest is real: Haiku played a risky order before another goblin's order that was already certain, often enough to stay under the 0.90 criterion.
 
+### Batch 4, 18 Oct 2026: Haiku 5.5 against the second-generation bots, rules 0.10
+
+Seeds 1 to 5 from both seats against each of `balanced-2`, `cautious-2` and `bold-2`, full hints, 60 s turns, five matches at a time, $10 per coach run, on the tiny circle of `rules.toml`; read the same night with the measures of 17 Oct, unchanged since. The 30 matches played from 22:23 to 23:34 without hitting a session limit; eight coaches stopped early and were resumed once, six were stopped by their budget, and every match reached its final whistle.
+
+| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| claude-haiku-5-5 against balanced-2 | 10 | 1-6-3 | 4-6 | 0.83 | 7.8 | 6.7 | 0.9 pts | 8 | 74.7 % | 76.5 % | 8 | 5 | 2 | 0 | $110.83 | 10.2 |
+| claude-haiku-5-5 against cautious-2 | 10 | 1-7-2 | 1-3 | 0.79 | 7.0 | 6.3 | 1.5 pts | 11 | 72.2 % | 70.6 % | 9 | 11 | 3 | 0 | $126.55 | 9.8 |
+| claude-haiku-5-5 against bold-2 | 10 | 2-3-5 | 2-6 | 0.73 | 6.4 | 6.4 | 0.9 pts | 11 | 71.8 % | 69.2 % | 12 | 10 | 3 | 0 | $115.83 | 10.7 |
+
+| Bot | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|
+| balanced-2 | 0.94 | 4.2 | 4.4 | 0.3 pts | 3 | 78.1 % | 78.3 % |
+| cautious-2 | 0.86 | 2.5 | 5.0 | 0.3 pts | 2 | 75.2 % | 71.8 % |
+| bold-2 | 0.95 | 8.6 | 5.5 | 0.3 pts | 6 | 73.2 % | 72.4 % |
+
+| Batch | Safe-first at least 0.90 | Mean gap under 5 pts | Under 10 % of risky orders 5 pts below the best | No tilt (within 5 pts after a failure) | Under one refused call per two turns | Goal difference not negative |
+|---|---|---|---|---|---|---|
+| against balanced-2 | fail | pass | pass | pass | pass | fail |
+| against cautious-2 | fail | pass | pass | pass | pass | fail |
+| against bold-2 | fail | pass | pass | pass | pass | fail |
+
+The yardstick of the results criterion, the first-generation cautious bot on the same seeds and seats (`make balance`, 5 games from each seat):
+
+| Cautious bot against | W-D-L | Goals |
+|---|---|---|
+| balanced-2 | 0-10-0 | 1-1 |
+| cautious-2 | 2-6-2 | 2-2 |
+| bold-2 | 1-6-3 | 2-4 |
+
+What the batch says:
+
+- **Haiku loses to all three bots**: 4-16-10 over the 30 matches, 7 goals for and 15 against. The cautious bot does better against each of them on the same seeds, a goal difference of 0, 0 and −2 where Haiku gets −2, −2 and −4. Ten matches per opponent leave wide margins, but the direction is the same three times.
+- **The safe-first index stays under 0.90**: 0.83, 0.79 and 0.73, close to batch 3's 0.78 and 0.76. The second-generation bots reach 0.86 to 0.95 under the same measure in the same matches, so the bar is within reach in this game.
+- **Odds are still read well.** The mean gap to the best version of each order stays between 0.9 and 1.5 points, risky orders are taken at 72 to 75 %, and the chance taken right after a failure stays within 3 points of the rest: no tilt.
+- **Haiku plays a fighting game.** It assaulted 814 times chirurgically against 298 simple assaults, 7 brutal ones and 4 projections, and threw 19 times in 30 matches, 3 of them focused, never into chaos. The bots threw 40 times in the same matches.
+- **The clock took more turns**: 29 over the 30 matches, against 6 over batch 3's 20. Ten came while the coach was gone, after a budget stop or before its resume; nineteen while it was still at work when its 60 seconds ran out, seven of them right after a preview. At about $10 of usage a match ($353 for the batch), the budget now binds.
+- **The interface holds.** 5 to 11 refused calls per batch (stale plans, squares out of the bowl or out of reach), well under the criterion, and no stance or stand-alone focus ordered after the fix. About half of the real plays came right after a preview (44 to 51 %), and 6 to 15 % of activations carried an estimate.
+- **Batch 3 is no clean baseline**: the rules (0.7 then, 0.10 now) and the opponents (first then second generation) both changed, so no difference between the two batches can be put down to Haiku alone.
