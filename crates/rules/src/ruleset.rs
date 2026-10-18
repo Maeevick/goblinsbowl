@@ -142,8 +142,9 @@ pub struct Ruleset {
     #[serde(default)]
     pub assaults_have_styles: bool,
     /// Whether a goblin that has not moved this turn may throw into chaos, with no throw roll, the
-    /// ball bouncing three times from the receiver's square, or focus, +1 to its throws on its
-    /// team's next turn; otherwise every throw is simple and nobody focuses.
+    /// ball bouncing three times from the receiver's square and the turn ending unless a teammate
+    /// then holds it, or, holding the ball, focus, +1 to its throws on its team's next turn;
+    /// otherwise every throw is simple and nobody focuses.
     #[serde(default)]
     pub throws_have_styles: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).

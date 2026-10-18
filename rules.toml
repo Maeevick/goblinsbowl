@@ -71,8 +71,8 @@ ball_bounces_all_around = true
 # Health lost) or a projection (-1 to win, the target falls on a square picked around the attacker).
 assaults_have_styles = true
 # Whether a goblin that has not moved may throw into chaos (no throw roll, the ball bouncing three
-# times from the receiver's square) or focus (+1 to its throws on its team's next turn), either one
-# costing its whole Move.
+# times from the receiver's square, the turn ending unless a teammate then holds it) or, holding the
+# ball, focus (+1 to its throws on its team's next turn), either one costing its whole Move.
 throws_have_styles = true
 
 # x out of bounds, O in bounds, H home den (west), A away den (east): 7 squares on the outermost column.

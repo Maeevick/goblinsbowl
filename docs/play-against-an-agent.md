@@ -158,7 +158,7 @@ The coach follows the loop in `prompts/coach.md`: read the rules once, wait for 
 | `play` | `activations`, `end_turn`, `dry_run`, `expected_version` | one report per order, the plan's chance for a dry run, then the view |
 | `compare_plans` | `plans`, each a list of `orders` | for each plan, one report per order and the chance that the whole plan goes through |
 
-Each entry of `activations` is an order: a goblin, where it goes with the steps it has left this turn, and optionally its action. Since rules 0.8 a goblin has its Move and may assault, throw, brace in stance and focus once each per turn, an assault or a throw costing a step and a stance every step left, spent over as many orders as the coach likes, so it can walk, act, and walk on later in the turn. Since rules 0.9 an assault takes a `style` (`simple`, `chirurgical`, `brutal`, or `projection` with `to`, the landing square around the attacker numbered 1 to 8 clockwise from north) and a goblin that has not moved may throw with `"style": "chaos"` or `focus`:
+Each entry of `activations` is an order: a goblin, where it goes with the steps it has left this turn, and optionally its action. Since rules 0.8 a goblin has its Move and may assault, throw, brace in stance and focus once each per turn, an assault or a throw costing a step and a stance every step left, spent over as many orders as the coach likes, so it can walk, act, and walk on later in the turn. Since rules 0.9 an assault takes a `style` (`simple`, `chirurgical`, `brutal`, or `projection` with `to`, the landing square around the attacker numbered 1 to 8 clockwise from north) and a goblin that has not moved may throw with `"style": "chaos"`, the turn ending unless a teammate holds the ball after its three bounces. The goblin holding the ball may not brace in stance but, when it has not moved, it may `focus`; `actions_left` lists what each goblin may still do with the ball where it is:
 
 ```json
 {"activations": [
@@ -167,7 +167,7 @@ Each entry of `activations` is an order: a goblin, where it goes with the steps 
    {"goblin": "A2", "to": [11, 10], "estimate": 1.0},
    {"goblin": "A3", "action": {"type": "assault", "target": "H3", "style": "projection", "to": 7}},
    {"goblin": "A9", "action": {"type": "throw", "target": "A5"}},
-   {"goblin": "A8", "action": {"type": "focus"}}
+   {"goblin": "A5", "action": {"type": "focus"}}
  ],
  "end_turn": true}
 ```
