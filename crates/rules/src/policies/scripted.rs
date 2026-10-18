@@ -630,7 +630,9 @@ impl Coach<'_> {
             .or_else(fairly_safe)
             .map(|path| path.squares.clone())
             .unwrap_or_default();
-        let action = self.may_brace(carrier).then_some(Action::Stance);
+        let action = self
+            .may_brace(carrier, path.len())
+            .then_some(Action::Stance);
         (!path.is_empty() || action.is_some()).then_some(Activation {
             goblin: carrier.id,
             path,
@@ -657,12 +659,14 @@ impl Coach<'_> {
             .find_map(|mover| {
                 let here = mover.square()?;
                 let path = if guard_post(here) {
-                    Vec::new()
+                    self.may_brace(mover, 0).then(Vec::new)?
                 } else {
                     self.paths(mover.id)
                         .into_iter()
                         .filter(|path| {
-                            path.success == Probability::CERTAIN && guard_post(path.destination)
+                            path.success == Probability::CERTAIN
+                                && guard_post(path.destination)
+                                && self.may_brace(mover, path.squares.len())
                         })
                         .min_by_key(|path| (path.squares.len(), self.tie_break(path.destination)))?
                         .squares
@@ -729,8 +733,8 @@ impl Coach<'_> {
                         self.tie_break(path.destination),
                     )
                 })?;
-            let braces_in_contact =
-                self.may_brace(mover) && self.enemies_next_to(best.destination) > 0;
+            let braces_in_contact = self.may_brace(mover, best.squares.len())
+                && self.enemies_next_to(best.destination) > 0;
             Some(Activation {
                 goblin: mover.id,
                 path: best.squares,
@@ -739,14 +743,18 @@ impl Coach<'_> {
         })
     }
 
-    fn may_brace(&self, goblin: &Goblin) -> bool {
-        self.ruleset.goblins_can_take_stance && goblin.has_action_left
+    /// Whether `goblin` may brace in Stance once it walked `steps_walked` squares: Stance in the
+    /// rules, still its to take, and a step left to pay for it where actions cost steps.
+    fn may_brace(&self, goblin: &Goblin, steps_walked: usize) -> bool {
+        self.ruleset.goblins_can_take_stance
+            && goblin.may_take(Action::Stance, self.ruleset)
+            && (!self.ruleset.actions_cost_a_step || steps_walked < usize::from(goblin.steps_left))
     }
 
     fn brace(&self) -> Option<Activation> {
         self.actors()
             .find(|mover| {
-                self.may_brace(mover)
+                self.may_brace(mover, 0)
                     && mover
                         .square()
                         .is_some_and(|square| self.enemies_next_to(square) > 0)
@@ -1147,6 +1155,69 @@ mod tests {
                 }),
             )
         })
+    }
+
+    fn rules_where_goblins_act_often_at_a_cost() -> Ruleset {
+        Ruleset {
+            goblins_can_take_stance: true,
+            stance_bonus_cap: 1,
+            neighbour_stance_bonus_cap: 0,
+            assault_ties_knock_down: false,
+            carrier_defense_malus: 1,
+            knocked_out_goblins_may_return: true,
+            actions_cost_a_step: true,
+            one_action_of_each_kind: true,
+            braced_tacklers_weigh_double: false,
+            reach_covers_diagonals: true,
+            ball_bounces_all_around: true,
+            ..Ruleset::default()
+        }
+    }
+
+    fn refusals_over_whole_matches(style: Style, ruleset: &Ruleset, seeds: u64) -> usize {
+        let mut refusals = 0;
+        for seed in 1..=seeds {
+            let (mut game, _) = crate::game::Game::start(
+                ruleset.clone(),
+                [crate::roster::Roster::DEFAULT; 2],
+                crate::dice::SeededDice::from_seed(seed),
+            )
+            .unwrap();
+            for _ in 0..4_000 {
+                let Some(team) = game.state().active_team() else {
+                    break;
+                };
+                let arena = game.arena().clone();
+                let rules = game.ruleset().clone();
+                let command = styled_command(&arena, &rules, game.state(), team, style);
+                if game.apply(team, command).is_err() {
+                    refusals += 1;
+                    game.apply(team, Command::EndTurn).unwrap();
+                }
+            }
+        }
+        refusals
+    }
+
+    #[test]
+    fn given_actions_at_a_step_one_of_each_kind_and_stance_when_every_coach_plays_whole_matches_then_no_order_is_refused()
+     {
+        let ruleset = rules_where_goblins_act_often_at_a_cost();
+        let first = |appetite| Style {
+            generation: Generation::First,
+            temper: Temper::Fixed(appetite),
+        };
+        assert_eq!(
+            [
+                first(Appetite::cautious()),
+                first(Appetite::bold()),
+                Style::second(Appetite::cautious()),
+                Style::balanced(),
+                Style::second(Appetite::bold()),
+            ]
+            .map(|style| refusals_over_whole_matches(style, &ruleset, 2)),
+            [0, 0, 0, 0, 0]
+        );
     }
 
     fn mirror_breaks(style: Style, seeds: std::ops::RangeInclusive<u64>, commands: usize) -> usize {
