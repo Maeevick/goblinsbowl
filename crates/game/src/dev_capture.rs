@@ -198,7 +198,7 @@ fn play_script(
         match step.input {
             ScriptedInput::Ready => {
                 if let Some(team) = team_waiting_for_ready(&view.snapshot) {
-                    *rig = CameraRig::behind(team);
+                    *rig = rig.behind(team);
                     orders.write(MatchOrder::Ready { team });
                 }
             }

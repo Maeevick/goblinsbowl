@@ -6,7 +6,7 @@ use bevy::input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseSc
 use bevy::prelude::*;
 use goblins_rules::team::TeamId;
 
-use crate::local_match::MatchRestarted;
+use crate::local_match::{MatchRestarted, MatchView};
 
 const YAW_KEY_SPEED: f32 = 1.6;
 const YAW_DRAG_SPEED: f32 = 0.006;
@@ -17,6 +17,8 @@ const ZOOM_PIXEL_STEP: f32 = 0.02;
 const MIN_DISTANCE: f32 = 7.0;
 const MAX_DISTANCE: f32 = 44.0;
 const MAX_FOCUS_OFFSET: f32 = 12.0;
+const DEFAULT_DISTANCE: f32 = 28.0;
+const TINY_BOWL_LENGTH: f32 = 21.0;
 
 /// Orbit parameters of the camera: a floor focus point seen from `distance`,
 /// turned by `yaw` around the vertical axis and tilted `pitch` radians above the horizon.
@@ -30,6 +32,8 @@ pub struct CameraRig {
     pub pitch: f32,
     /// Distance between the camera and the focus.
     pub distance: f32,
+    /// Size of the bowl against a tiny one: distances and pans grow with it.
+    pub scale: f32,
 }
 
 impl Default for CameraRig {
@@ -38,7 +42,8 @@ impl Default for CameraRig {
             focus: Vec3::new(0.0, 0.0, 1.0),
             yaw: 0.0,
             pitch: 1.0,
-            distance: 28.0,
+            distance: DEFAULT_DISTANCE,
+            scale: 1.0,
         }
     }
 }
@@ -56,8 +61,19 @@ impl CameraRig {
         Transform::from_translation(self.focus + offset).looking_at(self.focus, Vec3::Y)
     }
 
-    /// The default rig moved behind `team`'s goblins, looking towards the den they attack.
-    pub fn behind(team: TeamId) -> Self {
+    /// The default rig for a bowl `width` by `height` squares, far enough to see it whole.
+    pub fn for_bowl(width: u8, height: u8) -> Self {
+        let scale = (f32::from(width.max(height)) / TINY_BOWL_LENGTH).max(1.0);
+        Self {
+            distance: DEFAULT_DISTANCE * scale,
+            scale,
+            ..Self::default()
+        }
+    }
+
+    /// The default rig of this bowl moved behind `team`'s goblins, looking towards the den they
+    /// attack.
+    pub fn behind(self, team: TeamId) -> Self {
         let yaw = if team == TeamId::HOME {
             3.0 * FRAC_PI_2
         } else {
@@ -66,7 +82,16 @@ impl CameraRig {
         Self {
             focus: Vec3::ZERO,
             yaw,
-            ..Self::default()
+            ..Self::default().with_scale(self.scale)
+        }
+    }
+
+    /// The default rig of a bowl `scale` times as big as a tiny one.
+    fn with_scale(self, scale: f32) -> Self {
+        Self {
+            distance: DEFAULT_DISTANCE * scale,
+            scale,
+            ..self
         }
     }
 
@@ -81,7 +106,7 @@ impl CameraRig {
     /// The rig moved closer (positive `steps`) or further away, distance kept within bounds.
     pub fn zoomed(self, steps: f32) -> Self {
         Self {
-            distance: (self.distance - steps).clamp(MIN_DISTANCE, MAX_DISTANCE),
+            distance: (self.distance - steps).clamp(MIN_DISTANCE, MAX_DISTANCE * self.scale),
             ..self
         }
     }
@@ -92,11 +117,9 @@ impl CameraRig {
         let right = Vec3::new(self.yaw.cos(), 0.0, -self.yaw.sin());
         let forward = Vec3::new(-self.yaw.sin(), 0.0, -self.yaw.cos());
         let focus = self.focus + right * screen_motion.x + forward * screen_motion.y;
+        let reach = MAX_FOCUS_OFFSET * self.scale;
         Self {
-            focus: focus.clamp(
-                Vec3::new(-MAX_FOCUS_OFFSET, 0.0, -MAX_FOCUS_OFFSET),
-                Vec3::new(MAX_FOCUS_OFFSET, 0.0, MAX_FOCUS_OFFSET),
-            ),
+            focus: focus.clamp(Vec3::new(-reach, 0.0, -reach), Vec3::new(reach, 0.0, reach)),
             ..self
         }
     }
@@ -109,14 +132,22 @@ impl Plugin for CameraRigPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<MatchRestarted>()
             .init_resource::<CameraRig>()
-            .add_systems(Startup, spawn_camera)
+            .add_systems(Startup, (fit_the_bowl, spawn_camera).chain())
             .add_systems(Update, (look_at_a_new_match, steer_rig, apply_rig).chain());
     }
 }
 
-fn look_at_a_new_match(mut restarts: MessageReader<MatchRestarted>, mut rig: ResMut<CameraRig>) {
+fn fit_the_bowl(view: Res<MatchView>, mut rig: ResMut<CameraRig>) {
+    *rig = CameraRig::for_bowl(view.arena.width(), view.arena.height());
+}
+
+fn look_at_a_new_match(
+    mut restarts: MessageReader<MatchRestarted>,
+    view: Res<MatchView>,
+    mut rig: ResMut<CameraRig>,
+) {
     if restarts.read().count() > 0 {
-        *rig = CameraRig::default();
+        *rig = CameraRig::for_bowl(view.arena.width(), view.arena.height());
     }
 }
 
@@ -133,7 +164,7 @@ fn steer_rig(
     mut rig: ResMut<CameraRig>,
 ) {
     if keys.just_pressed(KeyCode::KeyR) {
-        *rig = CameraRig::default();
+        *rig = CameraRig::default().with_scale(rig.scale);
         return;
     }
     let seconds = time.delta_secs();
@@ -225,14 +256,23 @@ mod tests {
     }
 
     #[test]
+    fn given_a_huge_bowl_when_framing_it_then_the_camera_stands_further_and_pans_further() {
+        let rig = CameraRig::for_bowl(51, 51);
+        assert!(
+            rig.distance > CameraRig::default().distance
+                && rig.panned(Vec2::new(100.0, 0.0)).focus.x > MAX_FOCUS_OFFSET
+        );
+    }
+
+    #[test]
     fn given_the_home_team_when_standing_behind_it_then_the_camera_is_west_of_the_focus() {
-        let rig = CameraRig::behind(TeamId::HOME);
+        let rig = CameraRig::default().behind(TeamId::HOME);
         assert!(rig.camera_transform().translation.x < rig.focus.x);
     }
 
     #[test]
     fn given_the_away_team_when_standing_behind_it_then_the_camera_is_east_of_the_focus() {
-        let rig = CameraRig::behind(TeamId::AWAY);
+        let rig = CameraRig::default().behind(TeamId::AWAY);
         assert!(rig.camera_transform().translation.x > rig.focus.x);
     }
 }
