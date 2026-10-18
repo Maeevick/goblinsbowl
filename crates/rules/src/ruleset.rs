@@ -120,6 +120,9 @@ pub struct Ruleset {
     /// Stance in any order; otherwise it takes one action in all.
     #[serde(default)]
     pub one_action_of_each_kind: bool,
+    /// Whether an enemy braced in Stance weighs two on an agility dodge instead of one.
+    #[serde(default = "braced_tacklers_weigh_double")]
+    pub braced_tacklers_weigh_double: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -200,6 +203,10 @@ fn ties_knock_down() -> bool {
     true
 }
 
+fn braced_tacklers_weigh_double() -> bool {
+    true
+}
+
 impl Default for Ruleset {
     fn default() -> Self {
         Self {
@@ -230,6 +237,7 @@ impl Default for Ruleset {
             knocked_out_goblins_may_return: false,
             actions_cost_a_step: false,
             one_action_of_each_kind: false,
+            braced_tacklers_weigh_double: braced_tacklers_weigh_double(),
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

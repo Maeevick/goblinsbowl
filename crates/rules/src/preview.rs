@@ -158,7 +158,7 @@ pub fn dodge_dice(
 ) -> Option<DodgeDice> {
     let goblin = state.goblin(mover)?;
     if ruleset.dodges_test_agility {
-        let malus = dodge_malus(state, from, goblin.team());
+        let malus = dodge_malus(ruleset, state, from, goblin.team());
         return (malus > 0).then_some(DodgeDice::Agility(AgilityDice {
             faces: goblin.characteristics.agility,
             malus,
@@ -170,11 +170,12 @@ pub fn dodge_dice(
         .map(|contest| DodgeDice::Contest { tackler, contest })
 }
 
-/// Malus on an agility dodge out of `square`: one per adjacent standing enemy, two when it stands in Stance.
-fn dodge_malus(state: &GameState, square: Square, team: TeamId) -> u8 {
+/// Malus on an agility dodge out of `square`: one per adjacent standing enemy, two when it stands
+/// in Stance under rules where braced tacklers weigh double.
+fn dodge_malus(ruleset: &Ruleset, state: &GameState, square: Square, team: TeamId) -> u8 {
     state
         .standing_opponents_next_to(square, team)
-        .map(|enemy| 1 + u8::from(enemy.in_stance))
+        .map(|enemy| 1 + u8::from(enemy.in_stance && ruleset.braced_tacklers_weigh_double))
         .fold(0, u8::saturating_add)
 }
 
@@ -773,6 +774,31 @@ mod tests {
             Some(DodgeDice::Agility(AgilityDice {
                 faces: 4,
                 malus: 3,
+                target: 2
+            }))
+        );
+    }
+
+    #[test]
+    fn given_braced_tacklers_that_weigh_once_when_a_sprinter_leaves_a_plain_and_a_braced_enemy_then_its_d4_takes_two()
+     {
+        let scenario = sprinter_next_to_a_bruiser()
+            .rules(|ruleset| {
+                ruleset.dodges_test_agility = true;
+                ruleset.braced_tacklers_weigh_double = false;
+            })
+            .goblin("A2", Sprinter, 5, 6)
+            .edit("A1", |goblin| goblin.in_stance = true);
+        assert_eq!(
+            dice_of(scenario, |ruleset, state| dodge_dice(
+                ruleset,
+                state,
+                id("H1"),
+                Square::new(5, 7)
+            )),
+            Some(DodgeDice::Agility(AgilityDice {
+                faces: 4,
+                malus: 2,
                 target: 2
             }))
         );
