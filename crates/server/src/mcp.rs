@@ -41,7 +41,7 @@ use crate::view::{CoachView, OddsHints, coach_view, describe_chance, odds_lines}
 const LONGEST_WAIT_SECONDS: u64 = 50;
 const DEFAULT_WAIT_SECONDS: u64 = 45;
 const RULES: &str = include_str!("../../../docs/rules.md");
-const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.8";
+const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.9";
 
 const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based goblin football game played with dice. \
 Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
@@ -350,7 +350,7 @@ impl CoachServer {
         .await
     }
 
-    #[tool(description = "The full rules of Goblins Bowl 0.8 (read once).")]
+    #[tool(description = "The full rules of Goblins Bowl 0.9 (read once).")]
     async fn get_rules(&self, context: RequestContext<RoleServer>) -> Result<String, String> {
         self.logged(&context, "get_rules", serde_json::json!({}), async |_| {
             Ok(english_rules())
@@ -811,7 +811,7 @@ mod tests {
     fn given_the_rules_document_when_sent_to_agents_then_only_its_english_half_from_the_0_2_heading()
      {
         let rules = english_rules();
-        assert!(rules.starts_with("# Goblins Bowl, rules 0.8") && !rules.contains("règles"));
+        assert!(rules.starts_with("# Goblins Bowl, rules 0.9") && !rules.contains("règles"));
     }
 
     #[test]
