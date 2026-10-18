@@ -10,6 +10,7 @@ use goblins_rules::policies::Bot;
 
 use crate::goblin_view::BowlAnimation;
 use crate::local_match::{MatchOrder, MatchSystems, MatchView};
+use crate::start_menu::StartMenu;
 
 /// Plays every bot seat of the local match.
 pub struct BotSeatPlugin {
@@ -43,9 +44,14 @@ fn play_bot_seats(
     time: Res<Time>,
     view: Res<MatchView>,
     animation: Option<Res<BowlAnimation>>,
+    menu: Option<Res<StartMenu>>,
     mut coach: ResMut<BotCoach>,
     mut orders: MessageWriter<MatchOrder>,
 ) {
+    if menu.is_some_and(|menu| menu.open) {
+        coach.pause.reset();
+        return;
+    }
     let snapshot = &view.snapshot;
     let bot_team = snapshot
         .state

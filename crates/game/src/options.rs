@@ -89,6 +89,9 @@ pub struct GameOptions {
     /// when the window closes; a match against an agent is always recorded.
     #[arg(long)]
     pub record: bool,
+    /// Start the match straight away, without the start menu.
+    #[arg(long)]
+    pub no_menu: bool,
 }
 
 impl GameOptions {

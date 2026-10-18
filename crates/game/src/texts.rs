@@ -1,6 +1,7 @@
 //! Every word the game shows, in French (default) or English.
 
 use clap::ValueEnum;
+use goblins_rules::bowls::{BowlShape, BowlSize};
 use goblins_rules::characteristics::Archetype;
 use goblins_rules::command::{Action, Activation};
 use goblins_rules::event::{DodgeRoll, GameEvent, TurnEndReason};
@@ -146,6 +147,52 @@ impl Texts {
     /// Label of the stance button.
     pub fn stance_button(&self) -> &'static str {
         if self.french() { "Garde" } else { "Stance" }
+    }
+
+    /// Heading of the bowl choice on the start menu.
+    pub fn arena_heading(&self) -> &'static str {
+        if self.french() {
+            "Choisis l'arène et sa taille"
+        } else {
+            "Pick the arena and its size"
+        }
+    }
+
+    /// Name of a bowl shape on the start menu.
+    pub fn shape_name(&self, shape: BowlShape) -> &'static str {
+        match (shape, self.french()) {
+            (BowlShape::Circle, true) => "Cercle",
+            (BowlShape::Circle, false) => "Circle",
+            (BowlShape::Cross, true) => "Croix",
+            (BowlShape::Cross, false) => "Cross",
+            (BowlShape::Rectangle, _) => "Rectangle",
+        }
+    }
+
+    /// Name of a bowl size on the start menu, with its length.
+    pub fn size_name(&self, size: BowlSize) -> &'static str {
+        match (size, self.french()) {
+            (BowlSize::Tiny, true) => "Petite (21)",
+            (BowlSize::Tiny, false) => "Tiny (21)",
+            (BowlSize::Medium, true) => "Moyenne (31)",
+            (BowlSize::Medium, false) => "Medium (31)",
+            (BowlSize::Huge, true) => "Grande (51)",
+            (BowlSize::Huge, false) => "Huge (51)",
+        }
+    }
+
+    /// Line shown on the start menu while the rules file's own bowl is kept.
+    pub fn rules_file_bowl(&self) -> &'static str {
+        if self.french() {
+            "L'arène du fichier de règles"
+        } else {
+            "The rules file's arena"
+        }
+    }
+
+    /// Label of the button that starts the match from the start menu.
+    pub fn play_button(&self) -> &'static str {
+        if self.french() { "Jouer" } else { "Play" }
     }
 
     /// Label of the focus button.

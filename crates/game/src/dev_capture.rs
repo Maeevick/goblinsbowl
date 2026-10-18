@@ -31,6 +31,11 @@ const DEFAULT_CAPTURE_FRAME: u32 = 90;
 const CAPTURE_WIDTH: u32 = 1600;
 const CAPTURE_HEIGHT: u32 = 900;
 
+/// Whether a development script plays this run, which then starts without the menu.
+pub fn drives_this_run() -> bool {
+    std::env::var_os(SCRIPT_VARIABLE).is_some()
+}
+
 /// Where and when to capture the window.
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct CaptureRequest {

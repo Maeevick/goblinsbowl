@@ -15,6 +15,7 @@ use goblins_rules::team::TeamId;
 use crate::camera_rig::CameraRig;
 use crate::goblin_view::BowlAnimation;
 use crate::local_match::{MatchOrder, MatchRestarted, MatchSystems, MatchView};
+use crate::start_menu::StartMenu;
 use crate::texts::Texts;
 
 pub(crate) const READING_FONT: &str = "fonts/Andika-Regular.ttf";
@@ -755,14 +756,16 @@ fn follow_handover(
 fn refresh_ready_overlay(
     handover: Res<Handover>,
     texts: Res<Texts>,
+    menu: Option<Res<StartMenu>>,
     mut overlay: ReadyVisibility,
     mut ready_button: ReadyButtonVisibility,
     mut question: Single<&mut Text, (With<ReadyQuestion>, Without<ReadyQuip>)>,
     mut quip: Single<&mut Text, (With<ReadyQuip>, Without<ReadyQuestion>)>,
 ) {
+    let menu_open = menu.is_some_and(|menu| menu.open);
     let stage = handover.stage();
     let shown = |visible: bool| {
-        if visible {
+        if visible && !menu_open {
             Visibility::Inherited
         } else {
             Visibility::Hidden

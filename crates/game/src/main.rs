@@ -22,6 +22,7 @@ use goblinsbowl::options::{GameOptions, LocalSeat};
 use goblinsbowl::orders::OrdersPlugin;
 use goblinsbowl::pointer::PointerPlugin;
 use goblinsbowl::server_link::{LinkSettings, ServerLink, ServerLinkPlugin};
+use goblinsbowl::start_menu::StartMenuPlugin;
 use goblinsbowl::texts::Texts;
 use goblinsbowl::{
     bowl_view, camera_rig, dev_capture, dice_view, final_whistle, goblin_cards, goblin_view, hud,
@@ -42,6 +43,7 @@ fn main() -> AppExit {
         }
     };
     let seed = options.seed.unwrap_or_else(seed_from_clock);
+    let opens_on_the_menu = !options.no_menu && !dev_capture::drives_this_run();
     let bot = options.bot;
     let record_to = options.local_record_dir();
     let bot_pause = Duration::from_millis(800);
@@ -101,18 +103,24 @@ fn main() -> AppExit {
         ));
     match source {
         MatchSource::Linked(link) => app.add_plugins(ServerLinkPlugin { link }),
-        MatchSource::Local(host, opening_events) => app.add_plugins((
-            LocalMatchPlugin {
-                host: *host,
-                opening_events,
-                record_to,
-            },
-            BotSeatPlugin {
-                bot,
-                seed: seed.wrapping_add(1),
-                pause: bot_pause,
-            },
-        )),
+        MatchSource::Local(host, opening_events) => {
+            app.add_plugins((
+                LocalMatchPlugin {
+                    host: *host,
+                    opening_events,
+                    record_to,
+                },
+                BotSeatPlugin {
+                    bot,
+                    seed: seed.wrapping_add(1),
+                    pause: bot_pause,
+                },
+            ));
+            if opens_on_the_menu {
+                app.add_plugins(StartMenuPlugin);
+            }
+            &mut app
+        }
     };
     app.add_plugins((
         bowl_view::BowlViewPlugin,
