@@ -839,13 +839,12 @@ mod tests {
     }
 
     #[test]
-    fn given_the_home_seat_on_the_round_bowl_when_viewed_then_it_scores_in_the_east_arc_over_two_columns()
-     {
+    fn given_the_home_seat_on_the_round_bowl_when_viewed_then_it_scores_on_the_east_column() {
         let host = kick_off_on(bowl(&goblins_rules::arena::ROUND_BOWL_21_MASK));
         assert!(
             view_for(&host, TeamId::HOME, OddsHints::Full)
                 .you
-                .contains("score in the east den (columns 19 to 20)")
+                .contains("score in the east den (column 20)")
         );
     }
 

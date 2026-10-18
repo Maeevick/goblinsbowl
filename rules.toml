@@ -1,4 +1,4 @@
-# Goblins Bowl, rules 0.1: every tunable number of a match.
+# Goblins Bowl, rules 0.8: every tunable number of a match.
 # Attack, Defense and Agility are rolled as dice with that many faces.
 
 turns_per_half = 12
@@ -23,9 +23,12 @@ kickoff_bounces = 3
 # Whether a dodge is an agility test, each adjacent standing enemy a malus of 1
 # (false: the Agility die against the Defense die of the most dangerous enemy).
 dodges_test_agility = true
-# Whether a goblin can spend its action bracing in Stance, a Defense bonus until its team's next turn
-# (rules 0.1 to 0.4; none since 0.5).
-goblins_can_take_stance = false
+# Whether a goblin can brace in Stance, a Defense bonus until its team's next turn (rules 0.1 to 0.4,
+# then again since 0.8, where it costs every step the goblin has left).
+goblins_can_take_stance = true
+# Most a Stance bonus adds to one roll, and most braced neighbours it counts: +1 for the goblin itself.
+stance_bonus_cap = 1
+neighbour_stance_bonus_cap = 0
 # Whether a goblin of the team on turn missing a bouncing ball ends the turn
 # (false: only a missed catch of the team's own throw does, as a failed pick-up or throw does).
 missed_bounces_end_the_turn = false
@@ -41,16 +44,36 @@ goblins_heal_at_kick_off = false
 keeps_moving_after_action = true
 # Whether a turn ends on its own once no goblin can act (false: it waits for "end turn" or the clock).
 turn_ends_when_no_goblin_can_act = false
+# Whether a tied assault knocks the defender down unhurt (false: nobody falls and the turn goes on).
+assault_ties_knock_down = false
+# Malus on the defense roll of the goblin holding the ball when it is assaulted.
+carrier_defense_malus = 1
+# Whether a knocked-out goblin rolls its Health die minus 1 at each kick-off, coming back with that
+# much Health unless it rolls 0 (only where goblins_heal_at_kick_off is false).
+knocked_out_goblins_may_return = true
+# Whether an assault or a throw costs a step of the goblin's Move, and a Stance every step it has left.
+actions_cost_a_step = true
+# Whether a goblin may assault, throw and brace once each per turn (false: one action in all).
+one_action_of_each_kind = true
+# Whether an enemy braced in Stance weighs two on an agility dodge (false: one, like any enemy).
+braced_tacklers_weigh_double = false
+# Whether a goblin weighs on the eight squares around it rather than the four orthogonal ones:
+# leaving them takes a dodge, rolls made there suffer its malus, and it may intercept a ball flying
+# over them. Moves and assaults stay orthogonal.
+reach_covers_diagonals = true
+# Whether a bouncing ball goes to one of the eight squares around on a d8, clockwise from north
+# (false: one of the four orthogonal ones on a d4).
+ball_bounces_all_around = true
 
-# x out of bounds, O in bounds, H home den (west), A away den (east).
+# x out of bounds, O in bounds, H home den (west), A away den (east): 7 squares on the outermost column.
 arena = [
     "xxxxxxxOOOOOOOxxxxxxx",
     "xxxxxOOOOOOOOOOOxxxxx",
     "xxxxOOOOOOOOOOOOOxxxx",
     "xxxOOOOOOOOOOOOOOOxxx",
     "xxOOOOOOOOOOOOOOOOOxx",
-    "xHOOOOOOOOOOOOOOOOOAx",
-    "xHOOOOOOOOOOOOOOOOOAx",
+    "xOOOOOOOOOOOOOOOOOOOx",
+    "xOOOOOOOOOOOOOOOOOOOx",
     "HOOOOOOOOOOOOOOOOOOOA",
     "HOOOOOOOOOOOOOOOOOOOA",
     "HOOOOOOOOOOOOOOOOOOOA",
@@ -58,8 +81,8 @@ arena = [
     "HOOOOOOOOOOOOOOOOOOOA",
     "HOOOOOOOOOOOOOOOOOOOA",
     "HOOOOOOOOOOOOOOOOOOOA",
-    "xHOOOOOOOOOOOOOOOOOAx",
-    "xHOOOOOOOOOOOOOOOOOAx",
+    "xOOOOOOOOOOOOOOOOOOOx",
+    "xOOOOOOOOOOOOOOOOOOOx",
     "xxOOOOOOOOOOOOOOOOOxx",
     "xxxOOOOOOOOOOOOOOOxxx",
     "xxxxOOOOOOOOOOOOOxxxx",

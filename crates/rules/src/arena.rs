@@ -52,16 +52,16 @@ pub const BOWL_21_MASK: [&str; 21] = [
     "xxxxxOOOOOOOOOOOxxxxx",
 ];
 
-/// Mask of the round bowl: a pixelated disc 21 squares across (349 squares), each den the arc of
-/// 11 squares at its west or east edge.
+/// Mask of the round bowl: a pixelated disc 21 squares across (349 squares), each den the 7 squares
+/// of its outermost column, west or east.
 pub const ROUND_BOWL_21_MASK: [&str; 21] = [
     "xxxxxxxOOOOOOOxxxxxxx",
     "xxxxxOOOOOOOOOOOxxxxx",
     "xxxxOOOOOOOOOOOOOxxxx",
     "xxxOOOOOOOOOOOOOOOxxx",
     "xxOOOOOOOOOOOOOOOOOxx",
-    "xHOOOOOOOOOOOOOOOOOAx",
-    "xHOOOOOOOOOOOOOOOOOAx",
+    "xOOOOOOOOOOOOOOOOOOOx",
+    "xOOOOOOOOOOOOOOOOOOOx",
     "HOOOOOOOOOOOOOOOOOOOA",
     "HOOOOOOOOOOOOOOOOOOOA",
     "HOOOOOOOOOOOOOOOOOOOA",
@@ -69,8 +69,8 @@ pub const ROUND_BOWL_21_MASK: [&str; 21] = [
     "HOOOOOOOOOOOOOOOOOOOA",
     "HOOOOOOOOOOOOOOOOOOOA",
     "HOOOOOOOOOOOOOOOOOOOA",
-    "xHOOOOOOOOOOOOOOOOOAx",
-    "xHOOOOOOOOOOOOOOOOOAx",
+    "xOOOOOOOOOOOOOOOOOOOx",
+    "xOOOOOOOOOOOOOOOOOOOx",
     "xxOOOOOOOOOOOOOOOOOxx",
     "xxxOOOOOOOOOOOOOOOxxx",
     "xxxxOOOOOOOOOOOOOxxxx",
@@ -297,14 +297,11 @@ mod tests {
     }
 
     #[test]
-    fn given_the_round_bowl_mask_when_listing_the_home_den_then_an_arc_of_eleven_squares_on_the_west_edge()
+    fn given_the_round_bowl_mask_when_listing_the_home_den_then_the_seven_squares_of_the_west_column()
      {
         let arena = Arena::from_mask(&ROUND_BOWL_21_MASK).unwrap();
         let den: Vec<Square> = arena.den_squares(TeamId::HOME).collect();
-        let arc: Vec<Square> = (5..=15)
-            .map(|y| Square::new(if (7..=13).contains(&y) { 0 } else { 1 }, y))
-            .collect();
-        assert_eq!(den, arc);
+        assert_eq!(den, (7..=13).map(|y| Square::new(0, y)).collect::<Vec<_>>());
     }
 
     #[test]

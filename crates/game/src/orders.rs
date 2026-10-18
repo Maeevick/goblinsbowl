@@ -1163,10 +1163,9 @@ mod tests {
     }
 
     #[test]
-    fn given_the_shipped_rules_without_stance_when_a_goblin_is_selected_then_the_garde_button_takes_no_room()
-     {
+    fn given_rules_without_stance_when_a_goblin_is_selected_then_the_garde_button_takes_no_room() {
         let (host, _) = MatchHost::start(MatchSetup {
-            ruleset: Ruleset::default(),
+            ruleset: without_stance(),
             rosters: [Roster::DEFAULT, Roster::DEFAULT],
             seed: 5,
             seats: [SeatKind::Human, SeatKind::Human],
@@ -1196,10 +1195,17 @@ mod tests {
     }
 
     #[test]
-    fn given_the_shipped_rules_without_stance_when_asking_if_a_goblin_may_brace_then_no() {
+    fn given_rules_without_stance_when_asking_if_a_goblin_may_brace_then_no() {
         let state = board(&[("H5", 7, 7)], None);
 
-        assert!(!can_still_brace(&Ruleset::default(), &state, id("H5"), 0));
+        assert!(!can_still_brace(&without_stance(), &state, id("H5"), 0));
+    }
+
+    fn without_stance() -> Ruleset {
+        Ruleset {
+            goblins_can_take_stance: false,
+            ..Ruleset::default()
+        }
     }
 
     #[test]
