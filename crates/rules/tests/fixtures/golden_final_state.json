@@ -22,16 +22,16 @@
         "health": 7,
         "movement": 4
       },
-      "health": 6,
+      "health": 7,
       "presence": {
         "standing": [
-          11,
+          4,
           9
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
-      "has_action_left": false
+      "steps_left": 1,
+      "has_action_left": true
     },
     {
       "id": "H2",
@@ -43,11 +43,11 @@
         "health": 7,
         "movement": 4
       },
-      "health": 1,
+      "health": 4,
       "presence": {
         "standing": [
-          10,
-          10
+          12,
+          9
         ]
       },
       "in_stance": false,
@@ -67,19 +67,13 @@
       "health": 7,
       "presence": {
         "standing": [
-          9,
-          7
+          8,
+          10
         ]
       },
-      "in_stance": true,
-      "steps_left": 0,
-      "has_action_left": false,
-      "actions_used": {
-        "assault": false,
-        "throw": false,
-        "stance": true,
-        "focus": false
-      }
+      "in_stance": false,
+      "steps_left": 4,
+      "has_action_left": true
     },
     {
       "id": "H4",
@@ -94,13 +88,13 @@
       "health": 5,
       "presence": {
         "standing": [
-          9,
+          5,
           2
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
-      "has_action_left": false
+      "steps_left": 6,
+      "has_action_left": true
     },
     {
       "id": "H5",
@@ -112,16 +106,16 @@
         "health": 5,
         "movement": 6
       },
-      "health": 2,
+      "health": 5,
       "presence": {
         "standing": [
-          15,
-          12
+          6,
+          1
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
-      "has_action_left": false
+      "steps_left": 6,
+      "has_action_left": true
     },
     {
       "id": "H6",
@@ -136,28 +130,7 @@
       "health": 5,
       "presence": {
         "standing": [
-          7,
-          10
-        ]
-      },
-      "in_stance": false,
-      "steps_left": 0,
-      "has_action_left": false
-    },
-    {
-      "id": "H7",
-      "archetype": "sprinter",
-      "characteristics": {
-        "attack": 3,
-        "defense": 2,
-        "agility": 6,
-        "health": 5,
-        "movement": 6
-      },
-      "health": 5,
-      "presence": {
-        "standing": [
-          3,
+          11,
           15
         ]
       },
@@ -172,6 +145,27 @@
       }
     },
     {
+      "id": "H7",
+      "archetype": "sprinter",
+      "characteristics": {
+        "attack": 3,
+        "defense": 2,
+        "agility": 6,
+        "health": 5,
+        "movement": 6
+      },
+      "health": 5,
+      "presence": {
+        "standing": [
+          8,
+          9
+        ]
+      },
+      "in_stance": false,
+      "steps_left": 6,
+      "has_action_left": true
+    },
+    {
       "id": "H8",
       "archetype": "thrower",
       "characteristics": {
@@ -181,16 +175,16 @@
         "health": 6,
         "movement": 4
       },
-      "health": 5,
+      "health": 6,
       "presence": {
         "standing": [
-          6,
-          6
+          0,
+          7
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
-      "has_action_left": false
+      "steps_left": 4,
+      "has_action_left": true
     },
     {
       "id": "H9",
@@ -205,8 +199,8 @@
       "health": 6,
       "presence": {
         "standing": [
-          2,
-          11
+          6,
+          14
         ]
       },
       "in_stance": false,
@@ -223,15 +217,15 @@
         "health": 7,
         "movement": 4
       },
-      "health": 3,
+      "health": 4,
       "presence": {
         "standing": [
-          10,
-          7
+          17,
+          10
         ]
       },
       "in_stance": false,
-      "steps_left": 4,
+      "steps_left": 2,
       "has_action_left": true
     },
     {
@@ -244,11 +238,11 @@
         "health": 7,
         "movement": 4
       },
-      "health": 6,
+      "health": 5,
       "presence": {
         "standing": [
-          12,
-          11
+          11,
+          10
         ]
       },
       "in_stance": false,
@@ -265,11 +259,11 @@
         "health": 7,
         "movement": 4
       },
-      "health": 6,
+      "health": 7,
       "presence": {
         "standing": [
-          8,
-          12
+          13,
+          15
         ]
       },
       "in_stance": false,
@@ -289,8 +283,8 @@
       "health": 5,
       "presence": {
         "standing": [
-          8,
-          3
+          11,
+          2
         ]
       },
       "in_stance": false,
@@ -310,13 +304,13 @@
       "health": 5,
       "presence": {
         "standing": [
-          17,
-          6
+          6,
+          11
         ]
       },
       "in_stance": false,
-      "steps_left": 6,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "A6",
@@ -331,12 +325,12 @@
       "health": 5,
       "presence": {
         "standing": [
-          9,
-          19
+          13,
+          14
         ]
       },
       "in_stance": false,
-      "steps_left": 6,
+      "steps_left": 2,
       "has_action_left": true
     },
     {
@@ -349,16 +343,16 @@
         "health": 5,
         "movement": 6
       },
-      "health": 5,
+      "health": 3,
       "presence": {
         "standing": [
           18,
-          10
+          15
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
-      "has_action_left": false
+      "steps_left": 6,
+      "has_action_left": true
     },
     {
       "id": "A8",
@@ -373,8 +367,8 @@
       "health": 6,
       "presence": {
         "standing": [
-          17,
-          10
+          16,
+          8
         ]
       },
       "in_stance": false,
@@ -394,20 +388,26 @@
       "health": 6,
       "presence": {
         "standing": [
-          17,
-          15
+          18,
+          10
         ]
       },
-      "in_stance": false,
-      "steps_left": 4,
-      "has_action_left": true
+      "in_stance": true,
+      "steps_left": 0,
+      "has_action_left": false,
+      "actions_used": {
+        "assault": false,
+        "throw": false,
+        "stance": true,
+        "focus": false
+      }
     }
   ],
   "ball": {
     "loose": {
       "at": [
         6,
-        9
+        5
       ]
     }
   },
