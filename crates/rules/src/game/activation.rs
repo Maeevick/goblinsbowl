@@ -58,7 +58,9 @@ impl<D: DiceRoller> Game<D> {
                 self.take_stance(id, events);
                 None
             }
-            Some(Action::Assault { target, .. }) => self.resolve_assault(id, target, events),
+            Some(Action::Assault { target, style }) => {
+                self.resolve_assault(id, target, style, events)
+            }
             Some(Action::Throw { receiver, .. }) => {
                 (!self.throw_completes(id, receiver, events)).then_some(TurnEndReason::Fumble)
             }

@@ -858,6 +858,7 @@ mod tests {
     #[test]
     fn given_an_away_assault_when_finding_its_team_then_the_attacker_s_team() {
         let event = GameEvent::AssaultResolved {
+            style: Default::default(),
             attacker: "A3".parse().unwrap(),
             defender: "H1".parse().unwrap(),
             contest: goblins_rules::event::ContestRoll {

@@ -1,9 +1,10 @@
 //! Contests and their consequences: opposed rolls, knockdowns, health loss and knock-outs.
 
+use crate::command::AssaultStyle;
 use crate::dice::DiceRoller;
 use crate::event::{ContestRoll, GameEvent, TurnEndReason};
 use crate::odds::ContestDice;
-use crate::preview::{assault_dice, stance_bonus};
+use crate::preview::{stance_bonus, styled_assault_dice};
 use crate::roster::GoblinId;
 use crate::state::{Ball, Presence};
 
@@ -85,14 +86,15 @@ impl<D: DiceRoller> Game<D> {
         &mut self,
         attacker: GoblinId,
         defender: GoblinId,
+        style: AssaultStyle,
         events: &mut Vec<GameEvent>,
     ) -> Option<TurnEndReason> {
         let defender_is_down = self
             .state
             .goblin(defender)
             .is_some_and(|goblin| matches!(goblin.presence, Presence::Down(_)));
-        let dice =
-            assault_dice(&self.ruleset, &self.state, attacker, defender).unwrap_or(ContestDice {
+        let dice = styled_assault_dice(&self.ruleset, &self.state, attacker, defender, style)
+            .unwrap_or(ContestDice {
                 actor_modifier: 0,
                 actor_faces: 1,
                 opponent_faces: 1,
@@ -105,17 +107,19 @@ impl<D: DiceRoller> Game<D> {
             defender,
             contest,
             defender_braced,
+            style,
         });
         if contest.margin == 0 && !self.ruleset.assault_ties_knock_down {
             events.push(GameEvent::StandOff { attacker, defender });
             return None;
         }
+        let margin_as_rolled = contest.margin.saturating_sub(contest.actor_modifier);
         if !contest.actor_won() {
-            let damage = contest.margin.unsigned_abs().saturating_sub(1);
+            let damage = margin_as_rolled.unsigned_abs().saturating_sub(1);
             self.knock_down(attacker, damage, events);
             return Some(TurnEndReason::Knockdown);
         }
-        let damage = contest.margin.unsigned_abs();
+        let damage = style.damage(margin_as_rolled);
         let missed_catches = if defender_is_down {
             self.lose_health(defender, damage, events);
             Vec::new()

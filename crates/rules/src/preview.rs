@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::arena::Arena;
-use crate::command::{Action, Activation};
+use crate::command::{Action, Activation, AssaultStyle};
 use crate::flight::squares_crossed;
 use crate::odds::{AgilityDice, ContestDice, Probability, agility_success};
 use crate::roster::GoblinId;
@@ -147,6 +147,21 @@ pub fn assault_dice(
         actor_faces,
         opponent_faces: target.characteristics.defense,
         opponent_modifier: i8::try_from(modifier).unwrap_or(i8::MIN),
+    })
+}
+
+/// The dice of `attacker` assaulting `defender` in `style`: the situation's dice, the style's
+/// modifier on the attack roll.
+pub fn styled_assault_dice(
+    ruleset: &Ruleset,
+    state: &GameState,
+    attacker: GoblinId,
+    defender: GoblinId,
+    style: AssaultStyle,
+) -> Option<ContestDice> {
+    assault_dice(ruleset, state, attacker, defender).map(|dice| ContestDice {
+        actor_modifier: style.attack_modifier(),
+        ..dice
     })
 }
 
@@ -350,8 +365,8 @@ fn action_odds(
 ) -> ActionOdds {
     match action {
         Action::Stance => ActionOdds::Stance,
-        Action::Assault { target, .. } => {
-            let dice = assault_dice(ruleset, sketch, actor, target);
+        Action::Assault { target, style } => {
+            let dice = styled_assault_dice(ruleset, sketch, actor, target, style);
             let chance_of = |chance: fn(ContestDice) -> Probability| {
                 dice.map_or(Probability::IMPOSSIBLE, chance)
             };
@@ -1005,6 +1020,32 @@ mod tests {
                 stand_off: Probability::IMPOSSIBLE
             })
         );
+    }
+
+    #[test]
+    fn given_assault_styles_when_a_bruiser_assaults_a_bruiser_chirurgically_then_five_eighths_knock_down_and_three_sixteenths_stand_off()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| {
+                ruleset.assault_ties_knock_down = false;
+                ruleset.assaults_have_styles = true;
+            })
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Bruiser, 6, 7);
+        let chirurgical = order(
+            "H1",
+            &[],
+            Some(Action::Assault {
+                target: id("A1"),
+                style: AssaultStyle::Chirurgical,
+            }),
+        );
+        assert!(matches!(
+            odds(scenario, &chirurgical).unwrap().action,
+            Some(ActionOdds::Assault { success, knock_down, stand_off, .. })
+                if (success, knock_down, stand_off)
+                    == (Probability::new(13, 16), Probability::new(5, 8), Probability::new(3, 16))
+        ));
     }
 
     #[test]

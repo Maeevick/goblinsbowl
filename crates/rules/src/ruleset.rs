@@ -133,6 +133,10 @@ pub struct Ruleset {
     /// from north, instead of one of the four orthogonal ones on a d4.
     #[serde(default)]
     pub ball_bounces_all_around: bool,
+    /// Whether an assault may be chirurgical (+1 to win, no Health lost) or brutal (−1 to win, one
+    /// more Health lost); otherwise every assault is simple.
+    #[serde(default)]
+    pub assaults_have_styles: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -250,6 +254,7 @@ impl Default for Ruleset {
             braced_tacklers_weigh_double: false,
             reach_covers_diagonals: true,
             ball_bounces_all_around: true,
+            assaults_have_styles: false,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

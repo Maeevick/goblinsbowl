@@ -100,6 +100,7 @@ impl Scoresheet {
                 defender,
                 contest,
                 defender_braced,
+                ..
             } => {
                 let attacker_won = contest.actor_won();
                 self.update(attacker.team, |sheet| sheet.assaults.record(attacker_won));
@@ -240,6 +241,7 @@ mod tests {
 
     fn assault(attacker: &str, defender: &str, margin: i8, defender_braced: bool) -> GameEvent {
         GameEvent::AssaultResolved {
+            style: Default::default(),
             attacker: id(attacker),
             defender: id(defender),
             contest: contest(margin),

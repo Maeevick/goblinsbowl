@@ -480,6 +480,7 @@ mod tests {
     #[test]
     fn given_an_assault_when_turning_events_into_beats_then_its_roll_shows_on_the_attacker() {
         let events = [GameEvent::AssaultResolved {
+            style: Default::default(),
             attacker: goblin("H1"),
             defender: goblin("A1"),
             contest: contest(-2),

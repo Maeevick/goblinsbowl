@@ -299,14 +299,19 @@ pub fn describe_chance(chance: Probability, hints: OddsHints) -> Option<String> 
 
 /// Which dice face off, for example "d4 vs d4+1".
 pub fn describe_dice(dice: &ContestDice) -> String {
-    let modifier = if dice.opponent_modifier == 0 {
-        String::new()
-    } else {
-        format!("{:+}", dice.opponent_modifier)
+    let signed = |modifier: i8| {
+        if modifier == 0 {
+            String::new()
+        } else {
+            format!("{modifier:+}")
+        }
     };
     format!(
-        "d{} vs d{}{modifier}",
-        dice.actor_faces, dice.opponent_faces
+        "d{}{} vs d{}{}",
+        dice.actor_faces,
+        signed(dice.actor_modifier),
+        dice.opponent_faces,
+        signed(dice.opponent_modifier)
     )
 }
 

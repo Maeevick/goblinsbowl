@@ -46,6 +46,7 @@ fn rules_0_1() -> Ruleset {
         braced_tacklers_weigh_double: true,
         reach_covers_diagonals: false,
         ball_bounces_all_around: false,
+        assaults_have_styles: false,
         archetypes: ArchetypeCharacteristics {
             bruiser: Characteristics {
                 attack: 4,

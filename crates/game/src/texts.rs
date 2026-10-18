@@ -878,15 +878,22 @@ fn describe_agility_dice(dice: &AgilityDice) -> String {
 }
 
 fn describe_dice(dice: &ContestDice, versus: &str) -> String {
-    let modifier = match dice.opponent_modifier {
+    format!(
+        "d{}{} {versus} d{}{}",
+        dice.actor_faces,
+        signed(dice.actor_modifier),
+        dice.opponent_faces,
+        signed(dice.opponent_modifier)
+    )
+}
+
+/// A modifier as shown after a die or a face: nothing for 0, "+1", or "−2" with a true minus.
+fn signed(modifier: i8) -> String {
+    match modifier {
         0 => String::new(),
         positive if positive > 0 => format!("+{positive}"),
         negative => format!("−{}", negative.unsigned_abs()),
-    };
-    format!(
-        "d{} {versus} d{}{modifier}",
-        dice.actor_faces, dice.opponent_faces
-    )
+    }
 }
 
 /// An assault's chances to knock its target down and to stand off, its path included, under rules
@@ -906,14 +913,12 @@ fn stand_off_chances(odds: &ActivationOdds) -> Option<(Probability, Probability)
 }
 
 fn describe_contest(contest: &goblins_rules::event::ContestRoll, versus: &str) -> String {
-    let modifier = match contest.opponent_modifier {
-        0 => String::new(),
-        positive if positive > 0 => format!("+{positive}"),
-        negative => format!("−{}", negative.unsigned_abs()),
-    };
     format!(
-        "{} {versus} {}{modifier}",
-        contest.actor_rolled, contest.opponent_rolled
+        "{}{} {versus} {}{}",
+        contest.actor_rolled,
+        signed(contest.actor_modifier),
+        contest.opponent_rolled,
+        signed(contest.opponent_modifier)
     )
 }
 
@@ -1269,8 +1274,32 @@ mod tests {
     }
 
     #[test]
+    fn given_a_chirurgical_assault_when_described_in_english_then_its_plus_one_shows() {
+        let event = GameEvent::AssaultResolved {
+            style: goblins_rules::command::AssaultStyle::Chirurgical,
+            attacker: id("H3"),
+            defender: id("A8"),
+            contest: ContestRoll {
+                actor_faces: 4,
+                actor_rolled: 3,
+                actor_modifier: 1,
+                opponent_faces: 4,
+                opponent_rolled: 3,
+                opponent_modifier: 0,
+                margin: 1,
+            },
+            defender_braced: false,
+        };
+        assert_eq!(
+            ENGLISH.describe_event(&event),
+            Some("H3 assaults A8: 3+1 vs 3, H3 wins".to_string())
+        );
+    }
+
+    #[test]
     fn given_a_won_assault_when_described_in_french_then_both_dice_and_the_winner() {
         let event = GameEvent::AssaultResolved {
+            style: Default::default(),
             attacker: id("H3"),
             defender: id("A8"),
             contest: ContestRoll {
@@ -1293,6 +1322,7 @@ mod tests {
     #[test]
     fn given_a_tied_assault_when_described_in_english_then_a_tie_rather_than_a_winner() {
         let event = GameEvent::AssaultResolved {
+            style: Default::default(),
             attacker: id("H3"),
             defender: id("A8"),
             contest: ContestRoll {

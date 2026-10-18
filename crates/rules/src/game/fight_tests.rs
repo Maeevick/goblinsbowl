@@ -1,7 +1,7 @@
 //! Fight actions resolved through whole activations: Assault and Stance.
 
 use crate::characteristics::Archetype::{Bruiser, Sprinter};
-use crate::command::{Action, Activation, Command};
+use crate::command::{Action, Activation, AssaultStyle, Command};
 use crate::event::{ContestRoll, GameEvent, TurnEndReason};
 use crate::game::scenario::Scenario;
 use crate::roster::GoblinId;
@@ -59,6 +59,7 @@ fn given_an_assault_when_resolved_then_the_contest_is_reported() {
     assert_eq!(
         events.first(),
         Some(&GameEvent::AssaultResolved {
+            style: Default::default(),
             attacker: id("H1"),
             defender: id("A1"),
             contest: ContestRoll {
@@ -379,4 +380,80 @@ fn given_a_braced_goblin_when_its_team_plays_again_then_the_stance_is_over() {
     game.apply(TeamId::HOME, Command::EndTurn).unwrap();
     game.apply(TeamId::AWAY, Command::EndTurn).unwrap();
     assert!(!game.state().goblin(id("H1")).unwrap().in_stance);
+}
+
+fn styled_assault(goblin: &str, target: &str, style: AssaultStyle) -> Command {
+    order(
+        goblin,
+        &[],
+        Action::Assault {
+            target: id(target),
+            style,
+        },
+    )
+}
+
+fn bruisers_face_to_face_with_styles() -> Scenario {
+    bruisers_face_to_face().rules(|ruleset| {
+        ruleset.assaults_have_styles = true;
+        ruleset.assault_ties_knock_down = false;
+    })
+}
+
+#[test]
+fn given_assault_styles_when_a_chirurgical_assault_wins_then_the_defender_falls_unhurt() {
+    let mut game = bruisers_face_to_face_with_styles().game([3, 3]);
+    game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", AssaultStyle::Chirurgical),
+    )
+    .unwrap();
+    let defender = game.state().goblin(id("A1")).unwrap();
+    assert_eq!(
+        (defender.presence, defender.health),
+        (Presence::Down(Square::new(6, 7)), 6)
+    );
+}
+
+#[test]
+fn given_assault_styles_when_a_brutal_assault_beats_the_defence_by_two_then_the_defender_loses_three_health()
+ {
+    let mut game = bruisers_face_to_face_with_styles().game([4, 2]);
+    game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", AssaultStyle::Brutal),
+    )
+    .unwrap();
+    assert_eq!(game.state().goblin(id("A1")).unwrap().health, 3);
+}
+
+#[test]
+fn given_ties_that_stand_off_when_a_brutal_assault_beats_the_defence_by_one_then_nobody_falls() {
+    let mut game = bruisers_face_to_face_with_styles().game([3, 2]);
+    let events = game
+        .apply(
+            TeamId::HOME,
+            styled_assault("H1", "A1", AssaultStyle::Brutal),
+        )
+        .unwrap();
+    assert_eq!(
+        events.last(),
+        Some(&GameEvent::StandOff {
+            attacker: id("H1"),
+            defender: id("A1")
+        })
+    );
+}
+
+#[test]
+fn given_simple_assaults_only_when_a_brutal_assault_is_ordered_then_refused() {
+    let mut game = bruisers_face_to_face().game([4, 2]);
+    let refusal = game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", AssaultStyle::Brutal),
+    );
+    assert_eq!(
+        refusal,
+        Err(RuleViolation::StyleNotInTheseRules { goblin: id("H1") })
+    );
 }

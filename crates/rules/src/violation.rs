@@ -70,6 +70,12 @@ pub enum RuleViolation {
         /// The goblin.
         goblin: GoblinId,
     },
+    /// The rules only have simple assaults and throws.
+    #[error("these rules only have simple assaults and throws: {goblin} cannot use another style")]
+    StyleNotInTheseRules {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// The goblin would hold the ball, and the rules keep carriers from assaulting.
     #[error("{goblin} holds the ball and cannot assault")]
     CarrierCannotAssault {

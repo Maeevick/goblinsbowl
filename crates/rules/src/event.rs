@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::command::AssaultStyle;
 use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::team::TeamId;
@@ -209,6 +210,9 @@ pub enum GameEvent {
         contest: ContestRoll,
         /// Whether a Stance bonus, its own or a braced neighbour's, raised the defender's roll.
         defender_braced: bool,
+        /// How the assault was thrown; simple when left out.
+        #[serde(default, skip_serializing_if = "AssaultStyle::is_simple")]
+        style: AssaultStyle,
     },
     /// An assault tied under rules where ties stand off: nobody fell and the turn goes on.
     StandOff {

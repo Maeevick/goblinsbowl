@@ -56,6 +56,12 @@ pub fn validate_activation(
     {
         return Err(RuleViolation::ActionAlreadyUsed { goblin: id });
     }
+    if let Some(Action::Assault { style, .. }) = activation.action
+        && !style.is_simple()
+        && !ruleset.assaults_have_styles
+    {
+        return Err(RuleViolation::StyleNotInTheseRules { goblin: id });
+    }
     let mut visited = vec![start];
     for (index, square) in activation.path.iter().copied().enumerate() {
         let previous = visited.last().copied().unwrap_or(start);
