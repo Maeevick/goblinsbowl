@@ -12,6 +12,7 @@ make run                              # two humans on this machine (Bevy window)
 make run ARGS="--away bot"            # play against the computer, the cautious bot by default
 make run ARGS="--home bot --bot balanced-2"  # the computer on the home seat with another coach: --bot cautious, bold, random, cautious-2, balanced-2 or bold-2
 make run ARGS="--away bot --record"   # the same, its record saved to runs/ (make assess ARGS="runs/<file>.jsonl" reads it)
+make run ARGS="--arena rectangle --arena-size medium"  # another bowl: circle, cross or rectangle; tiny (21), medium (31) or huge (51)
 make run ARGS="--home-turn-seconds 90 --lang en"
 make check                            # lint + unit + integrated tests
 make balance ARGS="--games 1000 --home cautious --away bold"
@@ -37,6 +38,7 @@ Rules 0.9 (French and English, printable for a paper playtest): [`docs/rules.md`
 ```bash
 make run ARGS="--away agent"          # you against Claude in the window: it prints how to connect the agent
 make serve                            # headless MCP server on http://127.0.0.1:7878/mcp: an agent against the cautious bot
+make serve ARGS="--arena cross"       # the same in another bowl (--arena and --arena-size, as in the window)
 scripts/agent-vs-agent.sh 4           # two Claude Code coaches, at most $4 each; everything lands in runs/<timestamp>/
 ```
 

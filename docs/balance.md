@@ -4,6 +4,7 @@ How rules 0.1 play out between scripted coaches, measured with `make balance`: 1
 
 ```bash
 make balance ARGS="--games 1000 --home cautious --away bold --rules rules.toml"
+make balance ARGS="--games 1000 --home cautious-2 --away bold-2 --arena rectangle --arena-size medium"
 ```
 
 ## The coaches
