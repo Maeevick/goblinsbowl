@@ -94,6 +94,16 @@ pub fn validate_activation(
     let final_square = visited.last().copied().unwrap_or(start);
     match activation.action {
         None => Ok(()),
+        Some(Action::Focus) if !ruleset.throws_have_styles => {
+            Err(RuleViolation::StyleNotInTheseRules { goblin: id })
+        }
+        Some(Action::Focus)
+            if !activation.path.is_empty()
+                || goblin.steps_left < goblin.characteristics.movement =>
+        {
+            Err(RuleViolation::MustStandStillFirst { goblin: id })
+        }
+        Some(Action::Focus) => Ok(()),
         Some(Action::Stance) if ruleset.goblins_can_take_stance => Ok(()),
         Some(Action::Stance) => Err(RuleViolation::NoStanceInTheseRules { goblin: id }),
         Some(Action::Assault { .. })

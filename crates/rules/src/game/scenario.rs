@@ -109,6 +109,7 @@ impl Scenario {
         let id: GoblinId = id.parse().expect("scenario goblin id");
         let characteristics = self.ruleset.archetypes.of(archetype);
         self.state.goblins.push(Goblin {
+            focus: Default::default(),
             id,
             archetype,
             characteristics,

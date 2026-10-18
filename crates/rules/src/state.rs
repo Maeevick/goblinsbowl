@@ -58,6 +58,42 @@ pub struct Goblin {
     /// The kinds of action it took this turn, under rules where each kind comes once per turn.
     #[serde(default, skip_serializing_if = "ActionsUsed::is_none")]
     pub actions_used: ActionsUsed,
+    /// Where it stands with focusing: gathering itself this turn, or focused, +1 to its throws.
+    #[serde(default, skip_serializing_if = "Focus::is_unfocused")]
+    pub focus: Focus,
+}
+
+/// A goblin's focus on its throws.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Focus {
+    /// No focus.
+    #[default]
+    Unfocused,
+    /// It focuses this turn, standing still.
+    Focusing,
+    /// It focused on its team's last turn: +1 to its throws this turn.
+    Focused,
+}
+
+impl Focus {
+    /// Whether it carries no focus at all.
+    pub fn is_unfocused(&self) -> bool {
+        *self == Focus::Unfocused
+    }
+
+    /// Its focus once its team's next turn starts: focusing becomes focused, focused wears off.
+    pub fn at_the_next_turn(self) -> Focus {
+        match self {
+            Focus::Focusing => Focus::Focused,
+            Focus::Unfocused | Focus::Focused => Focus::Unfocused,
+        }
+    }
+
+    /// What it adds to its throw rolls.
+    pub fn throw_bonus(self) -> u8 {
+        u8::from(self == Focus::Focused)
+    }
 }
 
 /// The kinds of action a goblin took this turn, where each kind comes once per turn.
@@ -72,6 +108,9 @@ pub struct ActionsUsed {
     /// It braced in Stance.
     #[serde(default)]
     pub stance: bool,
+    /// It focused.
+    #[serde(default)]
+    pub focus: bool,
 }
 
 impl ActionsUsed {
@@ -86,6 +125,7 @@ impl ActionsUsed {
             Action::Assault { .. } => self.assault,
             Action::Throw { .. } => self.throw,
             Action::Stance => self.stance,
+            Action::Focus => self.focus,
         }
     }
 
@@ -94,11 +134,15 @@ impl ActionsUsed {
             Action::Assault { .. } => self.assault = true,
             Action::Throw { .. } => self.throw = true,
             Action::Stance => self.stance = true,
+            Action::Focus => self.focus = true,
         }
     }
 
     fn any_left(&self, ruleset: &Ruleset) -> bool {
-        !self.assault || !self.throw || (ruleset.goblins_can_take_stance && !self.stance)
+        !self.assault
+            || !self.throw
+            || (ruleset.goblins_can_take_stance && !self.stance)
+            || (ruleset.throws_have_styles && !self.focus)
     }
 }
 
@@ -132,10 +176,19 @@ impl Goblin {
 
     /// Whether it may still take `action` once it walked `steps_walked` squares: standing, the
     /// action in the rules and still its to take, and a step left to pay for it where actions cost
-    /// steps.
+    /// steps; a focus takes its whole Move, so it must not have walked or spent any step.
     pub fn may_act_after(&self, action: Action, steps_walked: usize, ruleset: &Ruleset) -> bool {
+        let in_the_rules = match action {
+            Action::Stance => ruleset.goblins_can_take_stance,
+            Action::Focus => {
+                ruleset.throws_have_styles
+                    && steps_walked == 0
+                    && self.steps_left == self.characteristics.movement
+            }
+            Action::Assault { .. } | Action::Throw { .. } => true,
+        };
         self.is_standing()
-            && (action != Action::Stance || ruleset.goblins_can_take_stance)
+            && in_the_rules
             && self.may_take(action, ruleset)
             && (!ruleset.actions_cost_a_step || steps_walked < usize::from(self.steps_left))
     }
@@ -182,7 +235,8 @@ impl Goblin {
             Action::Throw {
                 style: ThrowStyle::Chaos,
                 ..
-            } => 0,
+            }
+            | Action::Focus => 0,
             Action::Stance if ruleset.actions_cost_a_step => 0,
             Action::Assault { .. } | Action::Throw { .. } if ruleset.actions_cost_a_step => {
                 self.steps_left.saturating_sub(1)
@@ -347,6 +401,7 @@ mod tests {
 
     fn goblin(id: &str, presence: Presence) -> Goblin {
         Goblin {
+            focus: Default::default(),
             id: id.parse().unwrap(),
             archetype: Archetype::Bruiser,
             characteristics: Characteristics {

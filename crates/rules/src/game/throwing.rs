@@ -42,7 +42,11 @@ impl<D: DiceRoller> Game<D> {
             return self.receiver_catches(receiver, receiver_square, events);
         }
         let distance_malus = distance.saturating_sub(self.ruleset.throw_free_range);
-        let roll = self.agility_roll(thrower, distance_malus);
+        let focus_bonus = self
+            .state
+            .goblin(thrower)
+            .map_or(0, |goblin| goblin.focus.throw_bonus());
+        let roll = self.agility_roll_with_bonus(thrower, distance_malus, focus_bonus);
         events.push(GameEvent::ThrowAttempted {
             thrower,
             receiver,

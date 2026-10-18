@@ -27,6 +27,7 @@ impl<D: DiceRoller> Game<D> {
         {
             goblin.refresh_its_turn();
             goblin.in_stance = false;
+            goblin.focus = goblin.focus.at_the_next_turn();
             if let Presence::Down(square) = goblin.presence {
                 goblin.presence = Presence::Standing(square);
                 goblin.spend_its_turn();

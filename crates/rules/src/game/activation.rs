@@ -58,6 +58,10 @@ impl<D: DiceRoller> Game<D> {
                 self.take_stance(id, events);
                 None
             }
+            Some(Action::Focus) => {
+                self.take_focus(id, events);
+                None
+            }
             Some(Action::Assault { target, style }) => {
                 self.resolve_assault(id, target, style, events)
             }

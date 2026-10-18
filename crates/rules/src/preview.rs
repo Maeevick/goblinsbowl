@@ -9,7 +9,7 @@ use crate::odds::{AgilityDice, ContestDice, Probability, agility_success};
 use crate::roster::GoblinId;
 use crate::ruleset::Ruleset;
 use crate::square::{Reach, Square};
-use crate::state::{Ball, GameState, Presence};
+use crate::state::{Ball, Focus, GameState, Presence};
 use crate::team::TeamId;
 use crate::validation::{projection_landing, validate_activation};
 use crate::violation::RuleViolation;
@@ -67,6 +67,8 @@ pub enum RiskyStep {
 pub enum ActionOdds {
     /// Bracing never fails.
     Stance,
+    /// Focusing never fails.
+    Focus,
     /// Chances of an assault: the attacker keeps its feet, knocking the target down or standing off.
     Assault {
         /// The target.
@@ -299,7 +301,7 @@ pub fn activation_odds(
             .map(|action| action_odds(ruleset, &sketch, id, action))
     };
     let action_success = match &action {
-        None | Some(ActionOdds::Stance) => Probability::CERTAIN,
+        None | Some(ActionOdds::Stance | ActionOdds::Focus) => Probability::CERTAIN,
         Some(
             ActionOdds::Assault { success, .. }
             | ActionOdds::Throw { success, .. }
@@ -349,6 +351,11 @@ pub fn board_after_success(
     }
     match activation.action {
         None => {}
+        Some(Action::Focus) => {
+            if let Some(goblin) = board.goblin_mut(id) {
+                goblin.focus = Focus::Focusing;
+            }
+        }
         Some(Action::Stance) => {
             if let Some(goblin) = board.goblin_mut(id) {
                 goblin.in_stance = true;
@@ -400,6 +407,7 @@ fn action_odds(
 ) -> ActionOdds {
     match action {
         Action::Stance => ActionOdds::Stance,
+        Action::Focus => ActionOdds::Focus,
         Action::Assault { target, style } => {
             let dice = styled_assault_dice(ruleset, sketch, actor, target, style);
             let chance_of = |chance: fn(ContestDice) -> Probability| {
@@ -459,12 +467,14 @@ fn throw_odds(
     let throw = if hands_off {
         Probability::CERTAIN
     } else {
-        agility_success(
-            thrower_goblin.map_or(1, |goblin| goblin.characteristics.agility),
-            opponents_in_reach(ruleset, sketch, thrower_square, team)
+        AgilityDice {
+            faces: thrower_goblin.map_or(1, |goblin| goblin.characteristics.agility),
+            malus: opponents_in_reach(ruleset, sketch, thrower_square, team)
                 .saturating_add(distance_malus),
+            bonus: thrower_goblin.map_or(0, |goblin| goblin.focus.throw_bonus()),
             target,
-        )
+        }
+        .success()
     };
     let interceptions =
         interception_chances(ruleset, sketch, thrower_square, receiver_square, team);

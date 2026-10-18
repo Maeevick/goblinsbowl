@@ -7,7 +7,7 @@ use crate::odds::ContestDice;
 use crate::preview::{stance_bonus, styled_assault_dice};
 use crate::roster::GoblinId;
 use crate::square::{Compass, Square};
-use crate::state::{Ball, Presence};
+use crate::state::{Ball, Focus, Presence};
 use crate::validation::projection_landing;
 
 use super::Game;
@@ -41,6 +41,7 @@ impl<D: DiceRoller> Game<D> {
         if let Some(fallen) = self.state.goblin_mut(goblin) {
             fallen.presence = Presence::Down(square);
             fallen.in_stance = false;
+            fallen.focus = Focus::Unfocused;
         }
         events.push(GameEvent::KnockedDown { goblin, at: square });
         self.lose_health(goblin, damage, events);
@@ -73,7 +74,15 @@ impl<D: DiceRoller> Game<D> {
         if remaining == 0 {
             hurt.presence = Presence::KnockedOut;
             hurt.in_stance = false;
+            hurt.focus = Focus::Unfocused;
             events.push(GameEvent::KnockedOut { goblin });
+        }
+    }
+
+    pub(super) fn take_focus(&mut self, goblin: GoblinId, events: &mut Vec<GameEvent>) {
+        if let Some(focusing) = self.state.goblin_mut(goblin) {
+            focusing.focus = Focus::Focusing;
+            events.push(GameEvent::FocusTaken { goblin });
         }
     }
 

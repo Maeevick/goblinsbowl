@@ -100,7 +100,9 @@ pub fn best_chance_for(
     let start = state.goblin(goblin)?.square()?;
     let same_purpose = |path: &Vec<Square>| match action {
         Some(Action::Assault { .. } | Action::Throw { .. }) => true,
-        Some(Action::Stance) | None => path.last().copied().unwrap_or(start) == destination,
+        Some(Action::Stance | Action::Focus) | None => {
+            path.last().copied().unwrap_or(start) == destination
+        }
     };
     std::iter::once(Vec::new())
         .chain(

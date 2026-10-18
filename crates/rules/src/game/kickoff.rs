@@ -8,7 +8,7 @@ use crate::formation::{kickoff_drop_square, kickoff_squares};
 use crate::odds::AgilityDice;
 use crate::roster::{GoblinId, Roster};
 use crate::square::{Compass, Direction, Square};
-use crate::state::{Ball, Goblin, Presence};
+use crate::state::{Ball, Focus, Goblin, Presence};
 use crate::team::TeamId;
 
 use super::Game;
@@ -131,6 +131,7 @@ impl<D: DiceRoller> Game<D> {
             goblin.health = health;
             goblin.presence = Presence::Standing(square);
             goblin.in_stance = false;
+            goblin.focus = Focus::Unfocused;
             goblin.refresh_its_turn();
         }
     }
@@ -203,6 +204,15 @@ impl<D: DiceRoller> Game<D> {
     }
 
     pub(super) fn agility_roll(&mut self, goblin: GoblinId, extra_malus: u8) -> AgilityRoll {
+        self.agility_roll_with_bonus(goblin, extra_malus, 0)
+    }
+
+    pub(super) fn agility_roll_with_bonus(
+        &mut self,
+        goblin: GoblinId,
+        extra_malus: u8,
+        bonus: u8,
+    ) -> AgilityRoll {
         let reach = self.ruleset.reach();
         let (faces, opponents_in_reach) = self
             .state
@@ -222,7 +232,7 @@ impl<D: DiceRoller> Game<D> {
             .unwrap_or(u8::MAX)
             .saturating_add(extra_malus);
         self.roll_agility_test(AgilityDice {
-            bonus: 0,
+            bonus,
             faces,
             malus,
             target: self.ruleset.ball_roll_target,

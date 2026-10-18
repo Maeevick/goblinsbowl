@@ -75,7 +75,7 @@ fn order_intent(
         match activation.action {
             Some(Action::Assault { .. }) => Glyph::Assault,
             Some(Action::Throw { .. }) => Glyph::Throw,
-            Some(Action::Stance) | None => {
+            Some(Action::Stance | Action::Focus) | None => {
                 if rolls_on_the_way(|step| matches!(step, RiskyStep::Pick { .. })) {
                     Glyph::Pick
                 } else if rolls_on_the_way(|step| matches!(step, RiskyStep::Dodge { .. })) {

@@ -241,6 +241,11 @@ pub enum GameEvent {
         /// The defender.
         defender: GoblinId,
     },
+    /// A goblin stood still to focus: +1 to its throws on its team's next turn.
+    FocusTaken {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// A goblin braced in Stance until its team's next turn.
     StanceTaken {
         /// The goblin.

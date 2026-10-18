@@ -22,6 +22,8 @@ mod chaos_tests;
 mod fight;
 #[cfg(test)]
 mod fight_tests;
+#[cfg(test)]
+mod focus_tests;
 mod kickoff;
 #[cfg(test)]
 mod moving_after_action_tests;
@@ -92,6 +94,7 @@ impl<D: DiceRoller> Game<D> {
                     .map(move |((archetype, square), number)| {
                         let characteristics = ruleset.archetypes.of(archetype);
                         Goblin {
+                            focus: Default::default(),
                             id: GoblinId::new(team, number),
                             archetype,
                             characteristics,

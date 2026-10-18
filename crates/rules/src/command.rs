@@ -27,6 +27,8 @@ pub enum Action {
         #[serde(default, skip_serializing_if = "ThrowStyle::is_simple")]
         style: ThrowStyle,
     },
+    /// Stand still the whole turn to focus: +1 to its throws on its team's next turn.
+    Focus,
 }
 
 impl Action {

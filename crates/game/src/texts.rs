@@ -267,6 +267,8 @@ impl Texts {
             }
             (false, Some(Action::Stance), true) => format!("Garde : {chance}"),
             (false, Some(Action::Stance), false) => format!("Stance: {chance}"),
+            (false, Some(Action::Focus), true) => format!("Concentration : {chance}"),
+            (false, Some(Action::Focus), false) => format!("Focus: {chance}"),
             (false, None, true) => format!("Aller ici : {chance}"),
             (false, None, false) => format!("Move here: {chance}"),
         }
@@ -647,6 +649,11 @@ impl Texts {
                 format!("{attacker} et {defender} se tiennent tête, personne ne tombe"),
                 format!("{attacker} and {defender} stand off, nobody falls"),
             ),
+            GameEvent::FocusTaken { goblin } => pick(
+                french,
+                format!("{goblin} se concentre pour son prochain lancer"),
+                format!("{goblin} focuses on its next throw"),
+            ),
             GameEvent::StanceTaken { goblin } => pick(
                 french,
                 format!("{goblin} se met en garde"),
@@ -872,18 +879,37 @@ fn pick(french: bool, in_french: String, in_english: String) -> String {
 }
 
 fn describe_agility_roll(roll: &goblins_rules::event::AgilityRoll, on: &str) -> String {
-    if roll.malus == 0 {
-        format!("{} {on} d{}", roll.rolled, roll.faces)
-    } else {
-        format!("{}−{} {on} d{}", roll.rolled, roll.malus, roll.faces)
-    }
+    format!(
+        "{}{}{} {on} d{}",
+        roll.rolled,
+        bonus_text(roll.bonus),
+        malus_text(roll.malus),
+        roll.faces
+    )
 }
 
 fn describe_agility_dice(dice: &AgilityDice) -> String {
-    if dice.malus == 0 {
-        format!("d{}", dice.faces)
+    format!(
+        "d{}{}{}",
+        dice.faces,
+        bonus_text(dice.bonus),
+        malus_text(dice.malus)
+    )
+}
+
+fn bonus_text(bonus: u8) -> String {
+    if bonus == 0 {
+        String::new()
     } else {
-        format!("d{}−{}", dice.faces, dice.malus)
+        format!("+{bonus}")
+    }
+}
+
+fn malus_text(malus: u8) -> String {
+    if malus == 0 {
+        String::new()
+    } else {
+        format!("−{malus}")
     }
 }
 
@@ -979,6 +1005,7 @@ mod tests {
             .archetypes
             .of(Archetype::Sprinter);
         Goblin {
+            focus: Default::default(),
             id: id("H4"),
             archetype: Archetype::Sprinter,
             characteristics,

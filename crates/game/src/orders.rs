@@ -330,7 +330,7 @@ pub fn square_marks(
                 receiver: other, ..
             },
         ) => state.goblin(other).and_then(Goblin::square),
-        Some(Action::Stance) | None => None,
+        Some(Action::Stance | Action::Focus) | None => None,
     };
     for square in draft.activation.path.iter().copied().chain(target_square) {
         marks.insert(square, aimed);

@@ -59,6 +59,7 @@ pub fn event_team(event: &GameEvent) -> Option<TeamId> {
         | GameEvent::PickAttempted { goblin, .. }
         | GameEvent::InterceptAttempted { goblin, .. }
         | GameEvent::StanceTaken { goblin }
+        | GameEvent::FocusTaken { goblin }
         | GameEvent::KnockedDown { goblin, .. }
         | GameEvent::Projected { goblin, .. }
         | GameEvent::HealthLost { goblin, .. }

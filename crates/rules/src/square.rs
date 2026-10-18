@@ -95,6 +95,19 @@ impl Compass {
         Compass::ALL.get(index).copied()
     }
 
+    /// The same direction seen in a mirror between east and west.
+    pub fn mirrored_east_west(self) -> Compass {
+        match self {
+            Compass::NorthEast => Compass::NorthWest,
+            Compass::East => Compass::West,
+            Compass::SouthEast => Compass::SouthWest,
+            Compass::SouthWest => Compass::SouthEast,
+            Compass::West => Compass::East,
+            Compass::NorthWest => Compass::NorthEast,
+            Compass::North | Compass::South => self,
+        }
+    }
+
     /// Its number, 1 for north to 8 for north-west.
     pub fn number(self) -> u8 {
         Compass::ALL
@@ -261,6 +274,11 @@ mod tests {
             directions,
             Compass::ALL.into_iter().map(Some).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn given_the_south_east_when_mirrored_east_west_then_the_south_west() {
+        assert_eq!(Compass::SouthEast.mirrored_east_west(), Compass::SouthWest);
     }
 
     #[test]

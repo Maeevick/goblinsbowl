@@ -317,11 +317,17 @@ pub fn describe_dice(dice: &ContestDice) -> String {
 
 /// An agility test's die, for example "d4-3 needs 2".
 pub fn describe_agility_dice(dice: &AgilityDice) -> String {
-    if dice.malus == 0 {
-        format!("d{} needs {}", dice.faces, dice.target)
+    let bonus = if dice.bonus == 0 {
+        String::new()
     } else {
-        format!("d{}-{} needs {}", dice.faces, dice.malus, dice.target)
-    }
+        format!("+{}", dice.bonus)
+    };
+    let malus = if dice.malus == 0 {
+        String::new()
+    } else {
+        format!("-{}", dice.malus)
+    };
+    format!("d{}{bonus}{malus} needs {}", dice.faces, dice.target)
 }
 
 /// What an agent is told about a planned activation: every roll with its dice, and its chance
@@ -415,7 +421,7 @@ pub fn odds_lines(odds: &ActivationOdds, hints: OddsHints) -> Vec<String> {
             lines.push(annotate(format!("catch by {receiver}"), None, *catch));
             lines.push(annotate(format!("ball reaches {receiver}"), None, *success));
         }
-        Some(ActionOdds::Stance) | None => {}
+        Some(ActionOdds::Stance | ActionOdds::Focus) | None => {}
     }
     if odds.scores_on_the_way {
         lines.push("scores on the way".to_string());

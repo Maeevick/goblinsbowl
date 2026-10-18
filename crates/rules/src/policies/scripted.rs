@@ -779,7 +779,7 @@ impl Coach<'_> {
 mod tests {
     use super::*;
     use crate::characteristics::Archetype::{Bruiser, Sprinter, Thrower};
-    use crate::command::{Action, Activation};
+    use crate::command::{Action, Activation, AssaultStyle};
     use crate::game::scenario::Scenario;
     use crate::roster::GoblinId;
     use crate::square::Square;
@@ -1153,9 +1153,20 @@ mod tests {
                 mirrored_id(goblin),
                 destination.map(|square| mirrored_square(arena, square)),
                 action.map(|action| match action {
-                    Action::Assault { target, .. } => Action::assault(mirrored_id(target)),
-                    Action::Throw { receiver, .. } => Action::throw(mirrored_id(receiver)),
-                    Action::Stance => Action::Stance,
+                    Action::Assault { target, style } => Action::Assault {
+                        target: mirrored_id(target),
+                        style: match style {
+                            AssaultStyle::Projection(direction) => {
+                                AssaultStyle::Projection(direction.mirrored_east_west())
+                            }
+                            other => other,
+                        },
+                    },
+                    Action::Throw { receiver, style } => Action::Throw {
+                        receiver: mirrored_id(receiver),
+                        style,
+                    },
+                    Action::Stance | Action::Focus => action,
                 }),
             )
         })
