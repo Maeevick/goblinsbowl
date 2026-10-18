@@ -45,6 +45,7 @@ fn rules_0_1() -> Ruleset {
         one_action_of_each_kind: false,
         braced_tacklers_weigh_double: true,
         reach_covers_diagonals: false,
+        ball_bounces_all_around: false,
         archetypes: ArchetypeCharacteristics {
             bruiser: Characteristics {
                 attack: 4,

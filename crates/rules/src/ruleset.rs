@@ -129,6 +129,10 @@ pub struct Ruleset {
     /// flying over one of them, not only over its own square, may be intercepted.
     #[serde(default)]
     pub reach_covers_diagonals: bool,
+    /// Whether a bouncing ball goes to one of the eight squares around, rolled on a d8 clockwise
+    /// from north, instead of one of the four orthogonal ones on a d4.
+    #[serde(default)]
+    pub ball_bounces_all_around: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -245,6 +249,7 @@ impl Default for Ruleset {
             one_action_of_each_kind: false,
             braced_tacklers_weigh_double: braced_tacklers_weigh_double(),
             reach_covers_diagonals: false,
+            ball_bounces_all_around: false,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

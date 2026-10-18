@@ -7,7 +7,7 @@ use crate::event::{AgilityRoll, GameEvent};
 use crate::formation::{kickoff_drop_square, kickoff_squares};
 use crate::odds::AgilityDice;
 use crate::roster::{GoblinId, Roster};
-use crate::square::{Direction, Square};
+use crate::square::{Compass, Direction, Square};
 use crate::state::{Ball, Goblin, Presence};
 use crate::team::TeamId;
 
@@ -170,10 +170,14 @@ impl<D: DiceRoller> Game<D> {
 
     fn roll_bounce_destination(&mut self, from: Square) -> Square {
         for _ in 0..MAX_DIRECTION_ROLLS {
-            let face = self.dice.roll(4);
-            let destination = Direction::from_d4_face(face)
-                .and_then(|direction| direction.step_from(from))
-                .filter(|square| self.arena.is_in_bounds(*square));
+            let step = if self.ruleset.ball_bounces_all_around {
+                let face = self.dice.roll(8);
+                Compass::from_d8_face(face).and_then(|direction| direction.step_from(from))
+            } else {
+                let face = self.dice.roll(4);
+                Direction::from_d4_face(face).and_then(|direction| direction.step_from(from))
+            };
+            let destination = step.filter(|square| self.arena.is_in_bounds(*square));
             if let Some(destination) = destination {
                 return destination;
             }

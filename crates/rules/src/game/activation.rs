@@ -781,6 +781,22 @@ mod tests {
     }
 
     #[test]
+    fn given_bounces_all_around_when_the_pick_fails_and_the_d8_shows_two_then_the_ball_bounces_north_east()
+     {
+        let mut game = two_sprinters_apart()
+            .rules(|ruleset| ruleset.ball_bounces_all_around = true)
+            .ball_loose_at(4, 7)
+            .game([1, 2]);
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert_eq!(
+            game.state().ball,
+            Ball::Loose {
+                at: Square::new(5, 6)
+            }
+        );
+    }
+
+    #[test]
     fn given_the_pick_fails_when_the_ball_bounces_onto_a_teammate_then_it_may_catch_it() {
         let mut game = two_sprinters_apart()
             .goblin("H3", Sprinter, 4, 8)

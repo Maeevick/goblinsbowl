@@ -53,6 +53,65 @@ impl Direction {
     }
 }
 
+/// One of the eight directions around a square, numbered 1 to 8 clockwise from north as on a d8.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Compass {
+    /// Towards row 0.
+    North,
+    /// Towards row 0 and higher columns.
+    NorthEast,
+    /// Towards higher columns.
+    East,
+    /// Towards higher rows and higher columns.
+    SouthEast,
+    /// Towards higher rows.
+    South,
+    /// Towards higher rows and column 0.
+    SouthWest,
+    /// Towards column 0.
+    West,
+    /// Towards row 0 and column 0.
+    NorthWest,
+}
+
+impl Compass {
+    /// The eight directions clockwise from north, the order of their numbers 1 to 8.
+    pub const ALL: [Compass; 8] = [
+        Compass::North,
+        Compass::NorthEast,
+        Compass::East,
+        Compass::SouthEast,
+        Compass::South,
+        Compass::SouthWest,
+        Compass::West,
+        Compass::NorthWest,
+    ];
+
+    /// Maps a d8 face, or a direction's number, from 1 to 8 to its direction.
+    pub fn from_d8_face(face: u8) -> Option<Compass> {
+        let index = usize::from(face.checked_sub(1)?);
+        Compass::ALL.get(index).copied()
+    }
+
+    /// The square one step away from `origin` in this direction, or `None` below coordinate zero.
+    pub fn step_from(self, origin: Square) -> Option<Square> {
+        let (east, south): (i16, i16) = match self {
+            Compass::North => (0, -1),
+            Compass::NorthEast => (1, -1),
+            Compass::East => (1, 0),
+            Compass::SouthEast => (1, 1),
+            Compass::South => (0, 1),
+            Compass::SouthWest => (-1, 1),
+            Compass::West => (-1, 0),
+            Compass::NorthWest => (-1, -1),
+        };
+        let x = u8::try_from(i16::from(origin.x) + east).ok()?;
+        let y = u8::try_from(i16::from(origin.y) + south).ok()?;
+        Some(Square::new(x, y))
+    }
+}
+
 /// The squares a standing goblin weighs on around it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -168,6 +227,28 @@ mod tests {
             directions,
             Direction::ALL.into_iter().map(Some).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn given_d8_faces_when_mapped_then_clockwise_from_north() {
+        let directions: Vec<Option<Compass>> = (1..=8).map(Compass::from_d8_face).collect();
+        assert_eq!(
+            directions,
+            Compass::ALL.into_iter().map(Some).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn given_the_north_east_when_stepping_then_one_column_east_one_row_north() {
+        assert_eq!(
+            Compass::NorthEast.step_from(Square::new(4, 7)),
+            Some(Square::new(5, 6))
+        );
+    }
+
+    #[test]
+    fn given_the_north_west_from_the_corner_when_stepping_then_off_the_grid() {
+        assert_eq!(Compass::NorthWest.step_from(Square::new(0, 0)), None);
     }
 
     #[test]
