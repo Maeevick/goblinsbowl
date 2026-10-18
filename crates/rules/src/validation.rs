@@ -1,10 +1,10 @@
 //! Pure validation of orders: what a coach may ask for, checked before any die is rolled.
 
 use crate::arena::Arena;
-use crate::command::{Action, Activation};
+use crate::command::{Action, Activation, AssaultStyle};
 use crate::roster::GoblinId;
 use crate::ruleset::Ruleset;
-use crate::square::Square;
+use crate::square::{Compass, Square};
 use crate::state::{Ball, GameState, Presence};
 use crate::team::TeamId;
 use crate::violation::RuleViolation;
@@ -90,7 +90,15 @@ pub fn validate_activation(
         {
             Err(RuleViolation::CarrierCannotAssault { goblin: id })
         }
-        Some(Action::Assault { target, .. }) => validate_assault(state, team, final_square, target),
+        Some(Action::Assault { target, style }) => {
+            validate_assault(state, team, final_square, target)?;
+            match style {
+                AssaultStyle::Projection(direction) => {
+                    validate_projection(arena, state, id, final_square, target, direction)
+                }
+                AssaultStyle::Simple | AssaultStyle::Chirurgical | AssaultStyle::Brutal => Ok(()),
+            }
+        }
         Some(Action::Throw { receiver, .. }) => {
             validate_throw(state, team, id, &activation.path, receiver)
         }
@@ -123,6 +131,42 @@ fn validate_assault(
         return Err(RuleViolation::TargetNotAdjacent { target });
     }
     Ok(())
+}
+
+fn validate_projection(
+    arena: &Arena,
+    state: &GameState,
+    attacker: GoblinId,
+    attacker_square: Square,
+    target: GoblinId,
+    direction: Compass,
+) -> Result<(), RuleViolation> {
+    if !state
+        .goblin(target)
+        .is_some_and(|goblin| goblin.is_standing())
+    {
+        return Err(RuleViolation::ProjectionNeedsAStandingTarget { target });
+    }
+    projection_landing(arena, state, attacker, attacker_square, target, direction)
+        .map(|_| ())
+        .ok_or(RuleViolation::ProjectionLandingUnavailable { target })
+}
+
+/// The square `target` falls on when `attacker`, standing on `attacker_square`, projects it in
+/// `direction`: on the bowl, and free or already its own.
+pub fn projection_landing(
+    arena: &Arena,
+    state: &GameState,
+    attacker: GoblinId,
+    attacker_square: Square,
+    target: GoblinId,
+    direction: Compass,
+) -> Option<Square> {
+    let landing = direction.step_from(attacker_square)?;
+    let free = state
+        .goblin_at(landing)
+        .is_none_or(|goblin| goblin.id == target || goblin.id == attacker);
+    (arena.is_in_bounds(landing) && free).then_some(landing)
 }
 
 fn validate_throw(

@@ -53,9 +53,10 @@ impl Direction {
     }
 }
 
-/// One of the eight directions around a square, numbered 1 to 8 clockwise from north as on a d8.
+/// One of the eight directions around a square, numbered 1 to 8 clockwise from north as on a d8,
+/// and written as its number.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(into = "u8", try_from = "u8")]
 pub enum Compass {
     /// Towards row 0.
     North,
@@ -94,6 +95,15 @@ impl Compass {
         Compass::ALL.get(index).copied()
     }
 
+    /// Its number, 1 for north to 8 for north-west.
+    pub fn number(self) -> u8 {
+        Compass::ALL
+            .iter()
+            .position(|direction| *direction == self)
+            .and_then(|index| u8::try_from(index + 1).ok())
+            .unwrap_or(1)
+    }
+
     /// The square one step away from `origin` in this direction, or `None` below coordinate zero.
     pub fn step_from(self, origin: Square) -> Option<Square> {
         let (east, south): (i16, i16) = match self {
@@ -109,6 +119,21 @@ impl Compass {
         let x = u8::try_from(i16::from(origin.x) + east).ok()?;
         let y = u8::try_from(i16::from(origin.y) + south).ok()?;
         Some(Square::new(x, y))
+    }
+}
+
+impl From<Compass> for u8 {
+    fn from(direction: Compass) -> Self {
+        direction.number()
+    }
+}
+
+impl TryFrom<u8> for Compass {
+    type Error = String;
+
+    fn try_from(number: u8) -> Result<Self, Self::Error> {
+        Compass::from_d8_face(number)
+            .ok_or_else(|| format!("{number} is not a direction from 1 to 8"))
     }
 }
 
@@ -236,6 +261,16 @@ mod tests {
             directions,
             Compass::ALL.into_iter().map(Some).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn given_the_south_west_when_written_then_its_number_six() {
+        assert_eq!(serde_json::to_string(&Compass::SouthWest).unwrap(), "6");
+    }
+
+    #[test]
+    fn given_nine_when_read_as_a_direction_then_refused() {
+        assert!(serde_json::from_str::<Compass>("9").is_err());
     }
 
     #[test]

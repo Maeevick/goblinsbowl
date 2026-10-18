@@ -214,6 +214,15 @@ pub enum GameEvent {
         #[serde(default, skip_serializing_if = "AssaultStyle::is_simple")]
         style: AssaultStyle,
     },
+    /// A won projection threw a goblin onto a square around its attacker, where it falls.
+    Projected {
+        /// The goblin thrown.
+        goblin: GoblinId,
+        /// Square it stood on.
+        from: Square,
+        /// Square it lands on.
+        to: Square,
+    },
     /// An assault tied under rules where ties stand off: nobody fell and the turn goes on.
     StandOff {
         /// The attacker.

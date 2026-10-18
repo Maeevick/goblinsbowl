@@ -457,3 +457,93 @@ fn given_simple_assaults_only_when_a_brutal_assault_is_ordered_then_refused() {
         Err(RuleViolation::StyleNotInTheseRules { goblin: id("H1") })
     );
 }
+
+fn projection_north_east() -> AssaultStyle {
+    AssaultStyle::Projection(crate::square::Compass::NorthEast)
+}
+
+#[test]
+fn given_assault_styles_when_a_projection_wins_then_the_defender_falls_on_the_chosen_square_around_the_attacker()
+ {
+    let mut game = bruisers_face_to_face_with_styles().game([4, 1]);
+    game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", projection_north_east()),
+    )
+    .unwrap();
+    let defender = game.state().goblin(id("A1")).unwrap();
+    assert_eq!(
+        (defender.presence, defender.health),
+        (Presence::Down(Square::new(6, 6)), 3)
+    );
+}
+
+#[test]
+fn given_assault_styles_when_a_projection_aims_at_a_taken_square_then_refused() {
+    let mut game = bruisers_face_to_face_with_styles()
+        .goblin("A2", Sprinter, 6, 6)
+        .game([4, 1]);
+    let refusal = game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", projection_north_east()),
+    );
+    assert_eq!(
+        refusal,
+        Err(RuleViolation::ProjectionLandingUnavailable { target: id("A1") })
+    );
+}
+
+#[test]
+fn given_assault_styles_when_projecting_a_downed_goblin_then_refused() {
+    let mut game = bruisers_face_to_face_with_styles()
+        .edit("A1", |goblin| {
+            goblin.presence = Presence::Down(Square::new(6, 7));
+        })
+        .game([4, 1]);
+    let refusal = game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", projection_north_east()),
+    );
+    assert_eq!(
+        refusal,
+        Err(RuleViolation::ProjectionNeedsAStandingTarget { target: id("A1") })
+    );
+}
+
+#[test]
+fn given_assault_styles_when_the_carrier_is_projected_then_the_ball_bounces_from_its_landing_square()
+ {
+    let mut game = bruisers_face_to_face_with_styles()
+        .ball_carried_by("A1")
+        .game([4, 1, BOUNCE_NORTH]);
+    game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", projection_north_east()),
+    )
+    .unwrap();
+    assert_eq!(
+        game.state().ball,
+        Ball::Loose {
+            at: Square::new(6, 5)
+        }
+    );
+}
+
+#[test]
+fn given_assault_styles_when_a_goblin_is_projected_onto_the_loose_ball_then_the_ball_bounces_away()
+{
+    let mut game = bruisers_face_to_face_with_styles()
+        .ball_loose_at(6, 6)
+        .game([4, 1, BOUNCE_NORTH]);
+    game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", projection_north_east()),
+    )
+    .unwrap();
+    assert_eq!(
+        game.state().ball,
+        Ball::Loose {
+            at: Square::new(6, 5)
+        }
+    );
+}

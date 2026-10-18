@@ -11,7 +11,7 @@ use crate::ruleset::Ruleset;
 use crate::square::{Reach, Square};
 use crate::state::{Ball, GameState, Presence};
 use crate::team::TeamId;
-use crate::validation::validate_activation;
+use crate::validation::{projection_landing, validate_activation};
 use crate::violation::RuleViolation;
 
 /// The dice of a dodge, as the ruleset decides.
@@ -340,15 +340,25 @@ pub fn board_after_success(
                 goblin.in_stance = true;
             }
         }
-        Some(Action::Assault { target, .. }) => {
+        Some(Action::Assault { target, style }) => {
             let target_carried_the_ball = board.carrier() == Some(target);
+            let landing = match style {
+                AssaultStyle::Projection(direction) => board
+                    .goblin(id)
+                    .and_then(|attacker| attacker.square())
+                    .and_then(|from| {
+                        projection_landing(arena, &board, id, from, target, direction)
+                    }),
+                AssaultStyle::Simple | AssaultStyle::Chirurgical | AssaultStyle::Brutal => None,
+            };
             if let Some(defender) = board.goblin_mut(target)
                 && let Presence::Standing(square) = defender.presence
             {
-                defender.presence = Presence::Down(square);
+                let fallen_at = landing.unwrap_or(square);
+                defender.presence = Presence::Down(fallen_at);
                 defender.in_stance = false;
                 if target_carried_the_ball {
-                    board.ball = Ball::Loose { at: square };
+                    board.ball = Ball::Loose { at: fallen_at };
                 }
             }
         }
@@ -597,6 +607,36 @@ mod tests {
                 Presence::Down(Square::new(6, 7)),
                 Ball::Loose {
                     at: Square::new(6, 7)
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn given_a_projection_of_the_enemy_carrier_when_played_out_then_it_is_down_on_its_landing_square_with_the_ball()
+     {
+        let board = played_out(
+            Scenario::new()
+                .rules(|ruleset| ruleset.assaults_have_styles = true)
+                .goblin("H1", Bruiser, 5, 7)
+                .goblin("A5", Sprinter, 6, 7)
+                .ball_carried_by("A5"),
+            &order(
+                "H1",
+                &[],
+                Some(Action::Assault {
+                    target: id("A5"),
+                    style: AssaultStyle::Projection(crate::square::Compass::South),
+                }),
+            ),
+        )
+        .unwrap();
+        assert_eq!(
+            (board.goblin(id("A5")).unwrap().presence, board.ball),
+            (
+                Presence::Down(Square::new(5, 8)),
+                Ball::Loose {
+                    at: Square::new(5, 8)
                 }
             )
         );

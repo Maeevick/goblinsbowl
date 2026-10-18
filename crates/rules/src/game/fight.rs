@@ -6,7 +6,9 @@ use crate::event::{ContestRoll, GameEvent, TurnEndReason};
 use crate::odds::ContestDice;
 use crate::preview::{stance_bonus, styled_assault_dice};
 use crate::roster::GoblinId;
+use crate::square::{Compass, Square};
 use crate::state::{Ball, Presence};
+use crate::validation::projection_landing;
 
 use super::Game;
 
@@ -82,6 +84,44 @@ impl<D: DiceRoller> Game<D> {
         }
     }
 
+    /// Moves `defender` onto the square `attacker` projects it to, and returns that square when the
+    /// loose ball lay there, to bounce once the defender is down.
+    fn project(
+        &mut self,
+        attacker: GoblinId,
+        defender: GoblinId,
+        direction: Compass,
+        events: &mut Vec<GameEvent>,
+    ) -> Option<Square> {
+        let attacker_square = self
+            .state
+            .goblin(attacker)
+            .and_then(|goblin| goblin.square())?;
+        let from = self
+            .state
+            .goblin(defender)
+            .and_then(|goblin| goblin.square())?;
+        let landing = projection_landing(
+            &self.arena,
+            &self.state,
+            attacker,
+            attacker_square,
+            defender,
+            direction,
+        )?;
+        if landing != from {
+            if let Some(projected) = self.state.goblin_mut(defender) {
+                projected.presence = Presence::Standing(landing);
+            }
+            events.push(GameEvent::Projected {
+                goblin: defender,
+                from,
+                to: landing,
+            });
+        }
+        (self.state.ball == Ball::Loose { at: landing }).then_some(landing)
+    }
+
     pub(super) fn resolve_assault(
         &mut self,
         attacker: GoblinId,
@@ -120,12 +160,21 @@ impl<D: DiceRoller> Game<D> {
             return Some(TurnEndReason::Knockdown);
         }
         let damage = style.damage(margin_as_rolled);
-        let missed_catches = if defender_is_down {
+        let landed_on_the_ball = match style {
+            AssaultStyle::Projection(direction) => {
+                self.project(attacker, defender, direction, events)
+            }
+            AssaultStyle::Simple | AssaultStyle::Chirurgical | AssaultStyle::Brutal => None,
+        };
+        let mut missed_catches = if defender_is_down {
             self.lose_health(defender, damage, events);
             Vec::new()
         } else {
             self.knock_down(defender, damage, events)
         };
+        if let Some(landing) = landed_on_the_ball {
+            missed_catches.extend(self.bounce_ball(landing, events));
+        }
         let active_team = self.state.active_team();
         let a_teammate_missed = missed_catches
             .iter()

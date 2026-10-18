@@ -76,6 +76,18 @@ pub enum RuleViolation {
         /// The goblin.
         goblin: GoblinId,
     },
+    /// A projection throws a standing enemy down; this one already lies down.
+    #[error("{target} already lies down and cannot be projected")]
+    ProjectionNeedsAStandingTarget {
+        /// The target.
+        target: GoblinId,
+    },
+    /// A projection must land its target on a free square of the bowl around the attacker.
+    #[error("{target} cannot be projected that way: the square is off the bowl or taken")]
+    ProjectionLandingUnavailable {
+        /// The target.
+        target: GoblinId,
+    },
     /// The goblin would hold the ball, and the rules keep carriers from assaulting.
     #[error("{goblin} holds the ball and cannot assault")]
     CarrierCannotAssault {

@@ -632,6 +632,11 @@ impl Texts {
                     ),
                 )
             }
+            GameEvent::Projected { goblin, to, .. } => pick(
+                french,
+                format!("{goblin} est projeté en [{}, {}]", to.x, to.y),
+                format!("{goblin} is thrown to [{}, {}]", to.x, to.y),
+            ),
             GameEvent::StandOff { attacker, defender } => pick(
                 french,
                 format!("{attacker} et {defender} se tiennent tête, personne ne tombe"),

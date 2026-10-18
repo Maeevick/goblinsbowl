@@ -124,7 +124,9 @@ pub fn beats_from_events(events: &[GameEvent]) -> Vec<Beat> {
     let mut beats = Vec::new();
     for event in events {
         match *event {
-            GameEvent::Moved { goblin, to, .. } => beats.push(Beat::Step { goblin, to }),
+            GameEvent::Moved { goblin, to, .. } | GameEvent::Projected { goblin, to, .. } => {
+                beats.push(Beat::Step { goblin, to })
+            }
             GameEvent::KnockedDown { goblin, .. } => beats.push(Beat::Fall { goblin }),
             GameEvent::StoodUp { goblin } => beats.push(Beat::Rise { goblin }),
             GameEvent::KnockedOut { goblin } => beats.push(Beat::Vanish { goblin }),

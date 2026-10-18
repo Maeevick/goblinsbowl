@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::roster::GoblinId;
-use crate::square::Square;
+use crate::square::{Compass, Square};
 
 /// What a goblin does once it has moved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,6 +59,9 @@ pub enum AssaultStyle {
     Chirurgical,
     /// −1 to the attack roll, and the target loses one more Health.
     Brutal,
+    /// −1 to the attack roll, and the target falls on this square around the attacker, numbered 1
+    /// to 8 clockwise from north.
+    Projection(Compass),
 }
 
 impl AssaultStyle {
@@ -72,7 +75,7 @@ impl AssaultStyle {
         match self {
             AssaultStyle::Simple => 0,
             AssaultStyle::Chirurgical => 1,
-            AssaultStyle::Brutal => -1,
+            AssaultStyle::Brutal | AssaultStyle::Projection(_) => -1,
         }
     }
 
@@ -81,7 +84,7 @@ impl AssaultStyle {
     pub fn damage(self, margin_as_rolled: i8) -> u8 {
         let margin = u8::try_from(margin_as_rolled.max(0)).unwrap_or_default();
         match self {
-            AssaultStyle::Simple => margin,
+            AssaultStyle::Simple | AssaultStyle::Projection(_) => margin,
             AssaultStyle::Chirurgical => 0,
             AssaultStyle::Brutal => margin.saturating_add(1),
         }
