@@ -158,14 +158,16 @@ The coach follows the loop in `prompts/coach.md`: read the rules once, wait for 
 | `play` | `activations`, `end_turn`, `dry_run`, `expected_version` | one report per order, the plan's chance for a dry run, then the view |
 | `compare_plans` | `plans`, each a list of `orders` | for each plan, one report per order and the chance that the whole plan goes through |
 
-Each entry of `activations` is an order: a goblin, where it goes with the steps it has left this turn, and optionally its action. Since rules 0.2 a goblin has its Move and one action per turn, spent over as many orders as the coach likes, so it can walk, act, and walk on later in the turn:
+Each entry of `activations` is an order: a goblin, where it goes with the steps it has left this turn, and optionally its action. Since rules 0.8 a goblin has its Move and may assault, throw, brace in stance and focus once each per turn, an assault or a throw costing a step and a stance every step left, spent over as many orders as the coach likes, so it can walk, act, and walk on later in the turn. Since rules 0.9 an assault takes a `style` (`simple`, `chirurgical`, `brutal`, or `projection` with `to`, the landing square around the attacker numbered 1 to 8 clockwise from north) and a goblin that has not moved may throw with `"style": "chaos"` or `focus`:
 
 ```json
 {"activations": [
    {"goblin": "A6", "to": [12, 8], "estimate": 1.0},
-   {"goblin": "A2", "path": [[10, 10]], "action": {"type": "assault", "target": "H2"}, "estimate": 0.62},
+   {"goblin": "A2", "path": [[10, 10]], "action": {"type": "assault", "target": "H2", "style": "chirurgical"}, "estimate": 0.81},
    {"goblin": "A2", "to": [11, 10], "estimate": 1.0},
-   {"goblin": "A9", "action": {"type": "throw", "target": "A5"}}
+   {"goblin": "A3", "action": {"type": "assault", "target": "H3", "style": "projection", "to": 7}},
+   {"goblin": "A9", "action": {"type": "throw", "target": "A5"}},
+   {"goblin": "A8", "action": {"type": "focus"}}
  ],
  "end_turn": true}
 ```
@@ -181,7 +183,7 @@ Each entry of `activations` is an order: a goblin, where it goes with the steps 
  ]}
 ```
 
-The view carries the status (`your_turn`, `waiting`, `game_over`), the seat and its direction of attack, the version, the time left, score and turns, the ball, the board as text rows, every goblin (characteristics, health, square, condition, whether it can still act, its `steps_left` and `has_action_left`), the assault and ball options (pick-ups, scoring routes) with their chances under full hints, and the events since the agent's previous call. At kick-off it is about 10,000 characters.
+The view carries the status (`your_turn`, `waiting`, `game_over`), the seat and its direction of attack, the version, the time left, score and turns, the ball, the board as text rows, every goblin (characteristics, health, square, condition, whether it can still act, its `steps_left`, `has_action_left` and `actions_left`, whether it is `in_stance` or `focused`), the assault options with their chance to keep the attacker on its feet and to knock the target down (`knock_down_percent`) and the ball options (pick-ups, scoring routes) with their chances under full hints, and the events since the agent's previous call. At kick-off it is about 10,000 characters.
 
 The server refuses an order with a message the model reads and the match untouched: not your turn, a stale plan (`expected_version` behind the match), a turn that changed since the agent last looked, or an order the rules forbid, with the reason (a square beyond its steps left, a goblin with no step or action left, an action already used).
 
