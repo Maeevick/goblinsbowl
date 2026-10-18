@@ -17,7 +17,7 @@ use goblins_rules::preview::{
 };
 use goblins_rules::roster::GoblinId;
 use goblins_rules::ruleset::Ruleset;
-use goblins_rules::state::{Ball, GameState, Goblin, Phase, Presence};
+use goblins_rules::state::{Ball, Focus, GameState, Goblin, Phase, Presence};
 use goblins_rules::team::TeamId;
 
 /// How much odds information agents get.
@@ -81,9 +81,11 @@ pub struct GoblinView {
     pub steps_left: u8,
     /// May still take an action this turn (only meaningful for the team playing).
     pub has_action_left: bool,
-    /// The actions it may still take this turn, among assault, throw and stance, a step left to
-    /// pay for each where actions cost steps (only meaningful for the team playing).
+    /// The actions it may still take this turn, among assault, throw, stance and focus, a step
+    /// left to pay for each where actions cost steps (only meaningful for the team playing).
     pub actions_left: Vec<String>,
+    /// Focused on its team's last turn: +1 to its throws this turn.
+    pub focused: bool,
     /// Faces of the attack die.
     pub attack: u8,
     /// Faces of the defense die.
@@ -500,11 +502,13 @@ fn goblin_view(goblin: &Goblin, ruleset: &Ruleset) -> GoblinView {
             (Action::assault(goblin.id), "assault"),
             (Action::throw(goblin.id), "throw"),
             (Action::Stance, "stance"),
+            (Action::Focus, "focus"),
         ]
         .into_iter()
         .filter(|(action, _)| goblin.may_act_after(*action, 0, ruleset))
         .map(|(_, name)| name.to_string())
         .collect(),
+        focused: goblin.focus == Focus::Focused,
         attack: goblin.characteristics.attack,
         defense: goblin.characteristics.defense,
         agility: goblin.characteristics.agility,

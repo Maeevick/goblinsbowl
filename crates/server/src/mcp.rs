@@ -12,14 +12,14 @@ use axum::http::request::Parts;
 use axum::http::{StatusCode, header::AUTHORIZATION};
 use axum::middleware::{self, Next};
 use axum::response::Response;
-use goblins_rules::command::{Action, Activation, Command};
+use goblins_rules::command::{Action, Activation, AssaultStyle, Command, ThrowStyle};
 use goblins_rules::event::{GameEvent, TurnEndReason};
 use goblins_rules::host::MatchSnapshot;
 use goblins_rules::odds::Probability;
 use goblins_rules::paths::safest_path;
 use goblins_rules::preview::{activation_odds, board_after_success};
 use goblins_rules::roster::GoblinId;
-use goblins_rules::square::Square;
+use goblins_rules::square::{Compass, Square};
 use goblins_rules::state::GameState;
 use goblins_rules::team::TeamId;
 use rmcp::handler::server::router::tool::ToolRouter;
@@ -129,7 +129,7 @@ pub struct WaitArgs {
     pub max_wait_seconds: Option<u64>,
 }
 
-/// A goblin's action: an assault, a throw or a stance, each once per turn under rules 0.8.
+/// A goblin's action: an assault, a throw, a stance or a focus, each once per turn.
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(transform = drop_integer_formats)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -138,14 +138,52 @@ pub enum PlannedAction {
     Assault {
         /// Enemy id such as A3.
         target: String,
+        /// How to assault, where the rules allow styles: simple (default), chirurgical (+1 to
+        /// win, the target loses no health), brutal (-1 to win, the target loses one more health)
+        /// or projection (-1 to win, the target falls on the square `to`).
+        style: Option<PlannedAssaultStyle>,
+        /// For a projection: where the target falls around the attacker's square, 1 to 8
+        /// clockwise from north (1 is [x, y-1], 3 is [x+1, y], 5 is [x, y+1], 7 is [x-1, y]).
+        to: Option<u8>,
     },
     /// Throw the ball (held now or picked up on the path) to a standing teammate.
     Throw {
         /// Teammate id such as H5.
         target: String,
+        /// How to throw, where the rules allow styles: simple (default) or chaos (no throw roll,
+        /// the ball bounces three times from the receiver's square; the thrower must not have
+        /// moved this turn and spends its whole move).
+        style: Option<PlannedThrowStyle>,
     },
     /// Brace in stance after moving: +1 defense until your next turn, at the cost of every step left.
     Stance,
+    /// Focus, where the rules allow it: stand still this whole turn for +1 to this goblin's
+    /// throws on your next turn.
+    Focus,
+}
+
+/// How an assault is thrown.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PlannedAssaultStyle {
+    /// Attack against defense.
+    Simple,
+    /// +1 to win, and the target loses no health.
+    Chirurgical,
+    /// -1 to win, and the target loses one more health.
+    Brutal,
+    /// -1 to win, and the target falls on the square `to` around the attacker.
+    Projection,
+}
+
+/// How the ball is thrown.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PlannedThrowStyle {
+    /// A throw roll, then the catch.
+    Simple,
+    /// No throw roll and no catch: the ball bounces three times from the receiver's square.
+    Chaos,
 }
 
 /// One goblin's order.
@@ -612,9 +650,27 @@ impl CoachServer {
 fn parse_action(planned: &PlannedAction) -> Result<Action, String> {
     let goblin = |text: &str| text.parse::<GoblinId>().map_err(|error| format!("{error}"));
     Ok(match planned {
-        PlannedAction::Assault { target } => Action::assault(goblin(target)?),
-        PlannedAction::Throw { target } => Action::throw(goblin(target)?),
+        PlannedAction::Assault { target, style, to } => Action::Assault {
+            target: goblin(target)?,
+            style: match style.unwrap_or(PlannedAssaultStyle::Simple) {
+                PlannedAssaultStyle::Simple => AssaultStyle::Simple,
+                PlannedAssaultStyle::Chirurgical => AssaultStyle::Chirurgical,
+                PlannedAssaultStyle::Brutal => AssaultStyle::Brutal,
+                PlannedAssaultStyle::Projection => AssaultStyle::Projection(
+                    to.and_then(Compass::from_d8_face)
+                        .ok_or("a projection needs `to`, a direction from 1 to 8")?,
+                ),
+            },
+        },
+        PlannedAction::Throw { target, style } => Action::Throw {
+            receiver: goblin(target)?,
+            style: match style.unwrap_or(PlannedThrowStyle::Simple) {
+                PlannedThrowStyle::Simple => ThrowStyle::Simple,
+                PlannedThrowStyle::Chaos => ThrowStyle::Chaos,
+            },
+        },
         PlannedAction::Stance => Action::Stance,
+        PlannedAction::Focus => Action::Focus,
     })
 }
 
@@ -754,6 +810,45 @@ mod tests {
      {
         let rules = english_rules();
         assert!(rules.starts_with("# Goblins Bowl, rules 0.8") && !rules.contains("règles"));
+    }
+
+    #[test]
+    fn given_an_order_to_project_east_when_read_then_a_projection_to_the_east() {
+        let planned: PlannedAction = serde_json::from_value(serde_json::json!(
+            {"type": "assault", "target": "A3", "style": "projection", "to": 3}
+        ))
+        .unwrap();
+        assert_eq!(
+            parse_action(&planned),
+            Ok(Action::Assault {
+                target: "A3".parse().unwrap(),
+                style: AssaultStyle::Projection(Compass::East)
+            })
+        );
+    }
+
+    #[test]
+    fn given_an_order_to_project_without_a_direction_when_read_then_refused() {
+        let planned: PlannedAction = serde_json::from_value(serde_json::json!(
+            {"type": "assault", "target": "A3", "style": "projection"}
+        ))
+        .unwrap();
+        assert!(parse_action(&planned).is_err());
+    }
+
+    #[test]
+    fn given_an_order_to_throw_into_chaos_when_read_then_a_chaos_throw() {
+        let planned: PlannedAction = serde_json::from_value(serde_json::json!(
+            {"type": "throw", "target": "H5", "style": "chaos"}
+        ))
+        .unwrap();
+        assert_eq!(
+            parse_action(&planned),
+            Ok(Action::Throw {
+                receiver: "H5".parse().unwrap(),
+                style: ThrowStyle::Chaos
+            })
+        );
     }
 
     #[test]
