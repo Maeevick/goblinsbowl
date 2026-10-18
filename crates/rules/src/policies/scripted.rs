@@ -361,6 +361,20 @@ impl Coach<'_> {
             .map(|odds| odds.overall_success)
     }
 
+    /// The chance `activation` does what it is played for: for the second generation, an assault's
+    /// chance to knock its target down, a stand-off doing nothing; otherwise the chance the turn
+    /// goes on, which is the same where ties knock the target down.
+    fn chance_played_for(&self, activation: &Activation) -> Option<Probability> {
+        let odds =
+            activation_odds(self.arena, self.ruleset, self.state, self.team, activation).ok()?;
+        Some(match (self.style.generation, &odds.action) {
+            (Generation::Second, Some(ActionOdds::Assault { knock_down, .. })) => {
+                odds.path_success.and(*knock_down)
+            }
+            _ => odds.overall_success,
+        })
+    }
+
     fn own_carrier(&self) -> Option<&Goblin> {
         self.state
             .carrier()
@@ -452,8 +466,8 @@ impl Coach<'_> {
                 })
             })
             .filter_map(|activation| {
-                self.success(&activation)
-                    .map(|success| (activation, success))
+                self.chance_played_for(&activation)
+                    .map(|chance| (activation, chance))
             })
             .collect();
         self.most_likely(candidates, Risk::Sack)
@@ -518,8 +532,8 @@ impl Coach<'_> {
                 })
             })
             .filter_map(|activation| {
-                self.success(&activation)
-                    .map(|success| (activation, success))
+                self.chance_played_for(&activation)
+                    .map(|chance| (activation, chance))
             })
             .collect();
         self.most_likely(candidates, Risk::Free)
@@ -700,8 +714,8 @@ impl Coach<'_> {
                     })
             })
             .filter_map(|activation| {
-                self.success(&activation)
-                    .map(|success| (activation, success))
+                self.chance_played_for(&activation)
+                    .map(|chance| (activation, chance))
             })
             .collect();
         self.most_likely(candidates, Risk::Hit)
@@ -1155,6 +1169,47 @@ mod tests {
                 }),
             )
         })
+    }
+
+    fn bruisers_face_to_face_where_ties_stand_off() -> Scenario {
+        Scenario::new()
+            .rules(|ruleset| ruleset.assault_ties_knock_down = false)
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .goblin("A9", Sprinter, 13, 13)
+            .ball_carried_by("A9")
+    }
+
+    fn is_an_assault(command: &Command) -> bool {
+        matches!(
+            command,
+            Command::Act(Activation {
+                action: Some(Action::Assault { .. }),
+                ..
+            })
+        )
+    }
+
+    #[test]
+    fn given_ties_that_stand_off_when_the_first_bold_coach_faces_an_even_fight_then_it_still_hits_on_its_five_eighths_to_keep_its_feet()
+     {
+        let game = bruisers_face_to_face_where_ties_stand_off().game([]);
+        let command = bold_command(game.arena(), game.ruleset(), game.state(), TeamId::HOME);
+        assert!(is_an_assault(&command));
+    }
+
+    #[test]
+    fn given_ties_that_stand_off_when_the_second_bold_coach_faces_an_even_fight_then_its_three_eighths_to_knock_down_hold_it_back()
+     {
+        let game = bruisers_face_to_face_where_ties_stand_off().game([]);
+        let command = styled_command(
+            game.arena(),
+            game.ruleset(),
+            game.state(),
+            TeamId::HOME,
+            Style::second(Appetite::bold()),
+        );
+        assert!(!is_an_assault(&command));
     }
 
     fn rules_where_goblins_act_often_at_a_cost() -> Ruleset {
