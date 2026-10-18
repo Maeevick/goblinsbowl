@@ -9,7 +9,7 @@ use crate::event::{GameEvent, TurnEndReason};
 use crate::formation::kickoff_squares;
 use crate::roster::{GoblinId, Roster, RosterError};
 use crate::ruleset::{Ruleset, RulesetError};
-use crate::state::{Ball, GameState, Goblin, Phase, Presence};
+use crate::state::{ActionsUsed, Ball, GameState, Goblin, Phase, Presence};
 use crate::team::TeamId;
 use crate::validation::validate_activation;
 use crate::violation::RuleViolation;
@@ -98,6 +98,7 @@ impl<D: DiceRoller> Game<D> {
                             in_stance: false,
                             steps_left: characteristics.movement,
                             has_action_left: true,
+                            actions_used: ActionsUsed::default(),
                         }
                     })
                     .collect::<Vec<_>>()

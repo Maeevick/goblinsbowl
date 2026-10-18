@@ -64,8 +64,8 @@ pub enum RuleViolation {
         /// Steps in the path.
         steps: usize,
     },
-    /// The goblin already assaulted, braced or threw this turn.
-    #[error("{goblin} already used its action this turn")]
+    /// The goblin already took its action this turn, or this kind of action where each kind comes once.
+    #[error("{goblin} already used this action this turn")]
     ActionAlreadyUsed {
         /// The goblin.
         goblin: GoblinId,

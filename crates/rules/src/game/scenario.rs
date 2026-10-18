@@ -7,7 +7,7 @@ use crate::formation::Formation;
 use crate::roster::{GoblinId, Roster};
 use crate::ruleset::{ArchetypeCharacteristics, Ruleset};
 use crate::square::Square;
-use crate::state::{Ball, GameState, Goblin, Phase, Presence};
+use crate::state::{ActionsUsed, Ball, GameState, Goblin, Phase, Presence};
 use crate::team::TeamId;
 
 use super::Game;
@@ -42,6 +42,7 @@ fn rules_0_1() -> Ruleset {
         carrier_defense_malus: 0,
         knocked_out_goblins_may_return: false,
         actions_cost_a_step: false,
+        one_action_of_each_kind: false,
         archetypes: ArchetypeCharacteristics {
             bruiser: Characteristics {
                 attack: 4,
@@ -111,6 +112,7 @@ impl Scenario {
             in_stance: false,
             steps_left: characteristics.movement,
             has_action_left: true,
+            actions_used: ActionsUsed::default(),
         });
         self
     }

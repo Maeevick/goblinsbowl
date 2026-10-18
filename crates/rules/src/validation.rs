@@ -51,7 +51,9 @@ pub fn validate_activation(
             steps: activation.path.len(),
         });
     }
-    if activation.action.is_some() && !goblin.has_action_left {
+    if let Some(action) = activation.action
+        && !goblin.may_take(action, ruleset)
+    {
         return Err(RuleViolation::ActionAlreadyUsed { goblin: id });
     }
     let mut visited = vec![start];

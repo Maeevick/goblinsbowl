@@ -55,6 +55,51 @@ pub struct Goblin {
     pub steps_left: u8,
     /// Whether it may still Assault, brace in Stance or Throw this turn.
     pub has_action_left: bool,
+    /// The kinds of action it took this turn, under rules where each kind comes once per turn.
+    #[serde(default, skip_serializing_if = "ActionsUsed::is_none")]
+    pub actions_used: ActionsUsed,
+}
+
+/// The kinds of action a goblin took this turn, where each kind comes once per turn.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ActionsUsed {
+    /// It assaulted.
+    #[serde(default)]
+    pub assault: bool,
+    /// It threw the ball or handed it off.
+    #[serde(default)]
+    pub throw: bool,
+    /// It braced in Stance.
+    #[serde(default)]
+    pub stance: bool,
+}
+
+impl ActionsUsed {
+    /// Whether it took no action yet.
+    pub fn is_none(&self) -> bool {
+        *self == ActionsUsed::default()
+    }
+
+    /// Whether `action`'s kind was already taken.
+    pub fn includes(&self, action: Action) -> bool {
+        match action {
+            Action::Assault { .. } => self.assault,
+            Action::Throw { .. } => self.throw,
+            Action::Stance => self.stance,
+        }
+    }
+
+    fn record(&mut self, action: Action) {
+        match action {
+            Action::Assault { .. } => self.assault = true,
+            Action::Throw { .. } => self.throw = true,
+            Action::Stance => self.stance = true,
+        }
+    }
+
+    fn any_left(&self, ruleset: &Ruleset) -> bool {
+        !self.assault || !self.throw || (ruleset.goblins_can_take_stance && !self.stance)
+    }
 }
 
 impl Goblin {
@@ -78,10 +123,18 @@ impl Goblin {
         self.is_standing() && (self.steps_left > 0 || self.has_action_left)
     }
 
+    /// Whether it may still take `action` this turn: its kind not taken yet where each kind comes
+    /// once per turn, otherwise its one action unused.
+    pub fn may_take(&self, action: Action, ruleset: &Ruleset) -> bool {
+        self.has_action_left
+            && !(ruleset.one_action_of_each_kind && self.actions_used.includes(action))
+    }
+
     /// Gives it a whole turn: every step of its Move and its action.
     pub fn refresh_its_turn(&mut self) {
         self.steps_left = self.characteristics.movement;
         self.has_action_left = true;
+        self.actions_used = ActionsUsed::default();
     }
 
     /// Spends whatever is left of its turn: no step, no action.
@@ -109,7 +162,12 @@ impl Goblin {
     }
 
     fn spend_action(&mut self, action: Action, ruleset: &Ruleset) {
-        self.has_action_left = false;
+        if ruleset.one_action_of_each_kind {
+            self.actions_used.record(action);
+            self.has_action_left = self.actions_used.any_left(ruleset);
+        } else {
+            self.has_action_left = false;
+        }
         if ruleset.actions_cost_a_step {
             self.steps_left = match action {
                 Action::Stance => 0,
@@ -287,6 +345,7 @@ mod tests {
             in_stance: false,
             steps_left: 3,
             has_action_left: true,
+            actions_used: ActionsUsed::default(),
         }
     }
 

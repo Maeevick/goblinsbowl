@@ -116,6 +116,10 @@ pub struct Ruleset {
     /// has left, so a goblin with no step left cannot act.
     #[serde(default)]
     pub actions_cost_a_step: bool,
+    /// Whether a goblin may take each kind of action once per turn, an assault, a throw and a
+    /// Stance in any order; otherwise it takes one action in all.
+    #[serde(default)]
+    pub one_action_of_each_kind: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -225,6 +229,7 @@ impl Default for Ruleset {
             carrier_defense_malus: 0,
             knocked_out_goblins_may_return: false,
             actions_cost_a_step: false,
+            one_action_of_each_kind: false,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

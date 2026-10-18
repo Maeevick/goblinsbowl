@@ -913,6 +913,7 @@ mod tests {
             in_stance: false,
             steps_left: 2,
             has_action_left: true,
+            actions_used: Default::default(),
         }
     }
 
