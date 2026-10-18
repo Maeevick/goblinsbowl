@@ -824,7 +824,8 @@ mod tests {
     }
 
     #[test]
-    fn given_the_shipped_rules_when_a_fresh_goblin_is_viewed_then_it_may_assault_throw_and_brace() {
+    fn given_the_shipped_rules_when_a_fresh_goblin_is_viewed_then_it_may_assault_throw_brace_and_focus()
+     {
         let host = kick_off();
         let seat = host.snapshot().state.active_team().unwrap();
         let view = view_for(&host, seat, OddsHints::Full);
@@ -833,7 +834,7 @@ mod tests {
             .iter()
             .find(|goblin| goblin.id.starts_with(seat.letter()))
             .unwrap();
-        assert_eq!(first.actions_left, ["assault", "throw", "stance"]);
+        assert_eq!(first.actions_left, ["assault", "throw", "stance", "focus"]);
     }
 
     #[test]

@@ -133,12 +133,14 @@ pub struct Ruleset {
     /// from north, instead of one of the four orthogonal ones on a d4.
     #[serde(default)]
     pub ball_bounces_all_around: bool,
-    /// Whether an assault may be chirurgical (+1 to win, no Health lost) or brutal (−1 to win, one
-    /// more Health lost); otherwise every assault is simple.
+    /// Whether an assault may be chirurgical (+1 to win, no Health lost), brutal (−1 to win, one
+    /// more Health lost) or a projection (−1 to win, the target falling on a square picked around
+    /// the attacker); otherwise every assault is simple.
     #[serde(default)]
     pub assaults_have_styles: bool,
     /// Whether a goblin that has not moved this turn may throw into chaos, with no throw roll, the
-    /// ball bouncing three times from the receiver's square; otherwise every throw is simple.
+    /// ball bouncing three times from the receiver's square, or focus, +1 to its throws on its
+    /// team's next turn; otherwise every throw is simple and nobody focuses.
     #[serde(default)]
     pub throws_have_styles: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
@@ -258,8 +260,8 @@ impl Default for Ruleset {
             braced_tacklers_weigh_double: false,
             reach_covers_diagonals: true,
             ball_bounces_all_around: true,
-            assaults_have_styles: false,
-            throws_have_styles: false,
+            assaults_have_styles: true,
+            throws_have_styles: true,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

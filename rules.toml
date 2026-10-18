@@ -1,4 +1,4 @@
-# Goblins Bowl, rules 0.8: every tunable number of a match.
+# Goblins Bowl, rules 0.9: every tunable number of a match.
 # Attack, Defense and Agility are rolled as dice with that many faces.
 
 turns_per_half = 12
@@ -64,6 +64,13 @@ reach_covers_diagonals = true
 # Whether a bouncing ball goes to one of the eight squares around on a d8, clockwise from north
 # (false: one of the four orthogonal ones on a d4).
 ball_bounces_all_around = true
+# Whether an assault may be chirurgical (+1 to win, no Health lost), brutal (-1 to win, one more
+# Health lost) or a projection (-1 to win, the target falls on a square picked around the attacker).
+assaults_have_styles = true
+# Whether a goblin that has not moved may throw into chaos (no throw roll, the ball bouncing three
+# times from the receiver's square) or focus (+1 to its throws on its team's next turn), either one
+# costing its whole Move.
+throws_have_styles = true
 
 # x out of bounds, O in bounds, H home den (west), A away den (east): 7 squares on the outermost column.
 arena = [

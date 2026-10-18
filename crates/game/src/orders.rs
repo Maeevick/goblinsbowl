@@ -1452,12 +1452,23 @@ mod tests {
     }
 
     #[test]
-    fn given_an_aimed_assault_when_clicking_the_enemy_again_then_it_is_sent() {
+    fn given_rules_without_styles_when_an_aimed_assault_is_clicked_again_then_it_is_sent() {
         let state = board(&[("H1", 7, 7), ("A1", 8, 7)], None);
         let click = BoardClick::Goblin(id("A1"));
         let draft = aimed("H1", &[], Some(Action::assault(id("A1"))), click);
+        let without_styles = Ruleset {
+            assaults_have_styles: false,
+            ..Ruleset::default()
+        };
         assert_eq!(
-            react(&state, Some(&draft), click),
+            react_to_click(
+                &Arena::bowl_15(),
+                &without_styles,
+                &state,
+                TeamId::HOME,
+                Some(&draft),
+                click
+            ),
             Reaction::Send(draft.activation.clone())
         );
     }
