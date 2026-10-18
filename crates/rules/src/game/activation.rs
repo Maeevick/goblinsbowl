@@ -1,6 +1,6 @@
 //! Activations: validating a goblin's order in full, then resolving it step by step.
 
-use crate::command::{Action, Activation};
+use crate::command::{Action, Activation, ThrowStyle};
 use crate::dice::DiceRoller;
 use crate::event::{DodgeRoll, GameEvent, TurnEndReason};
 use crate::preview::{DodgeDice, dodge_dice};
@@ -61,9 +61,14 @@ impl<D: DiceRoller> Game<D> {
             Some(Action::Assault { target, style }) => {
                 self.resolve_assault(id, target, style, events)
             }
-            Some(Action::Throw { receiver, .. }) => {
-                (!self.throw_completes(id, receiver, events)).then_some(TurnEndReason::Fumble)
-            }
+            Some(Action::Throw {
+                receiver,
+                style: ThrowStyle::Simple,
+            }) => (!self.throw_completes(id, receiver, events)).then_some(TurnEndReason::Fumble),
+            Some(Action::Throw {
+                receiver,
+                style: ThrowStyle::Chaos,
+            }) => self.throw_into_chaos(id, receiver, events),
         };
         self.conclude_activation(team, turn_ending, events);
     }

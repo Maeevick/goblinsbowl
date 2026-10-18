@@ -388,6 +388,19 @@ pub fn odds_lines(odds: &ActivationOdds, hints: OddsHints) -> Vec<String> {
                 ));
             }
         }
+        Some(ActionOdds::Chaos {
+            receiver,
+            interceptions,
+            success,
+        }) => {
+            lines.push(format!(
+                "chaos throw towards {receiver}: no throw roll, the ball bounces three times from its square"
+            ));
+            lines.extend(interceptions.iter().map(|(interceptor, chance)| {
+                annotate(format!("interception by {interceptor}"), None, *chance)
+            }));
+            lines.push(annotate("nobody intercepts".to_string(), None, *success));
+        }
         Some(ActionOdds::Throw {
             receiver,
             throw,

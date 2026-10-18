@@ -632,6 +632,11 @@ impl Texts {
                     ),
                 )
             }
+            GameEvent::ChaosThrown { thrower, receiver } => pick(
+                french,
+                format!("{thrower} lance la balle au petit bonheur vers {receiver}"),
+                format!("{thrower} throws the ball into chaos towards {receiver}"),
+            ),
             GameEvent::Projected { goblin, to, .. } => pick(
                 french,
                 format!("{goblin} est projeté en [{}, {}]", to.x, to.y),

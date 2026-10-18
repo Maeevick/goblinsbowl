@@ -17,6 +17,8 @@ use crate::violation::RuleViolation;
 #[cfg(test)]
 mod action_economy_tests;
 mod activation;
+#[cfg(test)]
+mod chaos_tests;
 mod fight;
 #[cfg(test)]
 mod fight_tests;

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::arena::Arena;
-use crate::command::{Action, Activation, AssaultStyle};
+use crate::command::{Action, Activation, AssaultStyle, ThrowStyle};
 use crate::flight::squares_crossed;
 use crate::odds::{AgilityDice, ContestDice, Probability, agility_success};
 use crate::roster::GoblinId;
@@ -79,6 +79,15 @@ pub enum ActionOdds {
         knock_down: Probability,
         /// Chance nobody falls: a tie, under rules where ties stand off.
         stand_off: Probability,
+    },
+    /// Chances of a chaos throw: no throw roll and no catch, only the interceptions on the way.
+    Chaos {
+        /// The teammate the ball flies towards.
+        receiver: GoblinId,
+        /// Each opponent on or next to the flight line, in order, with its chance to intercept.
+        interceptions: Vec<(GoblinId, Probability)>,
+        /// Chance nobody intercepts it, so the turn goes on.
+        success: Probability,
     },
     /// Chances along a throw: the throw roll, each interception, the catch.
     Throw {
@@ -291,7 +300,11 @@ pub fn activation_odds(
     };
     let action_success = match &action {
         None | Some(ActionOdds::Stance) => Probability::CERTAIN,
-        Some(ActionOdds::Assault { success, .. } | ActionOdds::Throw { success, .. }) => *success,
+        Some(
+            ActionOdds::Assault { success, .. }
+            | ActionOdds::Throw { success, .. }
+            | ActionOdds::Chaos { success, .. },
+        ) => *success,
     };
     Ok(ActivationOdds {
         risky_steps,
@@ -363,7 +376,18 @@ pub fn board_after_success(
                 }
             }
         }
-        Some(Action::Throw { receiver, .. }) => board.ball = Ball::Carried { by: receiver },
+        Some(Action::Throw {
+            receiver,
+            style: ThrowStyle::Simple,
+        }) => board.ball = Ball::Carried { by: receiver },
+        Some(Action::Throw {
+            receiver,
+            style: ThrowStyle::Chaos,
+        }) => {
+            if let Some(at) = board.goblin(receiver).and_then(|goblin| goblin.square()) {
+                board.ball = Ball::Loose { at };
+            }
+        }
     }
     Ok(board)
 }
@@ -397,7 +421,14 @@ fn action_odds(
                 stand_off,
             }
         }
-        Action::Throw { receiver, .. } => throw_odds(ruleset, sketch, actor, receiver),
+        Action::Throw {
+            receiver,
+            style: ThrowStyle::Simple,
+        } => throw_odds(ruleset, sketch, actor, receiver),
+        Action::Throw {
+            receiver,
+            style: ThrowStyle::Chaos,
+        } => chaos_odds(ruleset, sketch, actor, receiver),
     }
 }
 
@@ -435,24 +466,8 @@ fn throw_odds(
             target,
         )
     };
-    let interceptions: Vec<(GoblinId, Probability)> =
-        interceptors(ruleset, sketch, thrower_square, receiver_square, team)
-            .into_iter()
-            .filter_map(|id| sketch.goblin(id))
-            .map(|interceptor| {
-                let malus = opponents_in_reach(
-                    ruleset,
-                    sketch,
-                    interceptor.square().unwrap_or(thrower_square),
-                    interceptor.team(),
-                )
-                .saturating_add(ruleset.interception_surprise_malus);
-                (
-                    interceptor.id,
-                    agility_success(interceptor.characteristics.agility, malus, target),
-                )
-            })
-            .collect();
+    let interceptions =
+        interception_chances(ruleset, sketch, thrower_square, receiver_square, team);
     let catch = agility_success(
         receiver_goblin.map_or(1, |goblin| goblin.characteristics.agility),
         opponents_in_reach(ruleset, sketch, receiver_square, team),
@@ -500,6 +515,62 @@ pub fn interceptors(
         }
     }
     found
+}
+
+/// Each enemy that may intercept a ball thrown from `from` to `to`, in order, with its chance.
+fn interception_chances(
+    ruleset: &Ruleset,
+    sketch: &GameState,
+    from: Square,
+    to: Square,
+    team: TeamId,
+) -> Vec<(GoblinId, Probability)> {
+    interceptors(ruleset, sketch, from, to, team)
+        .into_iter()
+        .filter_map(|id| sketch.goblin(id))
+        .map(|interceptor| {
+            let malus = opponents_in_reach(
+                ruleset,
+                sketch,
+                interceptor.square().unwrap_or(from),
+                interceptor.team(),
+            )
+            .saturating_add(ruleset.interception_surprise_malus);
+            (
+                interceptor.id,
+                agility_success(
+                    interceptor.characteristics.agility,
+                    malus,
+                    ruleset.ball_roll_target,
+                ),
+            )
+        })
+        .collect()
+}
+
+/// Chances of a chaos throw towards `receiver`: only interceptions can stop it.
+fn chaos_odds(
+    ruleset: &Ruleset,
+    sketch: &GameState,
+    thrower: GoblinId,
+    receiver: GoblinId,
+) -> ActionOdds {
+    let from = sketch.goblin(thrower).and_then(|goblin| goblin.square());
+    let to = sketch.goblin(receiver).and_then(|goblin| goblin.square());
+    let interceptions = from
+        .zip(to)
+        .map(|(from, to)| interception_chances(ruleset, sketch, from, to, thrower.team))
+        .unwrap_or_default();
+    let success = interceptions
+        .iter()
+        .fold(Probability::CERTAIN, |chance, (_, interception)| {
+            chance.and(interception.complement())
+        });
+    ActionOdds::Chaos {
+        receiver,
+        interceptions,
+        success,
+    }
 }
 
 fn opponents_in_reach(ruleset: &Ruleset, state: &GameState, square: Square, team: TeamId) -> u8 {
@@ -1156,6 +1227,37 @@ mod tests {
             Some(ActionOdds::Throw { interceptions, .. })
                 if interceptions == vec![(id("A1"), Probability::new(1, 2))]
         ));
+    }
+
+    #[test]
+    fn given_chaos_throws_when_a_chaos_throw_flies_over_an_enemy_then_only_its_interception_is_at_risk()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.throws_have_styles = true)
+            .goblin("H1", Thrower, 4, 7)
+            .goblin("H2", Sprinter, 8, 7)
+            .goblin("A1", Sprinter, 6, 7)
+            .ball_carried_by("H1");
+        let chaos = order(
+            "H1",
+            &[],
+            Some(Action::Throw {
+                receiver: id("H2"),
+                style: ThrowStyle::Chaos,
+            }),
+        );
+        let preview = odds(scenario, &chaos).unwrap();
+        assert_eq!(
+            (preview.action, preview.overall_success),
+            (
+                Some(ActionOdds::Chaos {
+                    receiver: id("H2"),
+                    interceptions: vec![(id("A1"), Probability::new(1, 2))],
+                    success: Probability::new(1, 2)
+                }),
+                Probability::new(1, 2)
+            )
+        );
     }
 
     #[test]

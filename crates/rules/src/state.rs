@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::characteristics::{Archetype, Characteristics};
-use crate::command::{Action, Activation};
+use crate::command::{Action, Activation, ThrowStyle};
 use crate::roster::{GoblinId, Roster};
 use crate::ruleset::Ruleset;
 use crate::square::{Reach, Square};
@@ -178,12 +178,17 @@ impl Goblin {
         } else {
             self.has_action_left = false;
         }
-        if ruleset.actions_cost_a_step {
-            self.steps_left = match action {
-                Action::Stance => 0,
-                Action::Assault { .. } | Action::Throw { .. } => self.steps_left.saturating_sub(1),
-            };
-        }
+        self.steps_left = match action {
+            Action::Throw {
+                style: ThrowStyle::Chaos,
+                ..
+            } => 0,
+            Action::Stance if ruleset.actions_cost_a_step => 0,
+            Action::Assault { .. } | Action::Throw { .. } if ruleset.actions_cost_a_step => {
+                self.steps_left.saturating_sub(1)
+            }
+            Action::Assault { .. } | Action::Throw { .. } | Action::Stance => self.steps_left,
+        };
     }
 }
 

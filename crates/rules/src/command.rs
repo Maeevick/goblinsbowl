@@ -98,6 +98,9 @@ pub enum ThrowStyle {
     /// A throw roll, then the catch.
     #[default]
     Simple,
+    /// No throw roll and no catch: the ball flies to the receiver's square and bounces three times
+    /// from there. The thrower must not have moved this turn, and spends its whole Move.
+    Chaos,
 }
 
 impl ThrowStyle {

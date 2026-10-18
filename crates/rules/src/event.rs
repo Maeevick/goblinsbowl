@@ -189,6 +189,14 @@ pub enum GameEvent {
         /// Orthogonal steps between the thrower and the receiver.
         distance: u8,
     },
+    /// A goblin threw the ball into chaos towards a teammate: no throw roll, the ball bounces three
+    /// times from the receiver's square unless it is intercepted on the way.
+    ChaosThrown {
+        /// The thrower.
+        thrower: GoblinId,
+        /// The teammate the ball flies towards.
+        receiver: GoblinId,
+    },
     /// A goblin handed the ball to an adjacent teammate, without a throw roll.
     HandedOff {
         /// The goblin giving the ball.

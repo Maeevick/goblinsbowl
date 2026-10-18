@@ -137,6 +137,10 @@ pub struct Ruleset {
     /// more Health lost); otherwise every assault is simple.
     #[serde(default)]
     pub assaults_have_styles: bool,
+    /// Whether a goblin that has not moved this turn may throw into chaos, with no throw roll, the
+    /// ball bouncing three times from the receiver's square; otherwise every throw is simple.
+    #[serde(default)]
+    pub throws_have_styles: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -255,6 +259,7 @@ impl Default for Ruleset {
             reach_covers_diagonals: true,
             ball_bounces_all_around: true,
             assaults_have_styles: false,
+            throws_have_styles: false,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

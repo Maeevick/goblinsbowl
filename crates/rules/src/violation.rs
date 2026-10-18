@@ -88,6 +88,12 @@ pub enum RuleViolation {
         /// The target.
         target: GoblinId,
     },
+    /// A chaos throw takes the goblin's whole Move, so it must not have moved this turn.
+    #[error("{goblin} has already moved this turn: it must stand still for this")]
+    MustStandStillFirst {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// The goblin would hold the ball, and the rules keep carriers from assaulting.
     #[error("{goblin} holds the ball and cannot assault")]
     CarrierCannotAssault {

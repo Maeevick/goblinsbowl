@@ -1,13 +1,16 @@
 //! Throws: the throw roll, interceptions along the flight line, and the receiver's catch.
 
 use crate::dice::DiceRoller;
-use crate::event::GameEvent;
+use crate::event::{GameEvent, TurnEndReason};
 use crate::preview::interceptors;
 use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::state::Ball;
 
 use super::Game;
+
+/// Times a ball thrown into chaos bounces from the receiver's square.
+const CHAOS_BOUNCES: usize = 3;
 
 impl<D: DiceRoller> Game<D> {
     pub(super) fn throw_completes(
@@ -69,6 +72,50 @@ impl<D: DiceRoller> Game<D> {
             }
         }
         self.receiver_catches(receiver, receiver_square, events)
+    }
+
+    /// Throws the ball into chaos towards `receiver`: no throw roll; enemies near the line may
+    /// intercept, which ends the turn; otherwise the ball bounces three times from the receiver's
+    /// square, and the turn goes on unless a missed bounce ends it under these rules.
+    pub(super) fn throw_into_chaos(
+        &mut self,
+        thrower: GoblinId,
+        receiver: GoblinId,
+        events: &mut Vec<GameEvent>,
+    ) -> Option<TurnEndReason> {
+        let thrower_square = self.state.goblin(thrower)?.square()?;
+        let team = thrower.team;
+        let receiver_square = self.state.goblin(receiver)?.square()?;
+        events.push(GameEvent::ChaosThrown { thrower, receiver });
+        for interceptor in interceptors(
+            &self.ruleset,
+            &self.state,
+            thrower_square,
+            receiver_square,
+            team,
+        ) {
+            let roll = self.agility_roll(interceptor, self.ruleset.interception_surprise_malus);
+            events.push(GameEvent::InterceptAttempted {
+                goblin: interceptor,
+                roll,
+            });
+            if roll.success {
+                self.state.ball = Ball::Carried { by: interceptor };
+                return Some(TurnEndReason::Fumble);
+            }
+        }
+        let mut from = receiver_square;
+        let mut missed_catches = Vec::new();
+        for _ in 0..CHAOS_BOUNCES {
+            missed_catches.extend(self.bounce_ball(from, events));
+            match self.state.ball {
+                Ball::Loose { at } => from = at,
+                Ball::Carried { .. } => break,
+            }
+        }
+        let a_teammate_missed = missed_catches.iter().any(|goblin| goblin.team == team);
+        (self.ruleset.missed_bounces_end_the_turn && a_teammate_missed)
+            .then_some(TurnEndReason::Fumble)
     }
 
     fn receiver_catches(

@@ -1,7 +1,7 @@
 //! Pure validation of orders: what a coach may ask for, checked before any die is rolled.
 
 use crate::arena::Arena;
-use crate::command::{Action, Activation, AssaultStyle};
+use crate::command::{Action, Activation, AssaultStyle, ThrowStyle};
 use crate::roster::GoblinId;
 use crate::ruleset::Ruleset;
 use crate::square::{Compass, Square};
@@ -61,6 +61,18 @@ pub fn validate_activation(
         && !ruleset.assaults_have_styles
     {
         return Err(RuleViolation::StyleNotInTheseRules { goblin: id });
+    }
+    if let Some(Action::Throw {
+        style: ThrowStyle::Chaos,
+        ..
+    }) = activation.action
+    {
+        if !ruleset.throws_have_styles {
+            return Err(RuleViolation::StyleNotInTheseRules { goblin: id });
+        }
+        if !activation.path.is_empty() || goblin.steps_left < goblin.characteristics.movement {
+            return Err(RuleViolation::MustStandStillFirst { goblin: id });
+        }
     }
     let mut visited = vec![start];
     for (index, square) in activation.path.iter().copied().enumerate() {
