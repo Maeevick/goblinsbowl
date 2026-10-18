@@ -592,11 +592,16 @@ impl Coach<'_> {
                         && self.den_distance(square).saturating_add(3) <= carrier_distance
                 })
             })
-            .filter_map(|receiver| {
+            .flat_map(|receiver| {
+                self.throw_styles_of(carrier)
+                    .into_iter()
+                    .map(move |style| (receiver.id, style))
+            })
+            .filter_map(|(receiver, style)| {
                 let throw = Activation {
                     goblin: carrier.id,
                     path: Vec::new(),
-                    action: Some(Action::throw(receiver.id)),
+                    action: Some(Action::Throw { receiver, style }),
                 };
                 let odds = activation_odds(self.arena, self.ruleset, self.state, self.team, &throw)
                     .ok()?;
@@ -609,6 +614,19 @@ impl Coach<'_> {
             .collect();
         self.most_likely(candidates, Risk::Pass)
             .or_else(|| self.chaos_pass(carrier))
+    }
+
+    /// How `carrier` may throw a pass: simply, and focused too for a second-generation coach's
+    /// Thrower where the rules have focused throws, the better chance then winning.
+    fn throw_styles_of(&self, carrier: &Goblin) -> Vec<ThrowStyle> {
+        let focuses = self.style.generation == Generation::Second
+            && self.ruleset.focused_throws_spend_steps_left
+            && carrier.archetype == Archetype::Thrower;
+        if focuses {
+            vec![ThrowStyle::Simple, ThrowStyle::Focused]
+        } else {
+            vec![ThrowStyle::Simple]
+        }
     }
 
     /// Where the rules have styles, a second-generation coach whose carrier has not moved and finds
@@ -1346,6 +1364,49 @@ mod tests {
         ));
     }
 
+    fn thrower_far_from_its_receiver_with_focused_throws() -> Scenario {
+        Scenario::new()
+            .rules(|ruleset| ruleset.focused_throws_spend_steps_left = true)
+            .goblin("H9", Thrower, 4, 7)
+            .goblin("H2", Thrower, 12, 7)
+            .goblin("A1", Sprinter, 12, 2)
+            .ball_carried_by("H9")
+    }
+
+    #[test]
+    fn given_focused_throws_when_a_second_generation_thrower_finds_a_long_pass_worth_it_only_focused_then_it_throws_focused()
+     {
+        assert_eq!(
+            styled_command_of(
+                thrower_far_from_its_receiver_with_focused_throws(),
+                Style::second(Appetite::cautious())
+            ),
+            Command::Act(Activation {
+                goblin: id("H9"),
+                path: Vec::new(),
+                action: Some(Action::Throw {
+                    receiver: id("H2"),
+                    style: ThrowStyle::Focused
+                }),
+            })
+        );
+    }
+
+    #[test]
+    fn given_focused_throws_when_a_first_generation_thrower_finds_the_same_pass_then_it_never_throws_focused()
+     {
+        assert!(!matches!(
+            choose(thrower_far_from_its_receiver_with_focused_throws()),
+            Command::Act(Activation {
+                action: Some(Action::Throw {
+                    style: ThrowStyle::Focused,
+                    ..
+                }),
+                ..
+            })
+        ));
+    }
+
     fn marked_thrower_with_the_ball() -> Scenario {
         Scenario::new()
             .goblin("H9", Thrower, 4, 7)
@@ -1443,6 +1504,31 @@ mod tests {
     fn given_actions_at_a_step_one_of_each_kind_and_stance_when_every_coach_plays_whole_matches_then_no_order_is_refused()
      {
         let ruleset = rules_where_goblins_act_often_at_a_cost();
+        let first = |appetite| Style {
+            generation: Generation::First,
+            temper: Temper::Fixed(appetite),
+        };
+        assert_eq!(
+            [
+                first(Appetite::cautious()),
+                first(Appetite::bold()),
+                Style::second(Appetite::cautious()),
+                Style::balanced(),
+                Style::second(Appetite::bold()),
+            ]
+            .map(|style| refusals_over_whole_matches(style, &ruleset, 2)),
+            [0, 0, 0, 0, 0]
+        );
+    }
+
+    #[test]
+    fn given_focused_throws_and_no_stance_when_every_coach_plays_whole_matches_then_no_order_is_refused()
+     {
+        let ruleset = Ruleset {
+            goblins_can_take_stance: false,
+            focused_throws_spend_steps_left: true,
+            ..rules_where_goblins_act_often_at_a_cost()
+        };
         let first = |appetite| Style {
             generation: Generation::First,
             temper: Temper::Fixed(appetite),
