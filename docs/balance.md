@@ -293,7 +293,7 @@ What the numbers say:
 - **The eight-square reach closes the game most.** With the old four-square reach the cautious mirror draws 40.9 % and scores 0.91 goals: dodging out of a crowd gets much harder, and every pass draws more interceptions.
 - **Stance comes second, because it costs nothing when it is taken.** Careful coaches brace five goblins per team turn: a goblin done for the turn has no use for its steps left, so paying all of them is free. Without Stance the cautious mirror draws 53.9 %.
 - **The 7-square den comes third** (60.5 % draws with the 11-square one), as intended: no Sprinter scores two turns after a kick-off any more. Stand-offs and the step an action costs close the game a little more each; the d8 bounce changes nothing measurable, and the carrier's −1 opens it slightly.
-- **Knocked-out goblins come back**, so knock-outs no longer snowball: the bold mirror loses 8.2 goblins per match but plays most of its second half in numbers.
+- **Knock-outs still pile up in bold matches** (8.2 per match), though a knocked-out goblin may now come back at the next kick-off; with few goals, that is often only half-time.
 - **The home edge is the first generation's.** The bold mirror shows +11.4 points for home; the three second-generation mirrors stay within chance (−0.4, −0.3, −0.3).
 
 ## Rules 0.9, 18 Oct 2026
