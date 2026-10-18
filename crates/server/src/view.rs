@@ -350,6 +350,7 @@ pub fn odds_lines(odds: &ActivationOdds, hints: OddsHints) -> Vec<String> {
             target,
             dice,
             success,
+            ..
         }) => lines.push(annotate(
             format!("assault {target}"),
             dice.as_ref().map(describe_dice),
@@ -525,6 +526,8 @@ mod tests {
                     ..dice
                 }),
                 success: Probability::new(5, 8),
+                knock_down: Probability::new(5, 8),
+                stand_off: Probability::IMPOSSIBLE,
             }),
             overall_success: Probability::new(15, 64),
         }

@@ -63,7 +63,9 @@ pub fn event_team(event: &GameEvent) -> Option<TeamId> {
         | GameEvent::KnockedOut { goblin } => Some(goblin.team),
         GameEvent::ThrowAttempted { thrower, .. } => Some(thrower.team),
         GameEvent::HandedOff { giver, .. } => Some(giver.team),
-        GameEvent::AssaultResolved { attacker, .. } => Some(attacker.team),
+        GameEvent::AssaultResolved { attacker, .. } | GameEvent::StandOff { attacker, .. } => {
+            Some(attacker.team)
+        }
         GameEvent::BallDropped { .. }
         | GameEvent::BallBounced { .. }
         | GameEvent::HalfEnded { .. }

@@ -24,6 +24,31 @@ impl ContestDice {
             self.opponent_modifier,
         )
     }
+
+    /// Chance that the actor beats the opponent outright, a tie left out.
+    pub fn clear_win(self) -> Probability {
+        contest_share(self, |margin| margin > 0)
+    }
+
+    /// Chance that both totals tie.
+    pub fn tie(self) -> Probability {
+        contest_share(self, |margin| margin == 0)
+    }
+}
+
+fn contest_share(dice: ContestDice, counts: impl Fn(i16) -> bool) -> Probability {
+    let actor_faces = dice.actor_faces.max(1);
+    let opponent_faces = dice.opponent_faces.max(1);
+    let counted_pairs = (1..=actor_faces)
+        .flat_map(|actor| (1..=opponent_faces).map(move |opponent| (actor, opponent)))
+        .filter(|(actor, opponent)| {
+            counts(i16::from(*actor) - (i16::from(*opponent) + i16::from(dice.opponent_modifier)))
+        })
+        .count();
+    Probability::new(
+        u64::try_from(counted_pairs).unwrap_or(u64::MAX),
+        u64::from(actor_faces) * u64::from(opponent_faces),
+    )
 }
 
 /// The die of an agility test: the goblin's Agility die minus a malus, against a target.
@@ -184,6 +209,26 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn given_d4_against_d4_when_asking_for_a_clear_win_then_three_chances_in_eight() {
+        let dice = ContestDice {
+            actor_faces: 4,
+            opponent_faces: 4,
+            opponent_modifier: 0,
+        };
+        assert_eq!(dice.clear_win(), Probability::new(3, 8));
+    }
+
+    #[test]
+    fn given_d4_against_d4_when_asking_for_a_tie_then_one_chance_in_four() {
+        let dice = ContestDice {
+            actor_faces: 4,
+            opponent_faces: 4,
+            opponent_modifier: 0,
+        };
+        assert_eq!(dice.tie(), Probability::new(1, 4));
+    }
 
     #[test]
     fn given_two_quarters_when_built_then_reduced_to_one_half() {

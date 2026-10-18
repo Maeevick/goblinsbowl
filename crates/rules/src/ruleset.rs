@@ -101,6 +101,10 @@ pub struct Ruleset {
     /// for its coach to end it or for the clock to run out.
     #[serde(default = "turns_end_on_their_own")]
     pub turn_ends_when_no_goblin_can_act: bool,
+    /// Whether an assault tied on the dice knocks the defender down without hurting it; otherwise
+    /// nobody falls and the turn goes on.
+    #[serde(default = "ties_knock_down")]
+    pub assault_ties_knock_down: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -177,6 +181,10 @@ fn one_kickoff_bounce() -> u8 {
     1
 }
 
+fn ties_knock_down() -> bool {
+    true
+}
+
 impl Default for Ruleset {
     fn default() -> Self {
         Self {
@@ -202,6 +210,7 @@ impl Default for Ruleset {
             goblins_heal_at_kick_off: false,
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,
+            assault_ties_knock_down: ties_knock_down(),
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

@@ -113,6 +113,10 @@ impl<D: DiceRoller> Game<D> {
             contest,
             defender_braced,
         });
+        if contest.margin == 0 && !self.ruleset.assault_ties_knock_down {
+            events.push(GameEvent::StandOff { attacker, defender });
+            return None;
+        }
         if !contest.actor_won() {
             let damage = contest.margin.unsigned_abs().saturating_sub(1);
             self.knock_down(attacker, damage, events);

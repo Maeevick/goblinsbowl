@@ -67,14 +67,18 @@ pub enum RiskyStep {
 pub enum ActionOdds {
     /// Bracing never fails.
     Stance,
-    /// Chance that the attacker wins (knocks down or hurts the target).
+    /// Chances of an assault: the attacker keeps its feet, knocking the target down or standing off.
     Assault {
         /// The target.
         target: GoblinId,
         /// The dice facing off, unless the target is gone.
         dice: Option<ContestDice>,
-        /// Chance to win the contest.
+        /// Chance the attacker does not fall, so the turn goes on.
         success: Probability,
+        /// Chance the target falls, or loses Health when it already lies down.
+        knock_down: Probability,
+        /// Chance nobody falls: a tie, under rules where ties stand off.
+        stand_off: Probability,
     },
     /// Chances along a throw: the throw roll, each interception, the catch.
     Throw {
@@ -338,10 +342,23 @@ fn action_odds(
         Action::Stance => ActionOdds::Stance,
         Action::Assault { target } => {
             let dice = assault_dice(ruleset, sketch, actor, target);
+            let chance_of = |chance: fn(ContestDice) -> Probability| {
+                dice.map_or(Probability::IMPOSSIBLE, chance)
+            };
+            let (knock_down, stand_off) = if ruleset.assault_ties_knock_down {
+                (chance_of(ContestDice::success), Probability::IMPOSSIBLE)
+            } else {
+                (
+                    chance_of(ContestDice::clear_win),
+                    chance_of(ContestDice::tie),
+                )
+            };
             ActionOdds::Assault {
                 target,
                 dice,
-                success: dice.map_or(Probability::IMPOSSIBLE, ContestDice::success),
+                success: chance_of(ContestDice::success),
+                knock_down,
+                stand_off,
             }
         }
         Action::Throw { receiver } => throw_odds(ruleset, sketch, actor, receiver),
@@ -827,9 +844,27 @@ mod tests {
                     opponent_faces: 4,
                     opponent_modifier: 1
                 }),
-                success: Probability::new(3, 8)
+                success: Probability::new(3, 8),
+                knock_down: Probability::new(3, 8),
+                stand_off: Probability::IMPOSSIBLE
             })
         );
+    }
+
+    #[test]
+    fn given_ties_that_stand_off_when_two_bruisers_face_off_then_three_eighths_knock_down_and_one_quarter_stand_off()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.assault_ties_knock_down = false)
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Bruiser, 6, 7);
+        let assault = order("H1", &[], Some(Action::Assault { target: id("A1") }));
+        assert!(matches!(
+            odds(scenario, &assault).unwrap().action,
+            Some(ActionOdds::Assault { success, knock_down, stand_off, .. })
+                if (success, knock_down, stand_off)
+                    == (Probability::new(5, 8), Probability::new(3, 8), Probability::new(1, 4))
+        ));
     }
 
     #[test]

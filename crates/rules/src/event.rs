@@ -201,6 +201,13 @@ pub enum GameEvent {
         /// Whether a Stance bonus, its own or a braced neighbour's, raised the defender's roll.
         defender_braced: bool,
     },
+    /// An assault tied under rules where ties stand off: nobody fell and the turn goes on.
+    StandOff {
+        /// The attacker.
+        attacker: GoblinId,
+        /// The defender.
+        defender: GoblinId,
+    },
     /// A goblin braced in Stance until its team's next turn.
     StanceTaken {
         /// The goblin.

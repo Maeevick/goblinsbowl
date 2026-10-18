@@ -565,23 +565,30 @@ impl Texts {
                 contest,
                 ..
             } => {
-                let winner = if contest.actor_won() {
-                    attacker
-                } else {
-                    defender
+                let (french_outcome, english_outcome) = match contest.margin {
+                    0 => ("égalité".to_string(), "a tie".to_string()),
+                    margin if margin > 0 => {
+                        (format!("{attacker} gagne"), format!("{attacker} wins"))
+                    }
+                    _ => (format!("{defender} gagne"), format!("{defender} wins")),
                 };
                 pick(
                     french,
                     format!(
-                        "{attacker} attaque {defender} : {}, {winner} gagne",
+                        "{attacker} attaque {defender} : {}, {french_outcome}",
                         describe_contest(contest, "contre")
                     ),
                     format!(
-                        "{attacker} assaults {defender}: {}, {winner} wins",
+                        "{attacker} assaults {defender}: {}, {english_outcome}",
                         describe_contest(contest, "vs")
                     ),
                 )
             }
+            GameEvent::StandOff { attacker, defender } => pick(
+                french,
+                format!("{attacker} et {defender} se tiennent tête, personne ne tombe"),
+                format!("{attacker} and {defender} stand off, nobody falls"),
+            ),
             GameEvent::StanceTaken { goblin } => pick(
                 french,
                 format!("{goblin} se met en garde"),
@@ -977,6 +984,8 @@ mod tests {
             target: id("A1"),
             dice: Some(dice(4, 4, 1)),
             success: Probability::new(3, 8),
+            knock_down: Probability::new(3, 8),
+            stand_off: Probability::IMPOSSIBLE,
         });
         assert_eq!(FRENCH.dice_detail(&preview), "Assaut : d4 contre d4+1");
     }
@@ -997,6 +1006,8 @@ mod tests {
             target: id("A2"),
             dice: Some(dice(3, 2, -2)),
             success: Probability::CERTAIN,
+            knock_down: Probability::CERTAIN,
+            stand_off: Probability::IMPOSSIBLE,
         });
         assert_eq!(
             ENGLISH.dice_detail(&preview),
@@ -1148,6 +1159,39 @@ mod tests {
         assert_eq!(
             FRENCH.describe_event(&event),
             Some("H3 attaque A8 : 4 contre 1+1, H3 gagne".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_tied_assault_when_described_in_english_then_a_tie_rather_than_a_winner() {
+        let event = GameEvent::AssaultResolved {
+            attacker: id("H3"),
+            defender: id("A8"),
+            contest: ContestRoll {
+                actor_faces: 4,
+                actor_rolled: 3,
+                opponent_faces: 4,
+                opponent_rolled: 3,
+                opponent_modifier: 0,
+                margin: 0,
+            },
+            defender_braced: false,
+        };
+        assert_eq!(
+            ENGLISH.describe_event(&event),
+            Some("H3 assaults A8: 3 vs 3, a tie".to_string())
+        );
+    }
+
+    #[test]
+    fn given_a_stand_off_when_described_in_french_then_nobody_falls() {
+        let event = GameEvent::StandOff {
+            attacker: id("H3"),
+            defender: id("A8"),
+        };
+        assert_eq!(
+            FRENCH.describe_event(&event),
+            Some("H3 et A8 se tiennent tête, personne ne tombe".to_string())
         );
     }
 

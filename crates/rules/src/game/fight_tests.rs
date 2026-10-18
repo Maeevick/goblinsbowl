@@ -84,6 +84,50 @@ fn given_a_tied_assault_when_resolved_then_the_defender_falls_without_damage() {
 }
 
 #[test]
+fn given_ties_that_stand_off_when_an_assault_ties_then_nobody_falls() {
+    let mut game = bruisers_face_to_face()
+        .rules(|ruleset| ruleset.assault_ties_knock_down = false)
+        .game([3, 3]);
+    game.apply(TeamId::HOME, assault("H1", &[], "A1")).unwrap();
+    let presence_of = |goblin: &str| game.state().goblin(id(goblin)).unwrap().presence;
+    assert_eq!(
+        (presence_of("H1"), presence_of("A1")),
+        (
+            Presence::Standing(Square::new(5, 7)),
+            Presence::Standing(Square::new(6, 7))
+        )
+    );
+}
+
+#[test]
+fn given_ties_that_stand_off_when_an_assault_ties_then_a_stand_off_and_the_turn_goes_on() {
+    let mut game = bruisers_face_to_face()
+        .rules(|ruleset| ruleset.assault_ties_knock_down = false)
+        .game([3, 3]);
+    let events = game.apply(TeamId::HOME, assault("H1", &[], "A1")).unwrap();
+    assert_eq!(
+        (events.last(), game.state().active_team()),
+        (
+            Some(&GameEvent::StandOff {
+                attacker: id("H1"),
+                defender: id("A1")
+            }),
+            Some(TeamId::HOME)
+        )
+    );
+}
+
+#[test]
+fn given_ties_that_stand_off_when_the_carrier_ties_then_it_keeps_the_ball() {
+    let mut game = bruisers_face_to_face()
+        .rules(|ruleset| ruleset.assault_ties_knock_down = false)
+        .ball_carried_by("A1")
+        .game([3, 3]);
+    game.apply(TeamId::HOME, assault("H1", &[], "A1")).unwrap();
+    assert_eq!(game.state().ball, Ball::Carried { by: id("A1") });
+}
+
+#[test]
 fn given_an_assault_lost_by_two_when_resolved_then_the_attacker_is_down_with_one_damage() {
     let mut game = bruisers_face_to_face().game([1, 3]);
     game.apply(TeamId::HOME, assault("H1", &[], "A1")).unwrap();
