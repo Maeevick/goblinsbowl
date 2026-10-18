@@ -827,6 +827,7 @@ impl Coach<'_> {
 
     fn may_brace(&self, goblin: &Goblin, steps_walked: usize) -> bool {
         goblin.may_act_after(Action::Stance, steps_walked, self.ruleset)
+            && (self.ruleset.carriers_can_brace || self.state.carrier() != Some(goblin.id))
     }
 
     fn brace(&self) -> Option<Activation> {
@@ -1386,6 +1387,7 @@ mod tests {
             ball_bounces_all_around: true,
             assaults_have_styles: true,
             throws_have_styles: true,
+            carriers_can_brace: false,
             ..Ruleset::default()
         }
     }

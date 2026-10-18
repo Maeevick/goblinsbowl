@@ -86,6 +86,9 @@ pub struct Ruleset {
     /// Whether the goblin holding the ball may assault.
     #[serde(default = "carriers_assault")]
     pub carriers_can_assault: bool,
+    /// Whether the goblin holding the ball may brace in Stance.
+    #[serde(default = "carriers_brace")]
+    pub carriers_can_brace: bool,
     /// Whether a throw to an orthogonally adjacent teammate is a hand-off: no throw roll, only the
     /// receiver's catch.
     #[serde(default)]
@@ -211,6 +214,10 @@ fn carriers_assault() -> bool {
     true
 }
 
+fn carriers_brace() -> bool {
+    true
+}
+
 fn kick_offs_heal() -> bool {
     true
 }
@@ -248,6 +255,7 @@ impl Default for Ruleset {
             goblins_can_take_stance: true,
             missed_bounces_end_the_turn: false,
             carriers_can_assault: false,
+            carriers_can_brace: carriers_brace(),
             adjacent_throws_are_hand_offs: true,
             goblins_heal_at_kick_off: false,
             keeps_moving_after_action: true,

@@ -463,6 +463,7 @@ pub fn can_still_brace(
     state
         .goblin(goblin)
         .is_some_and(|goblin| goblin.may_act_after(Action::Stance, steps_walked, ruleset))
+        && (ruleset.carriers_can_brace || state.carrier() != Some(goblin))
 }
 
 /// The drafted walk followed by a Stance.
@@ -1727,6 +1728,17 @@ mod tests {
             goblins_can_take_stance: true,
             ..Ruleset::default()
         }
+    }
+
+    #[test]
+    fn given_carriers_that_cannot_brace_when_asking_if_the_carrier_may_brace_then_no() {
+        let state = board(&[("H5", 7, 7)], Some("H5"));
+        let carriers_unbraced = Ruleset {
+            carriers_can_brace: false,
+            ..with_stance()
+        };
+
+        assert!(!can_still_brace(&carriers_unbraced, &state, id("H5"), 0));
     }
 
     #[test]

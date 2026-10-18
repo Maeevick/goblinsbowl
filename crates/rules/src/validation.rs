@@ -104,6 +104,13 @@ pub fn validate_activation(
             Err(RuleViolation::MustStandStillFirst { goblin: id })
         }
         Some(Action::Focus) => Ok(()),
+        Some(Action::Stance)
+            if ruleset.goblins_can_take_stance
+                && !ruleset.carriers_can_brace
+                && holds_the_ball_after(state, id, &activation.path) =>
+        {
+            Err(RuleViolation::CarrierCannotBrace { goblin: id })
+        }
         Some(Action::Stance) if ruleset.goblins_can_take_stance => Ok(()),
         Some(Action::Stance) => Err(RuleViolation::NoStanceInTheseRules { goblin: id }),
         Some(Action::Assault { .. })
@@ -304,6 +311,57 @@ mod tests {
                 &assault
             ),
             Err(RuleViolation::CarrierCannotAssault {
+                goblin: "H1".parse().unwrap()
+            })
+        );
+    }
+
+    #[test]
+    fn given_carriers_that_cannot_brace_when_the_carrier_braces_then_refused() {
+        let game = Scenario::new()
+            .rules(|ruleset| ruleset.carriers_can_brace = false)
+            .goblin("H1", Sprinter, 3, 7)
+            .ball_carried_by("H1")
+            .game([]);
+        let brace = Activation {
+            action: Some(Action::Stance),
+            ..order("H1", &[])
+        };
+        assert_eq!(
+            validate_activation(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                TeamId::HOME,
+                &brace
+            ),
+            Err(RuleViolation::CarrierCannotBrace {
+                goblin: "H1".parse().unwrap()
+            })
+        );
+    }
+
+    #[test]
+    fn given_carriers_that_cannot_brace_when_a_goblin_picks_the_ball_up_on_its_way_to_brace_then_refused()
+     {
+        let game = Scenario::new()
+            .rules(|ruleset| ruleset.carriers_can_brace = false)
+            .goblin("H1", Sprinter, 3, 7)
+            .ball_loose_at(4, 7)
+            .game([]);
+        let brace = Activation {
+            action: Some(Action::Stance),
+            ..order("H1", &[(4, 7)])
+        };
+        assert_eq!(
+            validate_activation(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                TeamId::HOME,
+                &brace
+            ),
+            Err(RuleViolation::CarrierCannotBrace {
                 goblin: "H1".parse().unwrap()
             })
         );

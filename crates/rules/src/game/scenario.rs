@@ -34,6 +34,7 @@ fn rules_0_1() -> Ruleset {
         goblins_can_take_stance: true,
         missed_bounces_end_the_turn: true,
         carriers_can_assault: true,
+        carriers_can_brace: true,
         adjacent_throws_are_hand_offs: false,
         goblins_heal_at_kick_off: true,
         keeps_moving_after_action: false,
