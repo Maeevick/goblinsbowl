@@ -8,7 +8,8 @@ Goblin football in a bowl: a minimalist, turn-based tactics game played with dic
 ## Quick start
 
 ```bash
-make run                              # two humans on this machine (Bevy window)
+make run                              # two humans on this machine (Bevy window), opening on a menu to pick the arena
+make run ARGS="--no-menu"             # the same, straight into the match on the rules file's arena
 make run ARGS="--away bot"            # play against the computer, the cautious bot by default
 make run ARGS="--home bot --bot balanced-2"  # the computer on the home seat with another coach: --bot cautious, bold, random, cautious-2, balanced-2 or bold-2
 make run ARGS="--away bot --record"   # the same, its record saved to runs/ (make assess ARGS="runs/<file>.jsonl" reads it)
@@ -22,6 +23,7 @@ Rules 0.9 (French and English, printable for a paper playtest): [`docs/rules.md`
 
 ## How to play
 
+- A match against a person or a bot opens on a start menu: pick the arena, a circle, a cross or a rectangle, and its size (21, 31 or 51 squares from den to den), then **Jouer**. A match against an agent starts straight away on the arena given with `--arena` and `--arena-size`.
 - Between turns the bowl finishes playing out the last moves and their headlines, then announces the next team with a goblin aside. Press **Prêts !** when it shows: the camera swings behind your team and the clock starts.
 - A green tile under one of your goblins means it can still play, a dark tile that it is done for the turn. Click a goblin to select it: the squares it can reach light up, green needs no dice, yellow, orange and red are riskier.
 - The selected goblin's card shows at the bottom left (its dice, the steps it has left, its Health), and the card of the opponent under the pointer at the bottom right.
@@ -46,4 +48,4 @@ With an agent seat, the window and the headless server both open an MCP endpoint
 
 ## Development
 
-`GOBLINSBOWL_SCREENSHOT=/tmp/shot.png make run` renders the game offscreen, saves a PNG after a few frames and quits (works while the screen is locked). `GOBLINSBOWL_SCREENSHOT_FRAME` picks the frame, and `GOBLINSBOWL_SCRIPT="30:ready;60:click A5;90:click 12,6;120:done A6;150:end"` plays inputs before the capture: `ready`, a `click` on a goblin or a square, `hover` to rest the pointer on one, `done` for a goblin that stays put for the rest of its turn, `end` for the end of the turn, and `restart` for a new match.
+`GOBLINSBOWL_SCREENSHOT=/tmp/shot.png make run` renders the game offscreen, saves a PNG after a few frames and quits (works while the screen is locked), the start menu included. `GOBLINSBOWL_SCREENSHOT_FRAME` picks the frame, and `GOBLINSBOWL_SCRIPT="30:ready;60:click A5;90:click 12,6;120:done A6;150:end"` plays inputs before the capture: `ready`, a `click` on a goblin or a square, `hover` to rest the pointer on one, `done` for a goblin that stays put for the rest of its turn, `end` for the end of the turn, and `restart` for a new match; a script starts the match without the start menu.
