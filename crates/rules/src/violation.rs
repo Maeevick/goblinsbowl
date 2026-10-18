@@ -54,6 +54,16 @@ pub enum RuleViolation {
         /// Steps in the path.
         steps: usize,
     },
+    /// Actions cost a step, and the path would leave the goblin none for its action.
+    #[error("{goblin} has {steps_left} steps left this turn: a path of {steps} leaves none to act")]
+    NoStepLeftToAct {
+        /// The goblin.
+        goblin: GoblinId,
+        /// Steps it may still take this turn.
+        steps_left: u8,
+        /// Steps in the path.
+        steps: usize,
+    },
     /// The goblin already assaulted, braced or threw this turn.
     #[error("{goblin} already used its action this turn")]
     ActionAlreadyUsed {

@@ -49,9 +49,8 @@ impl<D: DiceRoller> Game<D> {
                 return;
             }
         }
-        let keeps_moving_after_action = self.ruleset.keeps_moving_after_action;
         if let Some(goblin) = self.state.goblin_mut(id) {
-            goblin.spend_order(&activation, keeps_moving_after_action);
+            goblin.spend_order(&activation, &self.ruleset);
         }
         let turn_ending = match activation.action {
             None => None,

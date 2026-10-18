@@ -112,6 +112,10 @@ pub struct Ruleset {
     /// one and comes back with that much Health, a 0 keeping it out until the next kick-off.
     #[serde(default)]
     pub knocked_out_goblins_may_return: bool,
+    /// Whether an assault or a throw costs one step of the goblin's Move and a Stance every step it
+    /// has left, so a goblin with no step left cannot act.
+    #[serde(default)]
+    pub actions_cost_a_step: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -220,6 +224,7 @@ impl Default for Ruleset {
             assault_ties_knock_down: ties_knock_down(),
             carrier_defense_malus: 0,
             knocked_out_goblins_may_return: false,
+            actions_cost_a_step: false,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

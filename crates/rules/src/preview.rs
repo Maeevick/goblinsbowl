@@ -312,7 +312,7 @@ pub fn board_after_success(
         }
     }
     if let Some(goblin) = board.goblin_mut(id) {
-        goblin.spend_order(activation, ruleset.keeps_moving_after_action);
+        goblin.spend_order(activation, ruleset);
     }
     match activation.action {
         None => {}

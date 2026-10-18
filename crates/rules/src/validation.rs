@@ -41,6 +41,16 @@ pub fn validate_activation(
             steps: activation.path.len(),
         });
     }
+    if activation.action.is_some()
+        && ruleset.actions_cost_a_step
+        && activation.path.len() >= usize::from(goblin.steps_left)
+    {
+        return Err(RuleViolation::NoStepLeftToAct {
+            goblin: id,
+            steps_left: goblin.steps_left,
+            steps: activation.path.len(),
+        });
+    }
     if activation.action.is_some() && !goblin.has_action_left {
         return Err(RuleViolation::ActionAlreadyUsed { goblin: id });
     }

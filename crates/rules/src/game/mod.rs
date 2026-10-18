@@ -14,6 +14,8 @@ use crate::team::TeamId;
 use crate::validation::validate_activation;
 use crate::violation::RuleViolation;
 
+#[cfg(test)]
+mod action_economy_tests;
 mod activation;
 mod fight;
 #[cfg(test)]

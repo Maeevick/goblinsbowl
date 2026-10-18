@@ -41,6 +41,7 @@ fn rules_0_1() -> Ruleset {
         assault_ties_knock_down: true,
         carrier_defense_malus: 0,
         knocked_out_goblins_may_return: false,
+        actions_cost_a_step: false,
         archetypes: ArchetypeCharacteristics {
             bruiser: Characteristics {
                 attack: 4,
