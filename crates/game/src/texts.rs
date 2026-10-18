@@ -7,7 +7,7 @@ use goblins_rules::event::{DodgeRoll, GameEvent, TurnEndReason};
 use goblins_rules::odds::{AgilityDice, ContestDice, Probability};
 use goblins_rules::preview::{ActionOdds, ActivationOdds, DodgeDice, RiskyStep};
 use goblins_rules::ruleset::Ruleset;
-use goblins_rules::state::Goblin;
+use goblins_rules::state::{Focus, Goblin};
 use goblins_rules::team::TeamId;
 
 use crate::beats::ShownRoll;
@@ -244,27 +244,42 @@ impl Texts {
     /// opponent whether it stands braced in Stance.
     fn card_status(&self, goblin: &Goblin, coached: bool, ruleset: &Ruleset) -> String {
         let french = self.french();
+        let focused = match (goblin.focus == Focus::Focused, french) {
+            (true, true) => Some("concentré, +1 au lancer"),
+            (true, false) => Some("focused, +1 to throws"),
+            (false, _) => None,
+        };
         if !coached {
-            return match (goblin.in_stance, french) {
-                (true, true) => "En garde : +1 en défense".to_string(),
-                (true, false) => "Braced: +1 to defense".to_string(),
-                (false, _) => String::new(),
+            let braced = match (goblin.in_stance, french) {
+                (true, true) => Some("en garde, +1 en défense"),
+                (true, false) => Some("braced, +1 to defense"),
+                (false, _) => None,
             };
+            return braced
+                .into_iter()
+                .chain(focused)
+                .collect::<Vec<_>>()
+                .join(" · ");
         }
         let left: Vec<&str> = [
             (Action::assault(goblin.id), "assaut", "assault"),
             (Action::throw(goblin.id), "passe", "throw"),
             (Action::Stance, "garde", "stance"),
+            (Action::Focus, "concentration", "focus"),
         ]
         .into_iter()
         .filter(|(action, _, _)| goblin.may_act_after(*action, 0, ruleset))
         .map(|(_, french_name, english_name)| if french { french_name } else { english_name })
         .collect();
-        match (left.is_empty(), french) {
+        let actions = match (left.is_empty(), french) {
             (true, true) => "Plus d'action ce tour".to_string(),
             (true, false) => "No action left this turn".to_string(),
             (false, true) => format!("Actions : {}", left.join(" · ")),
             (false, false) => format!("Actions: {}", left.join(" · ")),
+        };
+        match focused {
+            Some(focused) => format!("{actions} · {focused}"),
+            None => actions,
         }
     }
 
@@ -1104,7 +1119,18 @@ mod tests {
         sprinter.in_stance = true;
         assert_eq!(
             FRENCH.card_lines(&sprinter, false, &Ruleset::default())[3],
-            "En garde : +1 en défense"
+            "en garde, +1 en défense"
+        );
+    }
+
+    #[test]
+    fn given_english_when_carding_a_coached_goblin_that_focused_last_turn_then_its_plus_one_shows()
+    {
+        let mut sprinter = sprinter_with_steps_and_health_lost();
+        sprinter.focus = goblins_rules::state::Focus::Focused;
+        assert_eq!(
+            ENGLISH.card_lines(&sprinter, true, &Ruleset::default())[3],
+            "Actions: assault · throw · stance · focused, +1 to throws"
         );
     }
 
