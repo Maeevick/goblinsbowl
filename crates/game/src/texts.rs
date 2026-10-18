@@ -212,6 +212,23 @@ impl Texts {
             (Variation::Brutal, _) => "Brutal",
             (Variation::Projection, _) => "Projection",
             (Variation::Chaos, _) => "Chaos",
+            (Variation::Focused, true) => "Concentration",
+            (Variation::Focused, false) => "Focused",
+        }
+    }
+
+    /// A variation's button with its chance, for example "Concentration +3 97 %": a focused throw
+    /// tells the bonus its `steps_sacrificed` give.
+    pub fn variation_label(
+        &self,
+        variation: Variation,
+        chance: Probability,
+        steps_sacrificed: u8,
+    ) -> String {
+        let name = self.variation_name(variation);
+        match variation {
+            Variation::Focused => format!("{name} +{steps_sacrificed} {}", self.chance(chance)),
+            _ => format!("{name} {}", self.chance(chance)),
         }
     }
 
@@ -1102,6 +1119,14 @@ mod tests {
                 .collect(),
             action,
         }
+    }
+
+    #[test]
+    fn given_french_when_labelling_a_focused_throw_sacrificing_three_steps_then_its_bonus_shows() {
+        assert_eq!(
+            FRENCH.variation_label(Variation::Focused, Probability::new(5, 6), 3),
+            format!("Concentration +3 {}", FRENCH.chance(Probability::new(5, 6)))
+        );
     }
 
     #[test]

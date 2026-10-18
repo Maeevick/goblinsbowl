@@ -81,11 +81,14 @@ pub enum Variation {
     Projection,
     /// No throw roll: the ball bounces three times from the receiver's square.
     Chaos,
+    /// A Thrower's throw sacrificing every step it has left after it, +1 each to the roll.
+    Focused,
 }
 
 /// The variations offered for the aimed order of `draft`, each with the chance it does what it is
 /// played for (a knock-down for an assault, the turn going on for a throw); none where the rules
-/// have no styles for that action, so a second click on the aim still sends it.
+/// have no styles for that action, so a second click on the aim still sends it. A focused throw is
+/// offered only when it beats the plain one.
 pub fn variations(
     arena: &Arena,
     ruleset: &Ruleset,
@@ -100,12 +103,14 @@ pub fn variations(
             Variation::Brutal,
             Variation::Projection,
         ],
-        Some(Action::Throw { .. }) if ruleset.throws_have_styles => {
-            &[Variation::Simple, Variation::Chaos]
+        Some(Action::Throw { .. })
+            if ruleset.throws_have_styles || ruleset.focused_throws_spend_steps_left =>
+        {
+            &[Variation::Simple, Variation::Chaos, Variation::Focused]
         }
         _ => &[],
     };
-    candidates
+    let offered: Vec<(Variation, Probability)> = candidates
         .iter()
         .filter_map(|variation| {
             let activation = varied(arena, state, &draft.activation, *variation)?;
@@ -116,7 +121,24 @@ pub fn variations(
             };
             Some((*variation, chance))
         })
+        .collect();
+    let plain = offered
+        .iter()
+        .find(|(variation, _)| *variation == Variation::Simple)
+        .map(|(_, chance)| *chance);
+    offered
+        .into_iter()
+        .filter(|(variation, chance)| {
+            *variation != Variation::Focused || plain.is_none_or(|plain| *chance > plain)
+        })
         .collect()
+}
+
+/// Steps the goblin of `draft` would sacrifice to focus its aimed throw, +1 each to the roll.
+pub fn steps_to_focus(ruleset: &Ruleset, state: &GameState, draft: &Draft) -> u8 {
+    state.goblin(draft.activation.goblin).map_or(0, |goblin| {
+        goblin.steps_to_focus_with(draft.activation.path.len(), ruleset)
+    })
 }
 
 /// What picking `variation` in the order bar does: sends the aimed order in that style, or, for a
@@ -170,6 +192,10 @@ fn varied(
         (Action::Throw { receiver, .. }, Variation::Chaos) => Action::Throw {
             receiver,
             style: ThrowStyle::Chaos,
+        },
+        (Action::Throw { receiver, .. }, Variation::Focused) => Action::Throw {
+            receiver,
+            style: ThrowStyle::Focused,
         },
         _ => return None,
     };
@@ -616,12 +642,13 @@ struct VariationButton(Variation);
 #[derive(Component)]
 struct VariationLabel(Variation);
 
-const ALL_VARIATIONS: [Variation; 5] = [
+const ALL_VARIATIONS: [Variation; 6] = [
     Variation::Simple,
     Variation::Chirurgical,
     Variation::Brutal,
     Variation::Projection,
     Variation::Chaos,
+    Variation::Focused,
 ];
 
 #[derive(Resource)]
@@ -1132,15 +1159,14 @@ fn refresh_variation_buttons(
             node.display = display;
         }
     }
+    let steps_sacrificed = prepared.0.as_ref().map_or(0, |draft| {
+        steps_to_focus(&view.ruleset, &view.snapshot.state, draft)
+    });
     for (label, mut text) in &mut labels {
         if let Some((variation, chance)) =
             offered.iter().find(|(variation, _)| *variation == label.0)
         {
-            let wanted = format!(
-                "{} {}",
-                texts.variation_name(*variation),
-                texts.chance(*chance)
-            );
+            let wanted = texts.variation_label(*variation, *chance, steps_sacrificed);
             if text.0 != wanted {
                 text.0 = wanted;
             }
@@ -1653,6 +1679,111 @@ mod tests {
         .map(|(variation, _)| variation)
         .collect();
         assert_eq!(offered, [Variation::Simple, Variation::Chaos]);
+    }
+
+    fn with_focused_throws() -> Ruleset {
+        Ruleset {
+            focused_throws_spend_steps_left: true,
+            ..with_styles()
+        }
+    }
+
+    fn offered_for(state: &GameState, draft: &Draft) -> Vec<Variation> {
+        variations(
+            &Arena::bowl_15(),
+            &with_focused_throws(),
+            state,
+            TeamId::HOME,
+            draft,
+        )
+        .into_iter()
+        .map(|(variation, _)| variation)
+        .collect()
+    }
+
+    #[test]
+    fn given_focused_throws_when_a_thrower_that_has_not_moved_aims_a_teammate_then_simple_chaos_and_concentration_are_offered()
+     {
+        let state = board(&[("H9", 5, 7), ("H5", 9, 7)], Some("H9"));
+        let draft = aimed(
+            "H9",
+            &[],
+            Some(Action::throw(id("H5"))),
+            BoardClick::Goblin(id("H5")),
+        );
+        assert_eq!(
+            offered_for(&state, &draft),
+            [Variation::Simple, Variation::Chaos, Variation::Focused]
+        );
+    }
+
+    #[test]
+    fn given_focused_throws_when_a_sprinter_aims_a_teammate_then_no_concentration() {
+        let state = board(&[("H5", 5, 7), ("H9", 9, 7)], Some("H5"));
+        let draft = aimed(
+            "H5",
+            &[],
+            Some(Action::throw(id("H9"))),
+            BoardClick::Goblin(id("H9")),
+        );
+        assert_eq!(
+            offered_for(&state, &draft),
+            [Variation::Simple, Variation::Chaos]
+        );
+    }
+
+    #[test]
+    fn given_focused_throws_when_a_thrower_aims_a_teammate_next_to_it_then_no_concentration_as_a_hand_off_needs_no_roll()
+     {
+        let state = board(&[("H9", 5, 7), ("H5", 6, 7)], Some("H9"));
+        let draft = aimed(
+            "H9",
+            &[],
+            Some(Action::throw(id("H5"))),
+            BoardClick::Goblin(id("H5")),
+        );
+        assert!(!offered_for(&state, &draft).contains(&Variation::Focused));
+    }
+
+    #[test]
+    fn given_focused_throws_when_concentration_is_picked_then_a_focused_throw_is_sent() {
+        let state = board(&[("H9", 5, 7), ("H5", 9, 7)], Some("H9"));
+        let draft = aimed(
+            "H9",
+            &[],
+            Some(Action::throw(id("H5"))),
+            BoardClick::Goblin(id("H5")),
+        );
+        assert_eq!(
+            pick_variation(
+                &Arena::bowl_15(),
+                &with_focused_throws(),
+                &state,
+                TeamId::HOME,
+                &draft,
+                Variation::Focused
+            ),
+            Reaction::Send(Activation {
+                action: Some(Action::Throw {
+                    receiver: id("H5"),
+                    style: ThrowStyle::Focused
+                }),
+                ..draft.activation.clone()
+            })
+        );
+    }
+
+    #[test]
+    fn given_a_thrower_walking_one_square_before_its_throw_when_asking_its_steps_to_focus_then_two()
+    {
+        let state = board(&[("H9", 5, 7), ("H5", 9, 7)], Some("H9"));
+        let draft = aimed(
+            "H9",
+            &[(6, 7)],
+            Some(Action::throw(id("H5"))),
+            BoardClick::Goblin(id("H5")),
+        );
+        assert_eq!(steps_to_focus(&with_focused_throws(), &state, &draft), 2);
     }
 
     #[test]
