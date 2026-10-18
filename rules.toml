@@ -24,8 +24,8 @@ kickoff_bounces = 3
 # (false: the Agility die against the Defense die of the most dangerous enemy).
 dodges_test_agility = true
 # Whether a goblin can brace in Stance, a Defense bonus until its team's next turn (rules 0.1 to 0.4,
-# then again since 0.8, where it costs every step the goblin has left).
-goblins_can_take_stance = true
+# then 0.8 and 0.9, where it cost every step the goblin had left).
+goblins_can_take_stance = false
 # Most a Stance bonus adds to one roll, and most braced neighbours it counts: +1 for the goblin itself.
 stance_bonus_cap = 1
 neighbour_stance_bonus_cap = 0

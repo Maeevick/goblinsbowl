@@ -834,7 +834,7 @@ mod tests {
     }
 
     #[test]
-    fn given_the_shipped_rules_when_a_fresh_goblin_without_the_ball_is_viewed_then_it_may_assault_throw_and_brace()
+    fn given_the_shipped_rules_when_a_fresh_goblin_without_the_ball_is_viewed_then_it_may_assault_and_throw()
      {
         let host = kick_off();
         let seat = host.snapshot().state.active_team().unwrap();
@@ -844,7 +844,7 @@ mod tests {
             .iter()
             .find(|goblin| goblin.id.starts_with(seat.letter()))
             .unwrap();
-        assert_eq!(first.actions_left, ["assault", "throw", "stance"]);
+        assert_eq!(first.actions_left, ["assault", "throw"]);
     }
 
     #[test]

@@ -253,7 +253,7 @@ impl Default for Ruleset {
             stance_bonus_cap: 1,
             neighbour_stance_bonus_cap: 0,
             dodges_test_agility: true,
-            goblins_can_take_stance: true,
+            goblins_can_take_stance: false,
             missed_bounces_end_the_turn: false,
             carriers_can_assault: false,
             carriers_can_brace: false,

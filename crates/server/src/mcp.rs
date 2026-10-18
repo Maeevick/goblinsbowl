@@ -47,8 +47,8 @@ const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based gob
 Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
 resolved in order; add end_turn=true on your last call), then wait again, until status is game_over. \
 Each goblin has its movement in steps, spent over as many orders as you like, even after other goblins \
-played; it may assault once, throw once and brace in stance once per turn, an assault or a throw costing \
-a step and a stance every step left (steps_left, actions_left). Assaults come in styles (simple, chirurgical, \
+played; it may assault once and throw once per turn, each costing a step, and brace in stance where the \
+rules have it (steps_left, actions_left). Assaults come in styles (simple, chirurgical, \
 brutal, projection), a goblin that has not moved may throw into chaos and a carrier that has not moved may \
 focus for +1 to its throws next turn: see the play schema and get_rules. \
 Any failed dodge, assault, pick-up or throw, or your own throw not caught, ends your turn at once, \
