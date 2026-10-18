@@ -47,8 +47,7 @@ const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based gob
 Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
 resolved in order; add end_turn=true on your last call), then wait again, until status is game_over. \
 Each goblin has its movement in steps, spent over as many orders as you like, even after other goblins \
-played; it may assault once and throw once per turn, each costing a step, and brace in stance where the \
-rules have it (steps_left, actions_left). Assaults come in styles (simple, chirurgical, \
+played; it may assault once and throw once per turn, each costing a step (steps_left, actions_left). Assaults come in styles (simple, chirurgical, \
 brutal, projection), a goblin that has not moved may throw into chaos, and a Thrower may throw focused, \
 every step it has left after the throw sacrificed for +1 to the roll: see the play schema and get_rules. \
 Any failed dodge, assault, pick-up or throw, or your own throw not caught, ends your turn at once, \
@@ -131,7 +130,8 @@ pub struct WaitArgs {
     pub max_wait_seconds: Option<u64>,
 }
 
-/// A goblin's action: an assault, a throw, a stance or a focus, each once per turn.
+/// A goblin's action: an assault or a throw, each once per turn. The stance and the focus of older
+/// rules are still read but no longer offered to agents.
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(transform = drop_integer_formats)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -159,11 +159,13 @@ pub enum PlannedAction {
         /// to the throw roll).
         style: Option<PlannedThrowStyle>,
     },
-    /// Brace in stance after moving: +1 defense until your next turn, at the cost of every step left
-    /// (not for the goblin holding the ball, where the rules say so: it may focus instead).
+    /// Brace in stance after moving, under rules 0.8 and 0.9: +1 defense until your next turn, at
+    /// the cost of every step left.
+    #[schemars(skip)]
     Stance,
-    /// Focus on its own, under older rules only, for the goblin holding the ball: stand still this
-    /// whole turn for +1 to its throws on your next turn. Current rules focus a throw instead.
+    /// Focus on its own, under rules 0.9, for the goblin holding the ball: stand still this whole
+    /// turn for +1 to its throws on your next turn.
+    #[schemars(skip)]
     Focus,
 }
 
@@ -890,6 +892,13 @@ mod tests {
     #[test]
     fn given_the_play_arguments_schema_when_generated_then_no_integer_width_format_remains() {
         assert!(!has_integer_width_format::<PlayArgs>());
+    }
+
+    #[test]
+    fn given_the_play_arguments_schema_when_generated_then_it_offers_no_stance_nor_focus_of_older_rules()
+     {
+        let schema = serde_json::to_string(&schemars::schema_for!(PlayArgs)).unwrap_or_default();
+        assert!(!schema.contains("\"stance\"") && !schema.contains("\"focus\""));
     }
 
     #[test]
