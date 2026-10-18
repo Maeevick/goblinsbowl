@@ -15,6 +15,7 @@ impl<D: DiceRoller> Game<D> {
         &mut self,
         thrower: GoblinId,
         receiver: GoblinId,
+        steps_sacrificed: u8,
         events: &mut Vec<GameEvent>,
     ) -> bool {
         let Some((thrower_square, team)) = self
@@ -43,7 +44,8 @@ impl<D: DiceRoller> Game<D> {
         let focus_bonus = self
             .state
             .goblin(thrower)
-            .map_or(0, |goblin| goblin.focus.throw_bonus());
+            .map_or(0, |goblin| goblin.focus.throw_bonus())
+            .saturating_add(steps_sacrificed);
         let roll = self.agility_roll_with_bonus(thrower, distance_malus, focus_bonus);
         events.push(GameEvent::ThrowAttempted {
             thrower,

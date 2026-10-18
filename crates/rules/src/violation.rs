@@ -106,6 +106,18 @@ pub enum RuleViolation {
         /// The goblin.
         goblin: GoblinId,
     },
+    /// Only Throwers focus their throws.
+    #[error("{goblin} is no Thrower: only Throwers focus their throws")]
+    OnlyThrowersFocus {
+        /// The goblin.
+        goblin: GoblinId,
+    },
+    /// Under these rules focus comes with a Thrower's throw, never on its own.
+    #[error("under these rules a Thrower focuses as it throws: {goblin} cannot focus on its own")]
+    FocusOnlyAsAThrow {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// The goblin would hold the ball, and the rules keep carriers from bracing.
     #[error("{goblin} holds the ball and cannot brace")]
     CarrierCannotBrace {

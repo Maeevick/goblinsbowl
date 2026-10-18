@@ -49,6 +49,7 @@ fn rules_0_1() -> Ruleset {
         ball_bounces_all_around: false,
         assaults_have_styles: false,
         throws_have_styles: false,
+        focused_throws_spend_steps_left: false,
         archetypes: ArchetypeCharacteristics {
             bruiser: Characteristics {
                 attack: 4,

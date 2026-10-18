@@ -49,6 +49,15 @@ impl<D: DiceRoller> Game<D> {
                 return;
             }
         }
+        let steps_sacrificed = match activation.action {
+            Some(Action::Throw {
+                style: ThrowStyle::Focused,
+                ..
+            }) => self.state.goblin(id).map_or(0, |goblin| {
+                goblin.steps_to_focus_with(activation.path.len(), &self.ruleset)
+            }),
+            _ => 0,
+        };
         if let Some(goblin) = self.state.goblin_mut(id) {
             goblin.spend_order(&activation, &self.ruleset);
         }
@@ -67,8 +76,9 @@ impl<D: DiceRoller> Game<D> {
             }
             Some(Action::Throw {
                 receiver,
-                style: ThrowStyle::Simple,
-            }) => (!self.throw_completes(id, receiver, events)).then_some(TurnEndReason::Fumble),
+                style: ThrowStyle::Simple | ThrowStyle::Focused,
+            }) => (!self.throw_completes(id, receiver, steps_sacrificed, events))
+                .then_some(TurnEndReason::Fumble),
             Some(Action::Throw {
                 receiver,
                 style: ThrowStyle::Chaos,

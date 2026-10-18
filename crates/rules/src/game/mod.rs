@@ -24,6 +24,8 @@ mod fight;
 mod fight_tests;
 #[cfg(test)]
 mod focus_tests;
+#[cfg(test)]
+mod focused_throw_tests;
 mod kickoff;
 #[cfg(test)]
 mod moving_after_action_tests;

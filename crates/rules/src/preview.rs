@@ -307,7 +307,7 @@ pub fn activation_odds(
     } else {
         activation
             .action
-            .map(|action| action_odds(arena, ruleset, &sketch, id, action))
+            .map(|action| action_odds(arena, ruleset, &sketch, id, action, activation.path.len()))
     };
     let action_success = match &action {
         None | Some(ActionOdds::Stance | ActionOdds::Focus) => Probability::CERTAIN,
@@ -394,7 +394,7 @@ pub fn board_after_success(
         }
         Some(Action::Throw {
             receiver,
-            style: ThrowStyle::Simple,
+            style: ThrowStyle::Simple | ThrowStyle::Focused,
         }) => board.ball = Ball::Carried { by: receiver },
         Some(Action::Throw {
             receiver,
@@ -414,6 +414,7 @@ fn action_odds(
     sketch: &GameState,
     actor: GoblinId,
     action: Action,
+    steps_walked: usize,
 ) -> ActionOdds {
     match action {
         Action::Stance => ActionOdds::Stance,
@@ -442,7 +443,16 @@ fn action_odds(
         Action::Throw {
             receiver,
             style: ThrowStyle::Simple,
-        } => throw_odds(ruleset, sketch, actor, receiver),
+        } => throw_odds(ruleset, sketch, actor, receiver, 0),
+        Action::Throw {
+            receiver,
+            style: ThrowStyle::Focused,
+        } => {
+            let steps_sacrificed = sketch.goblin(actor).map_or(0, |goblin| {
+                goblin.steps_to_focus_with(steps_walked, ruleset)
+            });
+            throw_odds(ruleset, sketch, actor, receiver, steps_sacrificed)
+        }
         Action::Throw {
             receiver,
             style: ThrowStyle::Chaos,
@@ -455,6 +465,7 @@ fn throw_odds(
     sketch: &GameState,
     thrower: GoblinId,
     receiver: GoblinId,
+    steps_sacrificed: u8,
 ) -> ActionOdds {
     let target = ruleset.ball_roll_target;
     let thrower_goblin = sketch.goblin(thrower);
@@ -481,7 +492,9 @@ fn throw_odds(
             faces: thrower_goblin.map_or(1, |goblin| goblin.characteristics.agility),
             malus: opponents_in_reach(ruleset, sketch, thrower_square, team)
                 .saturating_add(distance_malus),
-            bonus: thrower_goblin.map_or(0, |goblin| goblin.focus.throw_bonus()),
+            bonus: thrower_goblin
+                .map_or(0, |goblin| goblin.focus.throw_bonus())
+                .saturating_add(steps_sacrificed),
             target,
         }
         .success()
@@ -1413,6 +1426,32 @@ mod tests {
             .goblin("H6", Sprinter, 7, 7);
         let preview = odds(scenario, &chaos_towards("H2")).unwrap();
         assert_eq!(preview.overall_success, Probability::CERTAIN);
+    }
+
+    #[test]
+    fn given_focused_throws_when_previewing_a_thrower_s_focused_throw_then_three_steps_sacrificed_make_its_throw_certain()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| {
+                ruleset.keeps_moving_after_action = true;
+                ruleset.actions_cost_a_step = true;
+                ruleset.focused_throws_spend_steps_left = true;
+            })
+            .goblin("H1", Thrower, 4, 7)
+            .goblin("H2", Sprinter, 8, 7)
+            .ball_carried_by("H1");
+        let focused = order(
+            "H1",
+            &[],
+            Some(Action::Throw {
+                receiver: id("H2"),
+                style: ThrowStyle::Focused,
+            }),
+        );
+        assert!(matches!(
+            odds(scenario, &focused).unwrap().action,
+            Some(ActionOdds::Throw { throw, .. }) if throw == Probability::CERTAIN
+        ));
     }
 
     #[test]

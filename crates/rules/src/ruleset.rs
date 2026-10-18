@@ -147,6 +147,11 @@ pub struct Ruleset {
     /// otherwise every throw is simple and nobody focuses.
     #[serde(default)]
     pub throws_have_styles: bool,
+    /// Whether a Thrower may throw focused, sacrificing every step it has left after the throw for
+    /// +1 each to its throw roll; the focus of `throws_have_styles`, a whole turn standing still
+    /// for +1 on the next one, is then gone.
+    #[serde(default)]
+    pub focused_throws_spend_steps_left: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -271,6 +276,7 @@ impl Default for Ruleset {
             ball_bounces_all_around: true,
             assaults_have_styles: true,
             throws_have_styles: true,
+            focused_throws_spend_steps_left: false,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

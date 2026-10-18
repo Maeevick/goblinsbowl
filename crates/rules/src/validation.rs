@@ -1,6 +1,7 @@
 //! Pure validation of orders: what a coach may ask for, checked before any die is rolled.
 
 use crate::arena::Arena;
+use crate::characteristics::Archetype;
 use crate::command::{Action, Activation, AssaultStyle, ThrowStyle};
 use crate::roster::GoblinId;
 use crate::ruleset::Ruleset;
@@ -74,6 +75,18 @@ pub fn validate_activation(
             return Err(RuleViolation::MustStandStillFirst { goblin: id });
         }
     }
+    if let Some(Action::Throw {
+        style: ThrowStyle::Focused,
+        ..
+    }) = activation.action
+    {
+        if !ruleset.focused_throws_spend_steps_left {
+            return Err(RuleViolation::StyleNotInTheseRules { goblin: id });
+        }
+        if goblin.archetype != Archetype::Thrower {
+            return Err(RuleViolation::OnlyThrowersFocus { goblin: id });
+        }
+    }
     let mut visited = vec![start];
     for (index, square) in activation.path.iter().copied().enumerate() {
         let previous = visited.last().copied().unwrap_or(start);
@@ -96,6 +109,9 @@ pub fn validate_activation(
         None => Ok(()),
         Some(Action::Focus) if !ruleset.throws_have_styles => {
             Err(RuleViolation::StyleNotInTheseRules { goblin: id })
+        }
+        Some(Action::Focus) if ruleset.focused_throws_spend_steps_left => {
+            Err(RuleViolation::FocusOnlyAsAThrow { goblin: id })
         }
         Some(Action::Focus)
             if !activation.path.is_empty()

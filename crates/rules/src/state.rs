@@ -142,7 +142,7 @@ impl ActionsUsed {
         !self.assault
             || !self.throw
             || (ruleset.goblins_can_take_stance && !self.stance)
-            || (ruleset.throws_have_styles && !self.focus)
+            || (focus_stands_alone(ruleset) && !self.focus)
     }
 }
 
@@ -181,7 +181,7 @@ impl Goblin {
         let in_the_rules = match action {
             Action::Stance => ruleset.goblins_can_take_stance,
             Action::Focus => {
-                ruleset.throws_have_styles
+                focus_stands_alone(ruleset)
                     && steps_walked == 0
                     && self.steps_left == self.characteristics.movement
             }
@@ -191,6 +191,15 @@ impl Goblin {
             && in_the_rules
             && self.may_take(action, ruleset)
             && (!ruleset.actions_cost_a_step || steps_walked < usize::from(self.steps_left))
+    }
+
+    /// Steps a focused throw sacrifices, +1 each to its throw roll, once the goblin walked
+    /// `steps_walked` squares and paid for the throw where actions cost a step.
+    pub fn steps_to_focus_with(&self, steps_walked: usize, ruleset: &Ruleset) -> u8 {
+        let walked = u8::try_from(steps_walked).unwrap_or(u8::MAX);
+        self.steps_left
+            .saturating_sub(walked)
+            .saturating_sub(u8::from(ruleset.actions_cost_a_step))
     }
 
     /// Gives it a whole turn: every step of its Move and its action.
@@ -233,7 +242,7 @@ impl Goblin {
         }
         self.steps_left = match action {
             Action::Throw {
-                style: ThrowStyle::Chaos,
+                style: ThrowStyle::Chaos | ThrowStyle::Focused,
                 ..
             }
             | Action::Focus => 0,
@@ -244,6 +253,12 @@ impl Goblin {
             Action::Assault { .. } | Action::Throw { .. } | Action::Stance => self.steps_left,
         };
     }
+}
+
+/// Whether focus is an action of its own, a whole turn standing still for +1 to the next turn's
+/// throws, rather than part of a Thrower's throw.
+fn focus_stands_alone(ruleset: &Ruleset) -> bool {
+    ruleset.throws_have_styles && !ruleset.focused_throws_spend_steps_left
 }
 
 /// Who braces for a goblin: itself, and how many of its adjacent teammates.
