@@ -1,5 +1,6 @@
 //! Throws: the throw roll, interceptions along the flight line, and the receiver's catch.
 
+use crate::bounces::CHAOS_BOUNCES;
 use crate::dice::DiceRoller;
 use crate::event::{GameEvent, TurnEndReason};
 use crate::preview::interceptors;
@@ -8,9 +9,6 @@ use crate::square::Square;
 use crate::state::Ball;
 
 use super::Game;
-
-/// Times a ball thrown into chaos bounces from the receiver's square.
-const CHAOS_BOUNCES: usize = 3;
 
 impl<D: DiceRoller> Game<D> {
     pub(super) fn throw_completes(

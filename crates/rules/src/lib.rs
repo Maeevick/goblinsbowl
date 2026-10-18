@@ -7,6 +7,7 @@ pub mod arena;
 pub mod assessment;
 pub mod balance;
 pub mod board;
+pub mod bounces;
 pub mod bowls;
 pub mod characteristics;
 pub mod command;

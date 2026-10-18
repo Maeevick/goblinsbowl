@@ -2,19 +2,19 @@
 
 use std::collections::VecDeque;
 
+use crate::bounces::{
+    MOST_DIRECTION_ROLLS, MOST_MOVES_IN_A_BOUNCE, direction_die, landing, settling_square,
+};
 use crate::dice::DiceRoller;
 use crate::event::{AgilityRoll, GameEvent};
 use crate::formation::{kickoff_drop_square, kickoff_squares};
 use crate::odds::AgilityDice;
 use crate::roster::{GoblinId, Roster};
-use crate::square::{Compass, Direction, Square};
+use crate::square::Square;
 use crate::state::{Ball, Focus, Goblin, Presence};
 use crate::team::TeamId;
 
 use super::Game;
-
-const MAX_DIRECTION_ROLLS: usize = 32;
-const MAX_BOUNCES: usize = 32;
 
 impl<D: DiceRoller> Game<D> {
     pub(super) fn kick_off(&mut self, receiving_team: TeamId, events: &mut Vec<GameEvent>) {
@@ -143,7 +143,7 @@ impl<D: DiceRoller> Game<D> {
     ) -> Vec<GoblinId> {
         let mut from = origin;
         let mut missed_catches = Vec::new();
-        for _ in 0..MAX_BOUNCES {
+        for _ in 0..MOST_MOVES_IN_A_BOUNCE {
             let to = self.roll_bounce_destination(from);
             events.push(GameEvent::BallBounced { from, to });
             self.state.ball = Ball::Loose { at: to };
@@ -170,20 +170,14 @@ impl<D: DiceRoller> Game<D> {
     }
 
     fn roll_bounce_destination(&mut self, from: Square) -> Square {
-        for _ in 0..MAX_DIRECTION_ROLLS {
-            let step = if self.ruleset.ball_bounces_all_around {
-                let face = self.dice.roll(8);
-                Compass::from_d8_face(face).and_then(|direction| direction.step_from(from))
-            } else {
-                let face = self.dice.roll(4);
-                Direction::from_d4_face(face).and_then(|direction| direction.step_from(from))
-            };
-            let destination = step.filter(|square| self.arena.is_in_bounds(*square));
-            if let Some(destination) = destination {
+        let faces = direction_die(&self.ruleset);
+        for _ in 0..MOST_DIRECTION_ROLLS {
+            let face = self.dice.roll(faces);
+            if let Some(destination) = landing(&self.arena, &self.ruleset, from, face) {
                 return destination;
             }
         }
-        self.arena.in_bounds_neighbours(from).next().unwrap_or(from)
+        settling_square(&self.arena, from)
     }
 
     pub(super) fn attempt_catch(
