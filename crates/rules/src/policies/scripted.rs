@@ -757,12 +757,8 @@ impl Coach<'_> {
         })
     }
 
-    /// Whether `goblin` may brace in Stance once it walked `steps_walked` squares: Stance in the
-    /// rules, still its to take, and a step left to pay for it where actions cost steps.
     fn may_brace(&self, goblin: &Goblin, steps_walked: usize) -> bool {
-        self.ruleset.goblins_can_take_stance
-            && goblin.may_take(Action::Stance, self.ruleset)
-            && (!self.ruleset.actions_cost_a_step || steps_walked < usize::from(goblin.steps_left))
+        goblin.may_act_after(Action::Stance, steps_walked, self.ruleset)
     }
 
     fn brace(&self) -> Option<Activation> {

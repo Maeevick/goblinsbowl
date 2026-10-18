@@ -130,6 +130,16 @@ impl Goblin {
             && !(ruleset.one_action_of_each_kind && self.actions_used.includes(action))
     }
 
+    /// Whether it may still take `action` once it walked `steps_walked` squares: standing, the
+    /// action in the rules and still its to take, and a step left to pay for it where actions cost
+    /// steps.
+    pub fn may_act_after(&self, action: Action, steps_walked: usize, ruleset: &Ruleset) -> bool {
+        self.is_standing()
+            && (action != Action::Stance || ruleset.goblins_can_take_stance)
+            && self.may_take(action, ruleset)
+            && (!ruleset.actions_cost_a_step || steps_walked < usize::from(self.steps_left))
+    }
+
     /// Gives it a whole turn: every step of its Move and its action.
     pub fn refresh_its_turn(&mut self) {
         self.steps_left = self.characteristics.movement;
@@ -405,6 +415,37 @@ mod tests {
         let mut tired = standing("H1", 3, 4);
         tired.spend_its_turn();
         assert!(!tired.can_act());
+    }
+
+    fn rules_where_actions_cost_a_step() -> Ruleset {
+        Ruleset {
+            goblins_can_take_stance: true,
+            actions_cost_a_step: true,
+            ..Ruleset::default()
+        }
+    }
+
+    #[test]
+    fn given_actions_that_cost_a_step_when_a_walk_would_use_every_step_left_then_no_stance_after_it()
+     {
+        let runner = standing("H1", 3, 4);
+        assert!(!runner.may_act_after(Action::Stance, 3, &rules_where_actions_cost_a_step()));
+    }
+
+    #[test]
+    fn given_actions_that_cost_a_step_when_a_walk_leaves_a_step_then_a_stance_after_it() {
+        let runner = standing("H1", 3, 4);
+        assert!(runner.may_act_after(Action::Stance, 2, &rules_where_actions_cost_a_step()));
+    }
+
+    #[test]
+    fn given_rules_without_stance_when_asking_for_a_stance_then_no() {
+        let runner = standing("H1", 3, 4);
+        let without_stance = Ruleset {
+            goblins_can_take_stance: false,
+            ..Ruleset::default()
+        };
+        assert!(!runner.may_act_after(Action::Stance, 0, &without_stance));
     }
 
     #[test]
