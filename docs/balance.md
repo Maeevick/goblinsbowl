@@ -315,3 +315,34 @@ What the numbers say:
 - **The styles open the game a little.** The cautious-2 mirror scores three times as often as under 0.8 (0.13 goals per match) and draws 87.9 % of its matches instead of 95.8 %; the bold-2 mirror draws 64.1 % instead of 76.7 %. A chirurgical sack knocks the carrier down 62.5 % of the time between Bruisers, against 37.5 % for a simple one.
 - **Still far from the open game of 0.7**, for the reasons measured above: the eight-square reach and a Stance free at the end of a goblin's turn.
 - **The second generation beats the first** over both seats, 16.4 % of its matches against 4.1 %, most of them still drawn.
+
+## Rules 0.9 corrected, 18 Oct 2026
+
+Rules 0.9 with its three corrections: a chaos throw ends the turn unless a teammate holds the ball once its three bounces are over, focus belongs to the goblin holding the ball, and that goblin no longer braces in Stance. No coach ever focuses, so for them the corrections come down to two: the second generation throws into chaos only when the chance that a teammate keeps the ball clears its appetite for passes, and no carrier braces any more. The first generation never uses a style, so it only loses the carrier's Stance. Seeds 1 to 1,000.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Stances per team turn | Knock-outs per match |
+|---|---|---|---|---|---|---|
+| cautious vs cautious | 16.7 % | 12.4 % | 70.9 % | 0.34 | 4.93 | 2.96 |
+| bold vs bold | 35.0 % | 26.5 % | 38.5 % | 1.10 | 1.57 | 8.44 |
+| cautious-2 vs cautious-2 | 5.0 % | 6.0 % | 89.0 % | 0.12 | 4.91 | 0.56 |
+| balanced-2 vs balanced-2 | 13.4 % | 14.1 % | 72.5 % | 0.32 | 4.18 | 1.32 |
+| bold-2 vs bold-2 | 22.6 % | 22.7 % | 54.7 % | 0.58 | 2.70 | 3.23 |
+| cautious-2 vs bold-2 | 12.3 % | 17.3 % | 70.4 % | 0.34 | 3.69 | 2.03 |
+| bold-2 vs cautious-2 | 18.2 % | 10.7 % | 71.1 % | 0.32 | 3.73 | 1.92 |
+| cautious-2 vs cautious | 20.4 % | 4.9 % | 74.7 % | 0.28 | 5.11 | 1.40 |
+| cautious vs cautious-2 | 5.1 % | 11.4 % | 83.5 % | 0.18 | 4.86 | 1.66 |
+
+Each correction on its own, second-generation mirrors, same seeds (draws, goals per match):
+
+| Mirror | 0.9 as first shipped | chaos corrected, carriers still bracing | 0.9 corrected |
+|---|---|---|---|
+| cautious-2 | 87.9 %, 0.13 | 91.2 %, 0.09 | 89.0 %, 0.12 |
+| balanced-2 | 77.8 %, 0.25 | 80.8 %, 0.20 | 72.5 %, 0.32 |
+| bold-2 | 64.1 %, 0.45 | 65.9 %, 0.42 | 54.7 %, 0.58 |
+
+What the numbers say:
+
+- **A carrier that cannot brace opens the game.** The first generation shows it alone: the cautious mirror draws 70.9 % of its matches instead of 76.6 % under 0.8 and scores 0.34 goals instead of 0.27, the bold mirror 1.10 instead of 0.97. Between second-generation coaches it moves the balanced-2 mirror from 80.8 % draws to 72.5 % and the bold-2 mirror from 65.9 % to 54.7 %. The carrier still defends at −1, now with no Stance to make up for it.
+- **The corrected chaos throw closes it a little.** It used to be a free way to move the ball whenever nobody could intercept; it is now a gamble the coaches take only when teammates stand around the receiver, and every mirror scores a little less for it (0.13 to 0.09 goals for cautious-2, 0.45 to 0.42 for bold-2).
+- **Together, the balanced-2 and bold-2 mirrors open up** compared with 0.9 as first shipped (72.5 % and 54.7 % draws instead of 77.8 % and 64.1 %), while the cautious-2 mirror stays where it was (89.0 %). All remain far from the open game of 0.7.
+- **The second generation still beats the first**, 15.9 % of its matches over both seats against 5.0 %. The second-generation mirrors show no home edge (−1.0, −0.7 and −0.1 points); the first generation keeps its own (+4.3 points in the cautious mirror, +8.5 in the bold one).
