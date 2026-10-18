@@ -259,12 +259,17 @@ pub fn prepared_after(reaction: Reaction, current: Option<Draft>) -> Option<Draf
     }
 }
 
-/// Whether `goblin` may still brace in Stance this turn, under rules that have one.
-pub fn can_still_brace(ruleset: &Ruleset, state: &GameState, goblin: GoblinId) -> bool {
-    ruleset.goblins_can_take_stance
-        && state
-            .goblin(goblin)
-            .is_some_and(|goblin| goblin.is_standing() && goblin.has_action_left)
+/// Whether `goblin` may still brace in Stance once it walked `steps_walked` squares, under rules
+/// that have one: its Stance still to take and, where actions cost steps, a step left to pay for it.
+pub fn can_still_brace(
+    ruleset: &Ruleset,
+    state: &GameState,
+    goblin: GoblinId,
+    steps_walked: usize,
+) -> bool {
+    state
+        .goblin(goblin)
+        .is_some_and(|goblin| goblin.may_act_after(Action::Stance, steps_walked, ruleset))
 }
 
 /// The drafted walk followed by a Stance.
@@ -676,7 +681,12 @@ fn refresh_stance_button(
     mut stance_button: Single<&mut Node, With<StanceButton>>,
 ) {
     let braces = prepared.0.as_ref().is_some_and(|draft| {
-        can_still_brace(&view.ruleset, &view.snapshot.state, draft.activation.goblin)
+        can_still_brace(
+            &view.ruleset,
+            &view.snapshot.state,
+            draft.activation.goblin,
+            draft.activation.path.len(),
+        )
     });
     let display = if braces { Display::Flex } else { Display::None };
     if stance_button.display != display {
@@ -1117,14 +1127,14 @@ mod tests {
         let mut state = board(&[("H5", 7, 7)], None);
         state.goblins[4].has_action_left = false;
 
-        assert!(!can_still_brace(&with_stance(), &state, id("H5")));
+        assert!(!can_still_brace(&with_stance(), &state, id("H5"), 0));
     }
 
     #[test]
     fn given_a_goblin_with_its_action_left_when_asking_if_it_may_brace_then_yes() {
         let state = board(&[("H5", 7, 7)], None);
 
-        assert!(can_still_brace(&with_stance(), &state, id("H5")));
+        assert!(can_still_brace(&with_stance(), &state, id("H5"), 0));
     }
 
     fn with_stance() -> Ruleset {
@@ -1132,6 +1142,24 @@ mod tests {
             goblins_can_take_stance: true,
             ..Ruleset::default()
         }
+    }
+
+    #[test]
+    fn given_stance_at_the_cost_of_every_step_left_when_the_drafted_walk_uses_them_all_then_no_garde()
+     {
+        let state = board(&[("H5", 7, 7)], None);
+        let costly_stance = Ruleset {
+            actions_cost_a_step: true,
+            ..with_stance()
+        };
+        let steps_left = usize::from(state.goblins[4].steps_left);
+
+        assert!(!can_still_brace(
+            &costly_stance,
+            &state,
+            id("H5"),
+            steps_left
+        ));
     }
 
     #[test]
@@ -1171,7 +1199,7 @@ mod tests {
     fn given_the_shipped_rules_without_stance_when_asking_if_a_goblin_may_brace_then_no() {
         let state = board(&[("H5", 7, 7)], None);
 
-        assert!(!can_still_brace(&Ruleset::default(), &state, id("H5")));
+        assert!(!can_still_brace(&Ruleset::default(), &state, id("H5"), 0));
     }
 
     #[test]
