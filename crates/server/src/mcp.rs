@@ -41,7 +41,7 @@ use crate::view::{CoachView, OddsHints, coach_view, describe_chance, odds_lines}
 const LONGEST_WAIT_SECONDS: u64 = 50;
 const DEFAULT_WAIT_SECONDS: u64 = 45;
 const RULES: &str = include_str!("../../../docs/rules.md");
-const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.9";
+const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.10";
 
 const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based goblin football game played with dice. \
 Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
@@ -818,7 +818,7 @@ mod tests {
     fn given_the_rules_document_when_sent_to_agents_then_only_its_english_half_from_the_0_2_heading()
      {
         let rules = english_rules();
-        assert!(rules.starts_with("# Goblins Bowl, rules 0.9") && !rules.contains("règles"));
+        assert!(rules.starts_with("# Goblins Bowl, rules 0.10") && !rules.contains("règles"));
     }
 
     #[test]

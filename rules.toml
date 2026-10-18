@@ -1,4 +1,4 @@
-# Goblins Bowl, rules 0.9: every tunable number of a match.
+# Goblins Bowl, rules 0.10: every tunable number of a match.
 # Attack, Defense and Agility are rolled as dice with that many faces.
 
 turns_per_half = 12

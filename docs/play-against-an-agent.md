@@ -158,7 +158,7 @@ The coach follows the loop in `prompts/coach.md`: read the rules once, wait for 
 | `play` | `activations`, `end_turn`, `dry_run`, `expected_version` | one report per order, the plan's chance for a dry run, then the view |
 | `compare_plans` | `plans`, each a list of `orders` | for each plan, one report per order and the chance that the whole plan goes through |
 
-Each entry of `activations` is an order: a goblin, where it goes with the steps it has left this turn, and optionally its action. Since rules 0.8 a goblin has its Move and may assault, throw, brace in stance and focus once each per turn, an assault or a throw costing a step and a stance every step left, spent over as many orders as the coach likes, so it can walk, act, and walk on later in the turn. Since rules 0.9 an assault takes a `style` (`simple`, `chirurgical`, `brutal`, or `projection` with `to`, the landing square around the attacker numbered 1 to 8 clockwise from north) and a goblin that has not moved may throw with `"style": "chaos"`, the turn ending unless a teammate holds the ball after its three bounces. The goblin holding the ball may not brace in stance but, when it has not moved, it may `focus`; `actions_left` lists what each goblin may still do with the ball where it is:
+Each entry of `activations` is an order: a goblin, where it goes with the steps it has left this turn, and optionally its action. Since rules 0.8 a goblin has its Move and may assault and throw once each per turn, each costing a step, spent over as many orders as the coach likes, so it can walk, act, and walk on later in the turn (rules 0.8 and 0.9 also had a stance, and 0.9 a focus of its own). Since rules 0.9 an assault takes a `style` (`simple`, `chirurgical`, `brutal`, or `projection` with `to`, the landing square around the attacker numbered 1 to 8 clockwise from north) and a goblin that has not moved may throw with `"style": "chaos"`, the turn ending unless a teammate holds the ball after its three bounces. Since rules 0.10 a Thrower may throw with `"style": "focused"`, every step it has left after the throw sacrificed for +1 to the roll; `actions_left` lists what each goblin may still do with the ball where it is:
 
 ```json
 {"activations": [
@@ -166,8 +166,7 @@ Each entry of `activations` is an order: a goblin, where it goes with the steps 
    {"goblin": "A2", "path": [[10, 10]], "action": {"type": "assault", "target": "H2", "style": "chirurgical"}, "estimate": 0.81},
    {"goblin": "A2", "to": [11, 10], "estimate": 1.0},
    {"goblin": "A3", "action": {"type": "assault", "target": "H3", "style": "projection", "to": 7}},
-   {"goblin": "A9", "action": {"type": "throw", "target": "A5"}},
-   {"goblin": "A5", "action": {"type": "focus"}}
+   {"goblin": "A9", "action": {"type": "throw", "target": "A5", "style": "focused"}}
  ],
  "end_turn": true}
 ```
@@ -183,7 +182,7 @@ Each entry of `activations` is an order: a goblin, where it goes with the steps 
  ]}
 ```
 
-The view carries the status (`your_turn`, `waiting`, `game_over`), the seat and its direction of attack, the version, the time left, score and turns, the ball, the board as text rows, every goblin (characteristics, health, square, condition, whether it can still act, its `steps_left`, `has_action_left` and `actions_left`, whether it is `in_stance` or `focused`), the assault options with their chance to keep the attacker on its feet and to knock the target down (`knock_down_percent`) and the ball options (pick-ups, scoring routes) with their chances under full hints, and the events since the agent's previous call. At kick-off it is about 10,000 characters.
+The view carries the status (`your_turn`, `waiting`, `game_over`), the seat and its direction of attack, the version, the time left, score and turns, the ball, the board as text rows, every goblin (characteristics, health, square, condition, whether it can still act, its `steps_left`, `has_action_left` and `actions_left`, whether it is `in_stance` or `focused` under the rules that had them), the assault options with their chance to keep the attacker on its feet and to knock the target down (`knock_down_percent`) and the ball options (pick-ups, scoring routes) with their chances under full hints, and the events since the agent's previous call. At kick-off it is about 10,000 characters.
 
 The server refuses an order with a message the model reads and the match untouched: not your turn, a stale plan (`expected_version` behind the match), a turn that changed since the agent last looked, or an order the rules forbid, with the reason (a square beyond its steps left, a goblin with no step or action left, an action already used).
 

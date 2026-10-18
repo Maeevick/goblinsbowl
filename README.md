@@ -19,7 +19,7 @@ make check                            # lint + unit + integrated tests
 make balance ARGS="--games 1000 --home cautious --away bold"
 ```
 
-Rules 0.9 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`; how they play out between bots: [`docs/balance.md`](docs/balance.md).
+Rules 0.10 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`; how they play out between bots: [`docs/balance.md`](docs/balance.md).
 
 ## How to play
 

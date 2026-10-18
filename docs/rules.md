@@ -1,4 +1,4 @@
-# Goblins Bowl, règles 0.9
+# Goblins Bowl, règles 0.10
 
 *English version below.*
 
@@ -44,7 +44,7 @@ On se déplace et on attaque **en ligne droite seulement** (haut, bas, gauche, d
 
 ## Un tour
 
-Chaque équipe a **60 secondes** par tour et **12 tours par mi-temps**, deux mi-temps. Pendant son tour, chaque gobelin a son **Mouvement** en cases et peut faire **un Assaut, un Lancer, une Garde et une Concentration**, une fois chacun, dans l'ordre qu'il veut. Un Assaut ou un Lancer **coûte 1 case** de Mouvement, une Garde coûte **toutes les cases qui restent** (il en faut au moins une), une Concentration ou un Lancer au chaos **tout le Mouvement** (il ne faut pas avoir bougé). Le gobelin qui porte la balle ne peut ni attaquer ni se mettre en garde, mais lui seul peut se concentrer. Il dépense tout ça en autant d'ordres que tu veux, quand tu veux : il peut avancer, agir, laisser jouer un coéquipier, puis repartir avec les cases qui lui restent, sans jamais traverser personne. Un gobelin qui n'a plus de case ne peut plus agir.
+Chaque équipe a **60 secondes** par tour et **12 tours par mi-temps**, deux mi-temps. Pendant son tour, chaque gobelin a son **Mouvement** en cases et peut faire **un Assaut et un Lancer**, une fois chacun, dans l'ordre qu'il veut. Chacun **coûte 1 case** de Mouvement ; un Lancer au chaos coûte **tout le Mouvement** (il ne faut pas avoir bougé), une passe concentrée **toutes les cases qui restent**. Le gobelin qui porte la balle ne peut pas attaquer. Il dépense tout ça en autant d'ordres que tu veux, quand tu veux : il peut avancer, agir, laisser jouer un coéquipier, puis repartir avec les cases qui lui restent, sans jamais traverser personne. Un gobelin qui n'a plus de case ne peut plus agir.
 
 Le tour s'arrête quand tu appuies sur **Fin du tour**, quand le temps est écoulé, quand une équipe marque ou quand une action rate, même si plus aucun gobelin ne peut jouer.
 
@@ -64,17 +64,16 @@ Le chiffre Δ = mon dé moins le dé adverse.
   - **Brutal** : −1 à mon dé, mais s'il tombe il perd 1 point de Santé de plus.
   - **Projection** : −1 à mon dé ; si je gagne, il tombe sur la case que je choisis parmi les 8 autour de moi (une case libre, ou la sienne), numérotées de 1 à 8 dans le sens des aiguilles d'une montre à partir du haut.
   - Le +1 ou le −1 décide seulement qui gagne : la Santé perdue se compte toujours sur les dés tels qu'ils sont tombés.
-- **Garde**, si je ne porte pas la balle : je me mets en garde, +1 à ma Défense jusqu'au prochain tour de mon équipe. Ça coûte toutes les cases qu'il me reste, et il m'en faut au moins une.
 - **Esquive** : quand je quitte une case dans la zone d'un ennemi debout, je lance mon dé d'Agilité, j'enlève 1 par ennemi debout autour de moi (les 8 cases), et il faut faire **2 ou plus**. Si je rate, je tombe sur place, je perds en Santé ce qui me manquait moins 1 (rien s'il ne manquait que 1) et **le tour s'arrête**. Un Cogneur (dé à 3 faces) n'échappe qu'à un seul ennemi, une fois sur trois.
 
 ## La balle
 
-Lancer de balle : je lance mon dé d'Agilité, j'enlève 1 par ennemi debout autour de moi (les 8 cases), et il faut faire **2 ou plus** (un 1 rate toujours).
+Lancer de balle : je lance mon dé d'Agilité, j'enlève 1 par ennemi debout autour de moi (les 8 cases), et il faut faire **2 ou plus** (sans bonus, un 1 rate toujours).
 
 - **Ramasser** : obligatoire quand j'entre sur la case de la balle.
 - **Lancer** (ça coûte 1 case) : vers un coéquipier debout, à n'importe quelle distance, avec −1 par case au-delà de 6. Chaque ennemi debout sous la trajectoire **ou juste à côté** (dans les 8 cases autour d'une case survolée) tente une **interception** (encore −1 pour la surprise). Sinon, mon coéquipier doit **attraper**.
 - **Lancer au chaos** : si je n'ai pas encore bougé de mon tour, je peux lancer sans jet de lancer : la balle file vers le coéquipier visé mais ne lui arrive pas dans les mains, elle rebondit trois fois à partir de sa case. Les ennemis sous la trajectoire ou juste à côté tentent quand même l'interception. Si un coéquipier attrape la balle pendant ses rebonds, le tour continue ; sinon, après le troisième rebond, c'est un **fumble** et **le tour s'arrête**. Ça me coûte tout mon Mouvement.
-- **Concentration** : si je porte la balle et que je n'ai pas encore bougé de mon tour, je peux me concentrer : je ne fais rien d'autre de ce tour (ça coûte tout mon Mouvement), et au prochain tour de mon équipe mes lancers ont +1.
+- **Passe concentrée**, pour un Lanceur : au moment de lancer, je sacrifie toutes les cases qu'il me reste après le Lancer, et chacune donne +1 à mon jet de lancer. Un Lanceur qui n'a pas bougé (Mouvement 4) lance donc à +3, après une case à +2.
 - **Transmission** : un lancer vers un coéquipier collé à moi ne rate jamais, pas de jet de lancer ; seul mon coéquipier lance son jet pour attraper.
 - **Attraper** : quand la balle arrive sur moi (passe, transmission, rebond, coup d'envoi).
 - Un ramassage ou un lancer raté par mon équipe pendant son tour, ma passe ou ma transmission pas attrapée, mon lancer au chaos qu'aucun coéquipier ne tient après ses rebonds, ou une interception : c'est un **fumble**, la balle rebondit et **le tour s'arrête**. Sinon, rater une balle qui rebondit n'arrête pas le tour.
@@ -83,7 +82,7 @@ La balle rebondit sur l'une des 8 cases autour, au hasard (dé à 8 faces dans l
 
 ## Tomber, être KO
 
-Un gobelin à terre n'a plus de zone, lâche la balle et peut encore être attaqué (avec −2 à sa Défense). Il se relève tout seul au début du tour suivant de son équipe, mais ne joue pas pendant ce tour-là. Un gobelin blessé ne récupère rien de tout le match. À 0 Santé, il est **KO** et sort. À chaque coup d'envoi, chaque gobelin KO lance son dé de Santé moins 1 : sur 0 il reste dehors jusqu'au coup d'envoi suivant, sinon il revient avec autant de Santé (il s'est reposé sur le banc).
+Un gobelin à terre n'a plus de zone, lâche la balle et peut encore être attaqué (avec −2 à sa Défense). Il se relève tout seul au début du tour suivant de son équipe, mais ne joue pas pendant ce tour-là ; une fois debout, il retrouve sa zone, même avant d'avoir pu rejouer. Un gobelin blessé ne récupère rien de tout le match. À 0 Santé, il est **KO** et sort. À chaque coup d'envoi, chaque gobelin KO lance son dé de Santé moins 1 : sur 0 il reste dehors jusqu'au coup d'envoi suivant, sinon il revient avec autant de Santé (il s'est reposé sur le banc).
 
 ## Marquer
 
@@ -120,13 +119,14 @@ Un quadrillage 21 × 21 où l'on recopie le disque du plan, des jetons avec les 
 | Cogneur qui quitte 1 / 2 ennemis | 33 / 0 % |
 | Balle avec Agilité 6, 0 / 1 / 2 ennemis autour | 83 / 67 / 50 % |
 | Transmission à un Sprinteur sans ennemi autour | 83 % |
-| Lancer concentré avec Agilité 6, aucun ennemi autour, jusqu'à 6 cases | 100 % |
+| Passe de 10 cases d'un Lanceur sans ennemi autour : simple / concentrée à +3 | 17 / 67 % |
+| Passe de 6 cases d'un Lanceur marqué par 2 ennemis : simple / concentrée à +3 | 50 / 100 % |
 | Lancer au chaos vers un coéquipier seul / entouré de 4 / de 8 coéquipiers, tous d'Agilité 6, sans ennemi autour | 15 / 66 / 94 % |
 | Retour d'un KO : Cogneur / Lanceur / Sprinteur | 86 / 83 / 80 % |
 
 ---
 
-# Goblins Bowl, rules 0.9
+# Goblins Bowl, rules 0.10
 
 ## The bowl
 
@@ -146,7 +146,7 @@ Moves and assaults are **orthogonal only**, never diagonal. But a standing gobli
 
 ## A turn
 
-**60 seconds** per turn, **12 turns per team per half**, two halves. In its team's turn each goblin has its **Move** in steps and may take **one Assault, one Throw, one Stance and one Focus**, once each, in any order. An Assault or a Throw **costs one step** of its Move, a Stance **every step it has left** (at least one), a Focus or a chaos Throw **its whole Move** (it must not have moved yet). The goblin holding the ball may neither assault nor brace in Stance, and it alone may focus. It spends them over as many orders as its coach likes, in any order: it may walk, act, let a teammate play, then walk on with the steps it has left, never through a goblin. A goblin with no step left can no longer act.
+**60 seconds** per turn, **12 turns per team per half**, two halves. In its team's turn each goblin has its **Move** in steps and may take **one Assault and one Throw**, once each, in any order. Each **costs one step** of its Move; a chaos throw costs **its whole Move** (it must not have moved yet), a focused throw **every step it has left**. The goblin holding the ball may not assault. It spends them over as many orders as its coach likes, in any order: it may walk, act, let a teammate play, then walk on with the steps it has left, never through a goblin. A goblin with no step left can no longer act.
 
 A turn ends when its coach ends it, when its clock runs out, when a team scores or when an action fails, even once no goblin can act.
 
@@ -158,17 +158,16 @@ A turn ends when its coach ends it, when its clock runs out, when a team scores 
 
 - **Assault** an orthogonally adjacent enemy, unless holding the ball: d(Attack) vs d(Defense); the goblin holding the ball defends at −1. Win: it falls, drops the ball and loses Δ Health. **Tie: nobody falls** and the turn goes on. Lose: the attacker falls, loses |Δ| − 1 Health (nothing when losing by 1), and the turn ends.
 - **Assault styles**, chosen when assaulting: **simple** as above; **chirurgical**, +1 to the attack roll but the target loses no Health (it still falls); **brutal**, −1 to the attack roll but a fallen target loses 1 more Health; **projection**, −1 to the attack roll, and on a win the target falls on the square its attacker picks among the eight around itself (a free one, or the target's own), numbered 1 to 8 clockwise from north. The +1 or −1 only decides who wins: Health lost always counts the dice as rolled.
-- **Stance**, unless holding the ball: +1 to the goblin's Defense until its team's next turn, at the cost of every step it has left, at least one.
 - **Dodge**, each step out of a square within a standing enemy's reach: d(Agility) minus 1 per standing enemy in the eight squares around must reach **2**. Miss: it falls where it stands, loses its shortfall minus 1 in Health (nothing when 1 short), and the turn ends. A Bruiser (d3) gets away from a single enemy one time in three, and from two never.
 
 ## Ball actions
 
-d(Agility) minus 1 per standing enemy in the eight squares around must reach **2** (a 1 always fails).
+d(Agility) minus 1 per standing enemy in the eight squares around must reach **2** (with no bonus, a 1 always fails).
 
 - **Pick**: forced when entering the ball's square.
 - **Throw** (costs a step): to a standing teammate at any distance, −1 per step beyond 6. Each standing opponent under the flight line **or next to it** (in the eight squares around a square the ball flies over) tries to **intercept** (extra −1 for surprise); otherwise the receiver must **catch**.
 - **Chaos throw**, for a goblin that has not moved yet this turn: no throw roll; the ball flies towards the teammate aimed at but does not reach its hands, bouncing three times from its square instead. Enemies under or next to the flight line still try to intercept. A teammate catching the ball during its bounces keeps the turn going; otherwise, after the third bounce, it is a **fumble** and the turn ends. It costs the thrower its whole Move.
-- **Focus**, for the goblin holding the ball when it has not moved yet this turn: it does nothing else this turn (its whole Move), and on its team's next turn its throws get +1.
+- **Focused throw**, for a Thrower: as it throws, it sacrifices every step it has left after the throw, each one +1 to its throw roll. A Thrower that has not moved (Move 4) throws at +3, after one step at +2.
 - **Hand-off**: a throw to an adjacent teammate never fails, with no throw roll; only the receiver rolls to catch.
 - **Catch**: a throw, a hand-off, a bounce or the kick-off.
 - A failed Pick or Throw by the active team, its own throw or hand-off not caught, its chaos throw held by no teammate once its bounces are over, or an interception, is a **fumble**: the ball bounces and the turn ends. Otherwise, missing a bouncing ball does not end a turn.
@@ -177,7 +176,7 @@ The ball bounces to one of the eight squares around at random (d8 clockwise from
 
 ## Down and knocked out
 
-A downed goblin has no reach, drops the ball and can still be assaulted (−2 Defense). It stands up at the start of its team's next turn but cannot act during it. A hurt goblin heals nothing for the whole match. At 0 Health it is **KO** and leaves the bowl. At each kick-off, each KO goblin rolls its Health die minus 1: on 0 it stays out until the next kick-off, otherwise it comes back with that much Health (it rested on the bench).
+A downed goblin has no reach, drops the ball and can still be assaulted (−2 Defense). It stands up at the start of its team's next turn but cannot act during it; once up, it has its reach again, even before it gets to play. A hurt goblin heals nothing for the whole match. At 0 Health it is **KO** and leaves the bowl. At each kick-off, each KO goblin rolls its Health die minus 1: on 0 it stays out until the next kick-off, otherwise it comes back with that much Health (it rested on the bench).
 
 ## Scoring
 
@@ -210,7 +209,8 @@ Then the ball drops in the receiving team's half, 4 to 7 columns behind the cent
 | Bruiser leaving 1 / 2 enemies | 33 / 0 % |
 | Ball roll with Agility 6, 0 / 1 / 2 enemies around | 83 / 67 / 50 % |
 | Hand-off to a Sprinter with no enemy around | 83 % |
-| Focused throw with Agility 6, no enemy around, up to 6 steps | 100 % |
+| A Thrower's 10-step pass with no enemy around: simple / focused at +3 | 17 / 67 % |
+| A Thrower's 6-step pass, marked by 2 enemies: simple / focused at +3 | 50 / 100 % |
 | Chaos throw towards a lone teammate / one with 4 / 8 teammates around, all Agility 6, no enemy near | 15 / 66 / 94 % |
 | Back from a knock-out: Bruiser / Thrower / Sprinter | 86 / 83 / 80 % |
 
