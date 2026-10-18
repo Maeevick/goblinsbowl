@@ -4,11 +4,15 @@ use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
-/// Which dice face off in a contest: the actor's die against the opponent's die plus a modifier.
+/// Which dice face off in a contest: the actor's die plus a modifier against the opponent's die
+/// plus a modifier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ContestDice {
     /// Faces of the actor's die.
     pub actor_faces: u8,
+    /// Added to the actor's face: +1 for a chirurgical assault, −1 for a brutal one.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub actor_modifier: i8,
     /// Faces of the opponent's die.
     pub opponent_faces: u8,
     /// Added to the opponent's face.
@@ -18,11 +22,7 @@ pub struct ContestDice {
 impl ContestDice {
     /// Chance that the actor wins (ties go to the actor).
     pub fn success(self) -> Probability {
-        contest_success(
-            self.actor_faces,
-            self.opponent_faces,
-            self.opponent_modifier,
-        )
+        contest_share(self, |margin| margin >= 0)
     }
 
     /// Chance that the actor beats the opponent outright, a tie left out.
@@ -36,13 +36,21 @@ impl ContestDice {
     }
 }
 
+/// Whether a modifier adds nothing, so it can be left out of a record.
+pub fn is_zero(modifier: &i8) -> bool {
+    *modifier == 0
+}
+
 fn contest_share(dice: ContestDice, counts: impl Fn(i16) -> bool) -> Probability {
     let actor_faces = dice.actor_faces.max(1);
     let opponent_faces = dice.opponent_faces.max(1);
     let counted_pairs = (1..=actor_faces)
         .flat_map(|actor| (1..=opponent_faces).map(move |opponent| (actor, opponent)))
         .filter(|(actor, opponent)| {
-            counts(i16::from(*actor) - (i16::from(*opponent) + i16::from(dice.opponent_modifier)))
+            counts(
+                i16::from(*actor) + i16::from(dice.actor_modifier)
+                    - (i16::from(*opponent) + i16::from(dice.opponent_modifier)),
+            )
         })
         .count();
     Probability::new(
@@ -201,6 +209,7 @@ mod tests {
     #[test]
     fn given_d4_against_d4_plus_one_when_contested_then_three_chances_in_eight() {
         let dice = ContestDice {
+            actor_modifier: 0,
             actor_faces: 4,
             opponent_faces: 4,
             opponent_modifier: 1,
@@ -213,6 +222,7 @@ mod tests {
     #[test]
     fn given_d4_against_d4_when_asking_for_a_clear_win_then_three_chances_in_eight() {
         let dice = ContestDice {
+            actor_modifier: 0,
             actor_faces: 4,
             opponent_faces: 4,
             opponent_modifier: 0,
@@ -223,6 +233,7 @@ mod tests {
     #[test]
     fn given_d4_against_d4_when_asking_for_a_tie_then_one_chance_in_four() {
         let dice = ContestDice {
+            actor_modifier: 0,
             actor_faces: 4,
             opponent_faces: 4,
             opponent_modifier: 0,

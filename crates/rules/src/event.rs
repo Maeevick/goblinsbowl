@@ -21,20 +21,24 @@ pub struct AgilityRoll {
     pub success: bool,
 }
 
-/// An opposed roll (Assault, Dodge): the actor's die against the opponent's die plus its modifier.
+/// An opposed roll (Assault, Dodge): the actor's die plus its modifier against the opponent's die
+/// plus its modifier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContestRoll {
     /// Faces of the actor's die.
     pub actor_faces: u8,
     /// Face shown by the actor's die.
     pub actor_rolled: u8,
+    /// Added to the actor's face: +1 for a chirurgical assault, −1 for a brutal one.
+    #[serde(default, skip_serializing_if = "crate::odds::is_zero")]
+    pub actor_modifier: i8,
     /// Faces of the opponent's defense die.
     pub opponent_faces: u8,
     /// Face shown by the opponent's die.
     pub opponent_rolled: u8,
     /// Added to the opponent's face: Stance walls, minus the malus of a downed defender.
     pub opponent_modifier: i8,
-    /// Actor's face minus the opponent's total; the actor wins ties (margin 0).
+    /// Actor's total minus the opponent's total; the actor wins ties (margin 0).
     pub margin: i8,
 }
 

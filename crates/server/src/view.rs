@@ -544,6 +544,7 @@ fn assault_options(
 mod tests {
     fn walk_with_a_dodge_then_an_assault() -> ActivationOdds {
         let dice = ContestDice {
+            actor_modifier: 0,
             actor_faces: 4,
             opponent_faces: 4,
             opponent_modifier: 1,
@@ -623,6 +624,7 @@ mod tests {
     #[test]
     fn given_a_downed_defender_when_describing_dice_then_the_malus_is_signed() {
         let dice = ContestDice {
+            actor_modifier: 0,
             actor_faces: 3,
             opponent_faces: 2,
             opponent_modifier: -2,

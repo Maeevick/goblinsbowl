@@ -143,6 +143,7 @@ pub fn assault_dice(
     };
     let modifier = i16::from(stance_bonus(ruleset, state, defender)) - downed_malus - carrier_malus;
     Some(ContestDice {
+        actor_modifier: 0,
         actor_faces,
         opponent_faces: target.characteristics.defense,
         opponent_modifier: i8::try_from(modifier).unwrap_or(i8::MIN),
@@ -189,6 +190,7 @@ fn tackle_dice(
     let actor_faces = state.goblin(mover)?.characteristics.agility;
     let opponent = state.goblin(tackler)?;
     Some(ContestDice {
+        actor_modifier: 0,
         actor_faces,
         opponent_faces: opponent.characteristics.defense,
         opponent_modifier: i8::try_from(stance_bonus(ruleset, state, tackler)).unwrap_or(i8::MAX),
@@ -647,6 +649,7 @@ mod tests {
                 id("A1")
             )),
             Some(ContestDice {
+                actor_modifier: 0,
                 actor_faces: 4,
                 opponent_faces: 2,
                 opponent_modifier: 2
@@ -785,6 +788,7 @@ mod tests {
             Some(DodgeDice::Contest {
                 tackler: id("A1"),
                 contest: ContestDice {
+                    actor_modifier: 0,
                     actor_faces: 4,
                     opponent_faces: 4,
                     opponent_modifier: 1
@@ -948,6 +952,7 @@ mod tests {
                 dice: DodgeDice::Contest {
                     tackler: id("A1"),
                     contest: ContestDice {
+                        actor_modifier: 0,
                         actor_faces: 4,
                         opponent_faces: 4,
                         opponent_modifier: 0
@@ -990,6 +995,7 @@ mod tests {
             Some(ActionOdds::Assault {
                 target: id("A1"),
                 dice: Some(ContestDice {
+                    actor_modifier: 0,
                     actor_faces: 4,
                     opponent_faces: 4,
                     opponent_modifier: 1

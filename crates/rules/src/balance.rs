@@ -347,6 +347,7 @@ mod tests {
             roll: DodgeRoll::Contest {
                 tackler: id("A1"),
                 contest: ContestRoll {
+                    actor_modifier: 0,
                     actor_faces: 4,
                     actor_rolled: 1,
                     opponent_faces: 4,

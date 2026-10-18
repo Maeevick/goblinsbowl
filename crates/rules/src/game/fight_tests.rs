@@ -62,6 +62,7 @@ fn given_an_assault_when_resolved_then_the_contest_is_reported() {
             attacker: id("H1"),
             defender: id("A1"),
             contest: ContestRoll {
+                actor_modifier: 0,
                 actor_faces: 4,
                 actor_rolled: 4,
                 opponent_faces: 4,

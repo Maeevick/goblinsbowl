@@ -220,6 +220,7 @@ mod tests {
 
     fn contest(margin: i8) -> ContestRoll {
         ContestRoll {
+            actor_modifier: 0,
             actor_faces: 4,
             actor_rolled: 3,
             opponent_faces: 4,

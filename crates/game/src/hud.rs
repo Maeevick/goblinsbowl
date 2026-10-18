@@ -861,6 +861,7 @@ mod tests {
             attacker: "A3".parse().unwrap(),
             defender: "H1".parse().unwrap(),
             contest: goblins_rules::event::ContestRoll {
+                actor_modifier: 0,
                 actor_faces: 4,
                 actor_rolled: 3,
                 opponent_faces: 4,

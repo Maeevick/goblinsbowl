@@ -1066,6 +1066,7 @@ mod tests {
 
     fn dice(actor_faces: u8, opponent_faces: u8, opponent_modifier: i8) -> ContestDice {
         ContestDice {
+            actor_modifier: 0,
             actor_faces,
             opponent_faces,
             opponent_modifier,
@@ -1132,6 +1133,7 @@ mod tests {
 
     fn contest_roll(actor_rolled: u8, opponent_rolled: u8, opponent_modifier: i8) -> ContestRoll {
         ContestRoll {
+            actor_modifier: 0,
             actor_faces: 4,
             actor_rolled,
             opponent_faces: 4,
@@ -1272,6 +1274,7 @@ mod tests {
             attacker: id("H3"),
             defender: id("A8"),
             contest: ContestRoll {
+                actor_modifier: 0,
                 actor_faces: 4,
                 actor_rolled: 4,
                 opponent_faces: 2,
@@ -1293,6 +1296,7 @@ mod tests {
             attacker: id("H3"),
             defender: id("A8"),
             contest: ContestRoll {
+                actor_modifier: 0,
                 actor_faces: 4,
                 actor_rolled: 3,
                 opponent_faces: 4,

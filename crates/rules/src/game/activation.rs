@@ -104,11 +104,7 @@ impl<D: DiceRoller> Game<D> {
         let roll = match dice {
             DodgeDice::Contest { tackler, contest } => DodgeRoll::Contest {
                 tackler,
-                contest: self.roll_contest(
-                    contest.actor_faces,
-                    contest.opponent_faces,
-                    contest.opponent_modifier,
-                ),
+                contest: self.roll_contest(contest),
             },
             DodgeDice::Agility(dice) => DodgeRoll::Agility(self.roll_agility_test(dice)),
         };
@@ -497,6 +493,7 @@ mod tests {
                 roll: DodgeRoll::Contest {
                     tackler: id("A1"),
                     contest: ContestRoll {
+                        actor_modifier: 0,
                         actor_faces: 4,
                         actor_rolled: 3,
                         opponent_faces: 4,

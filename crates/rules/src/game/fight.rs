@@ -10,22 +10,18 @@ use crate::state::{Ball, Presence};
 use super::Game;
 
 impl<D: DiceRoller> Game<D> {
-    pub(super) fn roll_contest(
-        &mut self,
-        actor_faces: u8,
-        opponent_faces: u8,
-        opponent_modifier: i8,
-    ) -> ContestRoll {
-        let actor_rolled = self.dice.roll(actor_faces);
-        let opponent_rolled = self.dice.roll(opponent_faces);
-        let margin =
-            i16::from(actor_rolled) - (i16::from(opponent_rolled) + i16::from(opponent_modifier));
+    pub(super) fn roll_contest(&mut self, dice: ContestDice) -> ContestRoll {
+        let actor_rolled = self.dice.roll(dice.actor_faces);
+        let opponent_rolled = self.dice.roll(dice.opponent_faces);
+        let margin = i16::from(actor_rolled) + i16::from(dice.actor_modifier)
+            - (i16::from(opponent_rolled) + i16::from(dice.opponent_modifier));
         ContestRoll {
-            actor_faces,
+            actor_faces: dice.actor_faces,
             actor_rolled,
-            opponent_faces,
+            actor_modifier: dice.actor_modifier,
+            opponent_faces: dice.opponent_faces,
             opponent_rolled,
-            opponent_modifier,
+            opponent_modifier: dice.opponent_modifier,
             margin: i8::try_from(margin).unwrap_or(if margin < 0 { i8::MIN } else { i8::MAX }),
         }
     }
@@ -97,15 +93,12 @@ impl<D: DiceRoller> Game<D> {
             .is_some_and(|goblin| matches!(goblin.presence, Presence::Down(_)));
         let dice =
             assault_dice(&self.ruleset, &self.state, attacker, defender).unwrap_or(ContestDice {
+                actor_modifier: 0,
                 actor_faces: 1,
                 opponent_faces: 1,
                 opponent_modifier: 0,
             });
-        let contest = self.roll_contest(
-            dice.actor_faces,
-            dice.opponent_faces,
-            dice.opponent_modifier,
-        );
+        let contest = self.roll_contest(dice);
         let defender_braced = stance_bonus(&self.ruleset, &self.state, defender) > 0;
         events.push(GameEvent::AssaultResolved {
             attacker,
