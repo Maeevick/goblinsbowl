@@ -6,7 +6,7 @@ use std::cmp::Reverse;
 
 use crate::arena::Arena;
 use crate::characteristics::Archetype;
-use crate::command::{Action, Activation, Command};
+use crate::command::{Action, Activation, AssaultStyle, Command, ThrowStyle};
 use crate::odds::Probability;
 use crate::paths::{PlannedPath, best_chance_for, reachable_squares};
 use crate::preview::{ActionOdds, activation_odds, board_after_success};
@@ -446,7 +446,10 @@ impl Coach<'_> {
     fn sack(&self) -> Option<Activation> {
         let carrier = self.enemy_carrier()?;
         let target = carrier.square()?;
-        let assault = Some(Action::assault(carrier.id));
+        let assault = Some(Action::Assault {
+            target: carrier.id,
+            style: self.style_to_knock_down(),
+        });
         let candidates: Vec<_> = self
             .actors()
             .flat_map(|mover| {
@@ -527,7 +530,10 @@ impl Coach<'_> {
                         .map(move |path| Activation {
                             goblin: mover.id,
                             path,
-                            action: Some(Action::assault(*marker)),
+                            action: Some(Action::Assault {
+                                target: *marker,
+                                style: self.style_to_knock_down(),
+                            }),
                         })
                 })
             })
@@ -602,6 +608,67 @@ impl Coach<'_> {
             })
             .collect();
         self.most_likely(candidates, Risk::Pass)
+            .or_else(|| self.chaos_pass(carrier))
+    }
+
+    /// Where the rules have styles, a second-generation coach whose carrier has not moved and finds
+    /// no pass worth its appetite throws into chaos towards the teammate nearest the enemy den,
+    /// three squares closer at least, with nobody on the line and no enemy within two squares of
+    /// it; otherwise nothing.
+    fn chaos_pass(&self, carrier: &Goblin) -> Option<Activation> {
+        if self.style.generation != Generation::Second
+            || !self.ruleset.throws_have_styles
+            || carrier.steps_left < carrier.characteristics.movement
+        {
+            return None;
+        }
+        let carrier_distance = self.den_distance(carrier.square()?);
+        self.state
+            .goblins_of(self.team)
+            .filter(|receiver| receiver.id != carrier.id && receiver.is_standing())
+            .filter_map(|receiver| {
+                let square = receiver.square()?;
+                let crowded = self.state.goblins.iter().any(|enemy| {
+                    enemy.team() != self.team
+                        && enemy.is_standing()
+                        && enemy.square().is_some_and(|at| {
+                            at.x.abs_diff(square.x) <= 2 && at.y.abs_diff(square.y) <= 2
+                        })
+                });
+                let closer = self.den_distance(square).saturating_add(3) <= carrier_distance;
+                let chaos = Activation {
+                    goblin: carrier.id,
+                    path: Vec::new(),
+                    action: Some(Action::Throw {
+                        receiver: receiver.id,
+                        style: ThrowStyle::Chaos,
+                    }),
+                };
+                (closer && !crowded && self.success(&chaos) == Some(Probability::CERTAIN))
+                    .then_some((chaos, square))
+            })
+            .min_by_key(|(_, square)| (self.den_distance(*square), self.tie_break(*square)))
+            .map(|(chaos, _)| chaos)
+    }
+
+    /// How a second-generation coach assaults to knock a goblin down where the rules have styles:
+    /// chirurgically, +1 to win; otherwise simply.
+    fn style_to_knock_down(&self) -> AssaultStyle {
+        if self.style.generation == Generation::Second && self.ruleset.assaults_have_styles {
+            AssaultStyle::Chirurgical
+        } else {
+            AssaultStyle::Simple
+        }
+    }
+
+    /// How a second-generation coach hits `enemy` where the rules have styles: brutally when it lies
+    /// down or has 3 Health or less, a win then knocking it out; chirurgically otherwise.
+    fn style_to_hit(&self, enemy: &Goblin) -> AssaultStyle {
+        let finishable = !enemy.is_standing() || enemy.health <= 3;
+        match self.style_to_knock_down() {
+            AssaultStyle::Chirurgical if finishable => AssaultStyle::Brutal,
+            style => style,
+        }
     }
 
     fn advance_carrier(&self) -> Option<Activation> {
@@ -708,7 +775,10 @@ impl Coach<'_> {
                     .map(move |enemy| Activation {
                         goblin: mover.id,
                         path: Vec::new(),
-                        action: Some(Action::assault(enemy.id)),
+                        action: Some(Action::Assault {
+                            target: enemy.id,
+                            style: self.style_to_hit(enemy),
+                        }),
                     })
             })
             .filter_map(|activation| {
@@ -1213,6 +1283,94 @@ mod tests {
         assert!(!is_an_assault(&command));
     }
 
+    fn styled_command_of(scenario: Scenario, style: Style) -> Command {
+        let game = scenario.game([]);
+        styled_command(
+            game.arena(),
+            game.ruleset(),
+            game.state(),
+            TeamId::HOME,
+            style,
+        )
+    }
+
+    fn with_styles(scenario: Scenario) -> Scenario {
+        scenario.rules(|ruleset| {
+            ruleset.assault_ties_knock_down = false;
+            ruleset.assaults_have_styles = true;
+            ruleset.throws_have_styles = true;
+        })
+    }
+
+    #[test]
+    fn given_assault_styles_when_the_second_cautious_coach_sacks_the_carrier_then_chirurgically() {
+        let scenario = with_styles(
+            Scenario::new()
+                .goblin("H1", Bruiser, 5, 7)
+                .goblin("A5", Sprinter, 6, 7)
+                .ball_carried_by("A5"),
+        );
+        assert!(matches!(
+            styled_command_of(scenario, Style::second(Appetite::cautious())),
+            Command::Act(Activation {
+                action: Some(Action::Assault {
+                    style: AssaultStyle::Chirurgical,
+                    ..
+                }),
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn given_assault_styles_when_the_second_bold_coach_hits_a_downed_goblin_left_on_two_health_then_brutally()
+     {
+        let scenario = with_styles(
+            Scenario::new()
+                .goblin("H1", Bruiser, 5, 7)
+                .goblin("A5", Sprinter, 6, 7)
+                .goblin("A9", Sprinter, 13, 13)
+                .ball_carried_by("A9")
+                .edit("A5", |goblin| {
+                    goblin.presence = Presence::Down(Square::new(6, 7));
+                    goblin.health = 2;
+                }),
+        );
+        assert!(matches!(
+            styled_command_of(scenario, Style::second(Appetite::bold())),
+            Command::Act(Activation {
+                action: Some(Action::Assault {
+                    style: AssaultStyle::Brutal,
+                    ..
+                }),
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn given_throw_styles_when_a_marked_thrower_finds_no_pass_worth_its_appetite_then_it_throws_into_chaos()
+     {
+        let scenario = with_styles(
+            Scenario::new()
+                .goblin("H9", Thrower, 4, 7)
+                .goblin("H2", Bruiser, 11, 7)
+                .goblin("A1", Sprinter, 4, 8)
+                .ball_carried_by("H9"),
+        );
+        assert_eq!(
+            styled_command_of(scenario, Style::second(Appetite::cautious())),
+            Command::Act(Activation {
+                goblin: id("H9"),
+                path: Vec::new(),
+                action: Some(Action::Throw {
+                    receiver: id("H2"),
+                    style: ThrowStyle::Chaos
+                }),
+            })
+        );
+    }
+
     fn rules_where_goblins_act_often_at_a_cost() -> Ruleset {
         Ruleset {
             goblins_can_take_stance: true,
@@ -1226,6 +1384,8 @@ mod tests {
             braced_tacklers_weigh_double: false,
             reach_covers_diagonals: true,
             ball_bounces_all_around: true,
+            assaults_have_styles: true,
+            throws_have_styles: true,
             ..Ruleset::default()
         }
     }
