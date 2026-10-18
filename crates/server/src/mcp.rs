@@ -158,7 +158,8 @@ pub enum PlannedAction {
         /// move).
         style: Option<PlannedThrowStyle>,
     },
-    /// Brace in stance after moving: +1 defense until your next turn, at the cost of every step left.
+    /// Brace in stance after moving: +1 defense until your next turn, at the cost of every step left
+    /// (not for the goblin holding the ball, where the rules say so: it may focus instead).
     Stance,
     /// Focus, where the rules allow it, for the goblin holding the ball: stand still this whole
     /// turn for +1 to its throws on your next turn.

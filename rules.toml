@@ -34,6 +34,9 @@ neighbour_stance_bonus_cap = 0
 missed_bounces_end_the_turn = false
 # Whether the goblin holding the ball may assault.
 carriers_can_assault = false
+# Whether the goblin holding the ball may brace in Stance (false: it may focus instead, where throws
+# have styles).
+carriers_can_brace = false
 # Whether a throw to an adjacent teammate is a hand-off: no throw roll, only the receiver's catch.
 adjacent_throws_are_hand_offs = true
 # Whether every goblin gets its Health back at a kick-off, a knocked-out one rolling its Health die

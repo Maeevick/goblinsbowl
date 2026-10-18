@@ -255,7 +255,7 @@ impl Default for Ruleset {
             goblins_can_take_stance: true,
             missed_bounces_end_the_turn: false,
             carriers_can_assault: false,
-            carriers_can_brace: carriers_brace(),
+            carriers_can_brace: false,
             adjacent_throws_are_hand_offs: true,
             goblins_heal_at_kick_off: false,
             keeps_moving_after_action: true,
