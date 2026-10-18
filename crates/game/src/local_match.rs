@@ -50,6 +50,11 @@ pub enum MatchOrder {
     TogglePause,
     /// Start a new match with the same teams and seats, and the next dice seed.
     Restart,
+    /// Start the match again on another bowl, with the same teams, seats and dice seed.
+    RestartIn {
+        /// Mask rows of the new bowl.
+        arena: Vec<String>,
+    },
 }
 
 /// A new match replaced the one that was played: screens forget what they kept of it.
@@ -208,19 +213,37 @@ fn apply_orders(
                 if let Some(recording) = recording.as_mut() {
                     recording.start_over(setup.seed);
                 }
-                if let Ok((host, opening_events)) = MatchHost::start(setup) {
-                    local.host = host;
-                    local.clock_ran_before_orders = false;
-                    local.unspent_time = Duration::ZERO;
-                    view.fresh_events = opening_events;
-                    restarts.write(MatchRestarted);
-                }
+                start_anew(&mut local, &mut view, &mut restarts, setup);
+                Ok(())
+            }
+            MatchOrder::RestartIn { arena } => {
+                let mut setup = local.host.record().setup.clone();
+                setup.ruleset.arena = arena.clone();
+                start_anew(&mut local, &mut view, &mut restarts, setup);
                 Ok(())
             }
         };
         if let Err(refusal) = outcome {
             view.refusal = Some(refusal.to_string());
         }
+    }
+}
+
+/// Replaces the match with a new one started from `setup`, the screens told to forget the old one.
+fn start_anew(
+    local: &mut LocalMatch,
+    view: &mut MatchView,
+    restarts: &mut MessageWriter<MatchRestarted>,
+    setup: goblins_rules::host::MatchSetup,
+) {
+    if let Ok((host, opening_events)) = MatchHost::start(setup) {
+        view.arena = host.game().arena().clone();
+        view.ruleset = host.game().ruleset().clone();
+        local.host = host;
+        local.clock_ran_before_orders = false;
+        local.unspent_time = Duration::ZERO;
+        view.fresh_events = opening_events;
+        restarts.write(MatchRestarted);
     }
 }
 
@@ -302,6 +325,23 @@ mod tests {
 
     fn view(app: &App) -> &MatchView {
         app.world().resource::<MatchView>()
+    }
+
+    #[test]
+    fn given_a_match_on_the_round_bowl_when_asked_to_start_again_on_a_medium_rectangle_then_its_bowl_is_31_by_15()
+     {
+        let mut app = app_with([SeatKind::Human, SeatKind::Human]);
+        app.world_mut().write_message(MatchOrder::RestartIn {
+            arena: goblins_rules::bowls::bowl_mask(
+                goblins_rules::bowls::BowlShape::Rectangle,
+                goblins_rules::bowls::BowlSize::Medium,
+            ),
+        });
+
+        app.update();
+
+        let arena = &view(&app).arena;
+        assert_eq!((arena.width(), arena.height()), (31, 15));
     }
 
     fn recording_app(folder_name: &str, turns_per_half: u8) -> (App, PathBuf) {

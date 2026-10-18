@@ -7,7 +7,7 @@ use goblins_rules::roster::GoblinId;
 use goblins_rules::square::Square;
 use goblins_rules::team::TeamId;
 
-use crate::local_match::MatchView;
+use crate::local_match::{MatchRestarted, MatchView};
 
 const TILE_GAP: f32 = 0.04;
 const TILE_THICKNESS: f32 = 0.1;
@@ -37,6 +37,14 @@ pub enum BoardClick {
 #[derive(Component)]
 struct HoverHighlight;
 
+/// A tile or a stand of the bowl being shown, rebuilt when a match starts on another bowl.
+#[derive(Component)]
+struct BowlPiece;
+
+/// The bowl the tiles and stands were built for.
+#[derive(Resource)]
+struct BuiltBowl(Arena);
+
 /// Spawns the bowl of the match, its stands and the hover highlight, and tracks hovered and clicked squares.
 pub struct BowlViewPlugin;
 
@@ -44,8 +52,9 @@ impl Plugin for BowlViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HoveredSquare>()
             .add_message::<BoardClick>()
+            .add_message::<MatchRestarted>()
             .add_systems(Startup, (spawn_bowl, spawn_lights))
-            .add_systems(Update, follow_hovered_square);
+            .add_systems(Update, (rebuild_for_another_bowl, follow_hovered_square));
     }
 }
 
@@ -106,7 +115,48 @@ fn spawn_bowl(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let arena = &view.arena;
+    build_bowl(&mut commands, &view.arena, &mut meshes, &mut materials);
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(0.96, 0.02, 0.96))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgba(1.0, 1.0, 1.0, 0.45),
+            alpha_mode: AlphaMode::Blend,
+            unlit: true,
+            ..default()
+        })),
+        Transform::default(),
+        Visibility::Hidden,
+        Pickable::IGNORE,
+        NotShadowCaster,
+        HoverHighlight,
+    ));
+}
+
+fn rebuild_for_another_bowl(
+    mut restarts: MessageReader<MatchRestarted>,
+    mut commands: Commands,
+    view: Res<MatchView>,
+    built: Option<Res<BuiltBowl>>,
+    pieces: Query<Entity, With<BowlPiece>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    if restarts.read().count() == 0 || built.is_some_and(|built| built.0 == view.arena) {
+        return;
+    }
+    for piece in &pieces {
+        commands.entity(piece).despawn();
+    }
+    build_bowl(&mut commands, &view.arena, &mut meshes, &mut materials);
+}
+
+fn build_bowl(
+    commands: &mut Commands,
+    arena: &Arena,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) {
+    commands.insert_resource(BuiltBowl(arena.clone()));
     let tile_mesh = meshes.add(Cuboid::new(1.0 - TILE_GAP, TILE_THICKNESS, 1.0 - TILE_GAP));
     let stand_mesh = meshes.add(Cuboid::new(1.0, STAND_HEIGHT, 1.0));
     let stand_material = materials.add(Color::srgb(0.45, 0.42, 0.4));
@@ -119,6 +169,7 @@ fn spawn_bowl(
                 MeshMaterial3d(materials.add(floor_colour(arena, square))),
                 Transform::from_translation(centre),
                 Tile { square },
+                BowlPiece,
             ))
             .observe(remember_hovered_tile)
             .observe(forget_hovered_tile)
@@ -139,24 +190,10 @@ fn spawn_bowl(
                 MeshMaterial3d(stand_material.clone()),
                 Transform::from_translation(centre),
                 Pickable::IGNORE,
+                BowlPiece,
             ));
         }
     }
-
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(0.96, 0.02, 0.96))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgba(1.0, 1.0, 1.0, 0.45),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        })),
-        Transform::default(),
-        Visibility::Hidden,
-        Pickable::IGNORE,
-        NotShadowCaster,
-        HoverHighlight,
-    ));
 }
 
 fn spawn_lights(mut commands: Commands) {

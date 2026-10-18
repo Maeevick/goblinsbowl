@@ -646,6 +646,7 @@ impl Plugin for OrdersPlugin {
                 Update,
                 (
                     forget_the_last_match,
+                    relay_marks_for_another_bowl,
                     react_to_board_clicks,
                     release_on_escape,
                     keep_prepared_order,
@@ -660,6 +661,14 @@ impl Plugin for OrdersPlugin {
                     .in_set(MatchSystems::Present),
             );
     }
+}
+
+/// The bowl the mark tiles were laid on, with what they are drawn with.
+#[derive(Resource)]
+struct LaidMarks {
+    arena: Arena,
+    mesh: Handle<Mesh>,
+    unused_look: Handle<StandardMaterial>,
 }
 
 fn spawn_marks(
@@ -682,19 +691,48 @@ fn spawn_marks(
             looks.insert(SquareMark { risk, aimed }, look);
         }
     }
-    let unused_look = materials.add(StandardMaterial::default());
-    for square in view.arena.in_bounds_squares() {
+    let laid = LaidMarks {
+        arena: view.arena.clone(),
+        mesh,
+        unused_look: materials.add(StandardMaterial::default()),
+    };
+    lay_marks(&mut commands, &laid);
+    commands.insert_resource(laid);
+    commands.insert_resource(MarkLooks(looks));
+}
+
+fn lay_marks(commands: &mut Commands, laid: &LaidMarks) {
+    for square in laid.arena.in_bounds_squares() {
         commands.spawn((
-            Mesh3d(mesh.clone()),
-            MeshMaterial3d(unused_look.clone()),
-            Transform::from_translation(square_centre(&view.arena, square) + Vec3::Y * MARK_LIFT),
+            Mesh3d(laid.mesh.clone()),
+            MeshMaterial3d(laid.unused_look.clone()),
+            Transform::from_translation(square_centre(&laid.arena, square) + Vec3::Y * MARK_LIFT),
             Visibility::Hidden,
             Pickable::IGNORE,
             NotShadowCaster,
             MarkTile { square },
         ));
     }
-    commands.insert_resource(MarkLooks(looks));
+}
+
+fn relay_marks_for_another_bowl(
+    mut restarts: MessageReader<MatchRestarted>,
+    mut commands: Commands,
+    view: Res<MatchView>,
+    laid: Option<ResMut<LaidMarks>>,
+    tiles: Query<Entity, With<MarkTile>>,
+) {
+    let Some(mut laid) = laid else {
+        return;
+    };
+    if restarts.read().count() == 0 || laid.arena == view.arena {
+        return;
+    }
+    for tile in &tiles {
+        commands.entity(tile).despawn();
+    }
+    laid.arena = view.arena.clone();
+    lay_marks(&mut commands, &laid);
 }
 
 fn spawn_selection_ring(
