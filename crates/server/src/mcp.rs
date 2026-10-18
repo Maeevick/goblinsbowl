@@ -49,8 +49,8 @@ resolved in order; add end_turn=true on your last call), then wait again, until 
 Each goblin has its movement in steps, spent over as many orders as you like, even after other goblins \
 played; it may assault once and throw once per turn, each costing a step, and brace in stance where the \
 rules have it (steps_left, actions_left). Assaults come in styles (simple, chirurgical, \
-brutal, projection), a goblin that has not moved may throw into chaos and a carrier that has not moved may \
-focus for +1 to its throws next turn: see the play schema and get_rules. \
+brutal, projection), a goblin that has not moved may throw into chaos, and a Thrower may throw focused, \
+every step it has left after the throw sacrificed for +1 to the roll: see the play schema and get_rules. \
 Any failed dodge, assault, pick-up or throw, or your own throw not caught, ends your turn at once, \
 so order safe moves first and keep risky ones for last. Otherwise your turn ends only with end_turn=true, \
 a score, or its clock (time_left_ms) running out. To get exact odds without rolling, play with dry_run=true previews its orders as one plan, each \
@@ -152,17 +152,18 @@ pub enum PlannedAction {
     Throw {
         /// Teammate id such as H5.
         target: String,
-        /// How to throw, where the rules allow styles: simple (default) or chaos (no throw roll,
+        /// How to throw, where the rules allow styles: simple (default), chaos (no throw roll,
         /// the ball bounces three times from the receiver's square and the turn ends unless a
         /// teammate then holds it; the thrower must not have moved this turn and spends its whole
-        /// move).
+        /// move) or focused (Throwers only: every step left after the throw is sacrificed for +1
+        /// to the throw roll).
         style: Option<PlannedThrowStyle>,
     },
     /// Brace in stance after moving: +1 defense until your next turn, at the cost of every step left
     /// (not for the goblin holding the ball, where the rules say so: it may focus instead).
     Stance,
-    /// Focus, where the rules allow it, for the goblin holding the ball: stand still this whole
-    /// turn for +1 to its throws on your next turn.
+    /// Focus on its own, under older rules only, for the goblin holding the ball: stand still this
+    /// whole turn for +1 to its throws on your next turn. Current rules focus a throw instead.
     Focus,
 }
 
@@ -189,6 +190,8 @@ pub enum PlannedThrowStyle {
     /// No throw roll and no catch: the ball bounces three times from the receiver's square, and
     /// the turn ends unless a teammate then holds it.
     Chaos,
+    /// A Thrower's throw: every step it has left after the throw is sacrificed for +1 to the roll.
+    Focused,
 }
 
 /// One goblin's order.
@@ -672,6 +675,7 @@ fn parse_action(planned: &PlannedAction) -> Result<Action, String> {
             style: match style.unwrap_or(PlannedThrowStyle::Simple) {
                 PlannedThrowStyle::Simple => ThrowStyle::Simple,
                 PlannedThrowStyle::Chaos => ThrowStyle::Chaos,
+                PlannedThrowStyle::Focused => ThrowStyle::Focused,
             },
         },
         PlannedAction::Stance => Action::Stance,
@@ -852,6 +856,21 @@ mod tests {
             Ok(Action::Throw {
                 receiver: "H5".parse().unwrap(),
                 style: ThrowStyle::Chaos
+            })
+        );
+    }
+
+    #[test]
+    fn given_an_order_to_throw_focused_when_read_then_a_focused_throw() {
+        let planned: PlannedAction = serde_json::from_value(serde_json::json!(
+            {"type": "throw", "target": "H5", "style": "focused"}
+        ))
+        .unwrap();
+        assert_eq!(
+            parse_action(&planned),
+            Ok(Action::Throw {
+                receiver: "H5".parse().unwrap(),
+                style: ThrowStyle::Focused
             })
         );
     }
