@@ -212,12 +212,20 @@ impl Texts {
         match (odds.scores_on_the_way, activation.action, self.french()) {
             (true, _, true) => format!("Marquer ! {chance}"),
             (true, _, false) => format!("Score! {chance}"),
-            (false, Some(Action::Assault { target }), true) => {
-                format!("Assaut sur {target} : {chance}")
-            }
-            (false, Some(Action::Assault { target }), false) => {
-                format!("Assault {target}: {chance}")
-            }
+            (false, Some(Action::Assault { target }), french) => match stand_off_chances(odds) {
+                Some((knock_down, tie)) if french => format!(
+                    "Assaut sur {target} : renverse {} · égalité {}",
+                    self.chance(knock_down),
+                    self.chance(tie)
+                ),
+                Some((knock_down, tie)) => format!(
+                    "Assault {target}: knocks down {} · tie {}",
+                    self.chance(knock_down),
+                    self.chance(tie)
+                ),
+                None if french => format!("Assaut sur {target} : {chance}"),
+                None => format!("Assault {target}: {chance}"),
+            },
             (false, Some(Action::Throw { receiver }), true) => {
                 format!("Passe à {receiver} : {chance}")
             }
@@ -271,6 +279,8 @@ impl Texts {
     /// Exclamation shown over a goblin when its dice are rolled, for example "Esquivé !".
     pub fn roll_headline(&self, roll: &ShownRoll) -> &'static str {
         match (roll, roll.succeeded(), self.french()) {
+            (ShownRoll::Assault(contest), _, true) if contest.margin == 0 => "Égalité !",
+            (ShownRoll::Assault(contest), _, false) if contest.margin == 0 => "Tie!",
             (ShownRoll::Dodge(_), true, true) => "Esquivé !",
             (ShownRoll::Dodge(_), true, false) => "Dodged!",
             (ShownRoll::Dodge(_), false, true) => "Plaqué !",
@@ -846,6 +856,22 @@ fn describe_dice(dice: &ContestDice, versus: &str) -> String {
     )
 }
 
+/// An assault's chances to knock its target down and to stand off, its path included, under rules
+/// where a tie stands off.
+fn stand_off_chances(odds: &ActivationOdds) -> Option<(Probability, Probability)> {
+    match &odds.action {
+        Some(ActionOdds::Assault {
+            knock_down,
+            stand_off,
+            ..
+        }) if *stand_off > Probability::IMPOSSIBLE => Some((
+            odds.path_success.and(*knock_down),
+            odds.path_success.and(*stand_off),
+        )),
+        _ => None,
+    }
+}
+
 fn describe_contest(contest: &goblins_rules::event::ContestRoll, versus: &str) -> String {
     let modifier = match contest.opponent_modifier {
         0 => String::new(),
@@ -1062,6 +1088,36 @@ mod tests {
                 contest: contest_roll(1, 3, 0)
             })),
             "Plaqué !"
+        );
+    }
+
+    #[test]
+    fn given_french_when_an_assault_ties_then_a_tie_rather_than_a_hit() {
+        assert_eq!(
+            FRENCH.roll_headline(&ShownRoll::Assault(contest_roll(3, 3, 0))),
+            "Égalité !"
+        );
+    }
+
+    #[test]
+    fn given_french_when_drafting_an_assault_where_ties_stand_off_then_its_knock_down_and_tie_chances()
+     {
+        let mut preview = odds(Probability::new(5, 8), false);
+        preview.action = Some(ActionOdds::Assault {
+            target: id("A1"),
+            dice: Some(dice(4, 4, 0)),
+            success: Probability::new(5, 8),
+            knock_down: Probability::new(3, 8),
+            stand_off: Probability::new(1, 4),
+        });
+        let assault = Activation {
+            goblin: id("H1"),
+            path: Vec::new(),
+            action: Some(Action::Assault { target: id("A1") }),
+        };
+        assert_eq!(
+            FRENCH.describe_draft(&assault, &preview),
+            "Assaut sur A1 : renverse 37,5 % · égalité 25,0 %"
         );
     }
 
