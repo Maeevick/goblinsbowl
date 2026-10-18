@@ -1127,6 +1127,7 @@ mod tests {
         preview.risky_steps = vec![RiskyStep::Dodge {
             from: goblins_rules::square::Square::new(5, 7),
             dice: DodgeDice::Agility(AgilityDice {
+                bonus: 0,
                 faces: 4,
                 malus: 2,
                 target: 2,
@@ -1207,6 +1208,7 @@ mod tests {
     #[test]
     fn given_french_when_detailing_a_pick_with_a_malus_then_the_face_the_malus_and_the_target() {
         let roll = AgilityRoll {
+            bonus: 0,
             faces: 4,
             rolled: 4,
             malus: 1,
@@ -1364,6 +1366,7 @@ mod tests {
         let event = GameEvent::PickAttempted {
             goblin: id("A5"),
             roll: AgilityRoll {
+                bonus: 0,
                 faces: 4,
                 rolled: 2,
                 malus: 1,
@@ -1382,6 +1385,7 @@ mod tests {
         let event = GameEvent::DodgeAttempted {
             goblin: id("H4"),
             roll: DodgeRoll::Agility(AgilityRoll {
+                bonus: 0,
                 faces: 4,
                 rolled: 3,
                 malus: 3,
@@ -1398,6 +1402,7 @@ mod tests {
     #[test]
     fn given_an_agility_dodge_when_its_roll_is_detailed_in_french_then_like_any_agility_test() {
         let roll = DodgeRoll::Agility(AgilityRoll {
+            bonus: 0,
             faces: 4,
             rolled: 4,
             malus: 1,
@@ -1452,6 +1457,7 @@ mod tests {
             thrower: id("H9"),
             receiver: id("H5"),
             roll: AgilityRoll {
+                bonus: 0,
                 faces: 4,
                 rolled: 3,
                 malus: 1,
@@ -1495,6 +1501,7 @@ mod tests {
         let event = GameEvent::InterceptAttempted {
             goblin: id("A2"),
             roll: AgilityRoll {
+                bonus: 0,
                 faces: 4,
                 rolled: 1,
                 malus: 1,
@@ -1552,6 +1559,7 @@ mod tests {
         let event = GameEvent::CatchAttempted {
             goblin: id("H2"),
             roll: AgilityRoll {
+                bonus: 0,
                 faces: 4,
                 rolled: 3,
                 malus: 0,

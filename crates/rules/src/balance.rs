@@ -257,6 +257,7 @@ mod tests {
 
     fn roll(success: bool) -> AgilityRoll {
         AgilityRoll {
+            bonus: 0,
             faces: 4,
             rolled: if success { 3 } else { 1 },
             malus: 0,

@@ -176,6 +176,7 @@ pub fn dodge_dice(
     if ruleset.dodges_test_agility {
         let malus = dodge_malus(ruleset, state, from, goblin.team());
         return (malus > 0).then_some(DodgeDice::Agility(AgilityDice {
+            bonus: 0,
             faces: goblin.characteristics.agility,
             malus,
             target: ruleset.ball_roll_target,
@@ -867,6 +868,7 @@ mod tests {
                 Square::new(5, 7)
             )),
             Some(DodgeDice::Agility(AgilityDice {
+                bonus: 0,
                 faces: 4,
                 malus: 3,
                 target: 2
@@ -892,6 +894,7 @@ mod tests {
                 Square::new(5, 7)
             )),
             Some(DodgeDice::Agility(AgilityDice {
+                bonus: 0,
                 faces: 4,
                 malus: 2,
                 target: 2
@@ -917,6 +920,7 @@ mod tests {
                 Square::new(5, 7)
             )),
             Some(DodgeDice::Agility(AgilityDice {
+                bonus: 0,
                 faces: 4,
                 malus: 1,
                 target: 2
@@ -1029,6 +1033,7 @@ mod tests {
             vec![RiskyStep::Dodge {
                 from: Square::new(5, 7),
                 dice: DodgeDice::Agility(AgilityDice {
+                    bonus: 0,
                     faces: 4,
                     malus: 1,
                     target: 2

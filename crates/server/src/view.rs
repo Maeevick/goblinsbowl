@@ -604,6 +604,7 @@ mod tests {
             risky_steps: vec![RiskyStep::Dodge {
                 from: goblins_rules::square::Square::new(5, 7),
                 dice: DodgeDice::Agility(AgilityDice {
+                    bonus: 0,
                     faces: 4,
                     malus: 3,
                     target: 2,

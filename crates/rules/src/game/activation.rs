@@ -637,6 +637,7 @@ mod tests {
             Some(&GameEvent::DodgeAttempted {
                 goblin: id("H1"),
                 roll: DodgeRoll::Agility(AgilityRoll {
+                    bonus: 0,
                     faces: 4,
                     rolled: 4,
                     malus: 2,
@@ -713,6 +714,7 @@ mod tests {
             Some(&GameEvent::PickAttempted {
                 goblin: id("H1"),
                 roll: AgilityRoll {
+                    bonus: 0,
                     faces: 4,
                     rolled: 3,
                     malus: 0,
@@ -733,6 +735,7 @@ mod tests {
         assert!(events.contains(&GameEvent::PickAttempted {
             goblin: id("H1"),
             roll: AgilityRoll {
+                bonus: 0,
                 faces: 4,
                 rolled: 2,
                 malus: 1,
@@ -833,6 +836,7 @@ mod tests {
                 GameEvent::CatchAttempted {
                     goblin: id("H4"),
                     roll: AgilityRoll {
+                        bonus: 0,
                         faces: 4,
                         rolled: 3,
                         malus: 0,
@@ -915,6 +919,7 @@ mod tests {
                 thrower: id("H1"),
                 receiver: id("H2"),
                 roll: AgilityRoll {
+                    bonus: 0,
                     faces: 4,
                     rolled: 3,
                     malus: 0,
@@ -1002,6 +1007,7 @@ mod tests {
             Some(&GameEvent::InterceptAttempted {
                 goblin: id("A2"),
                 roll: AgilityRoll {
+                    bonus: 0,
                     faces: 4,
                     rolled: 4,
                     malus: 1,

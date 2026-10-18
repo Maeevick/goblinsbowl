@@ -16,7 +16,10 @@ pub struct AgilityRoll {
     pub rolled: u8,
     /// Total malus subtracted from the face.
     pub malus: u8,
-    /// Value to reach after the malus.
+    /// Added to the face: +1 to the throw of a goblin that focused on its last turn.
+    #[serde(default, skip_serializing_if = "crate::odds::is_zero_bonus")]
+    pub bonus: u8,
+    /// Value to reach after the malus and the bonus.
     pub target: u8,
     /// Whether the roll succeeded.
     pub success: bool,

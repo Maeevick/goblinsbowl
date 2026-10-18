@@ -185,6 +185,7 @@ mod tests {
 
     fn roll(success: bool) -> goblins_rules::event::AgilityRoll {
         goblins_rules::event::AgilityRoll {
+            bonus: 0,
             faces: 4,
             rolled: if success { 3 } else { 1 },
             malus: 0,
@@ -510,6 +511,7 @@ mod tests {
     #[test]
     fn given_an_agility_dodge_short_of_its_target_when_asking_if_the_roll_succeeded_then_no() {
         let dodge = DodgeRoll::Agility(AgilityRoll {
+            bonus: 0,
             faces: 4,
             rolled: 3,
             malus: 2,

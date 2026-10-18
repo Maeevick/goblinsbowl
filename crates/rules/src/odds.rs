@@ -59,22 +59,35 @@ fn contest_share(dice: ContestDice, counts: impl Fn(i16) -> bool) -> Probability
     )
 }
 
-/// The die of an agility test: the goblin's Agility die minus a malus, against a target.
+/// The die of an agility test: the goblin's Agility die minus a malus plus a bonus, against a
+/// target.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AgilityDice {
     /// Faces of the goblin's Agility die.
     pub faces: u8,
     /// Subtracted from the face.
     pub malus: u8,
-    /// Value to reach after the malus.
+    /// Added to the face: +1 to the throw of a goblin that focused on its last turn.
+    #[serde(default, skip_serializing_if = "is_zero_bonus")]
+    pub bonus: u8,
+    /// Value to reach after the malus and the bonus.
     pub target: u8,
 }
 
 impl AgilityDice {
-    /// Chance that the face minus the malus reaches the target.
+    /// Chance that the face minus the malus plus the bonus reaches the target.
     pub fn success(self) -> Probability {
-        agility_success(self.faces, self.malus, self.target)
+        agility_success(
+            self.faces,
+            self.malus,
+            self.target.saturating_sub(self.bonus),
+        )
     }
+}
+
+/// Whether a bonus adds nothing, so it can be left out of a record.
+pub fn is_zero_bonus(bonus: &u8) -> bool {
+    *bonus == 0
 }
 
 /// A probability kept as a reduced fraction; comparisons never go through floating point.
@@ -332,6 +345,7 @@ mod tests {
     #[test]
     fn given_a_d4_with_a_malus_of_one_against_two_when_reading_its_chance_then_one_half() {
         let dice = AgilityDice {
+            bonus: 0,
             faces: 4,
             malus: 1,
             target: 2,

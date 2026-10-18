@@ -222,6 +222,7 @@ impl<D: DiceRoller> Game<D> {
             .unwrap_or(u8::MAX)
             .saturating_add(extra_malus);
         self.roll_agility_test(AgilityDice {
+            bonus: 0,
             faces,
             malus,
             target: self.ruleset.ball_roll_target,
@@ -234,8 +235,10 @@ impl<D: DiceRoller> Game<D> {
             faces: dice.faces,
             rolled,
             malus: dice.malus,
+            bonus: dice.bonus,
             target: dice.target,
-            success: i16::from(rolled) - i16::from(dice.malus) >= i16::from(dice.target),
+            success: i16::from(rolled) - i16::from(dice.malus) + i16::from(dice.bonus)
+                >= i16::from(dice.target),
         }
     }
 
