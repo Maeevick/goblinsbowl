@@ -46,8 +46,9 @@ const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.7";
 const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based goblin football game played with dice. \
 Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
 resolved in order; add end_turn=true on your last call), then wait again, until status is game_over. \
-Each goblin has its movement in steps and one action (assault or throw) per turn, spent over as many \
-orders as you like, even after other goblins played (steps_left, has_action_left). \
+Each goblin has its movement in steps, spent over as many orders as you like, even after other goblins \
+played; it may assault once, throw once and brace in stance once per turn, an assault or a throw costing \
+a step and a stance every step left (steps_left, actions_left). \
 Any failed dodge, assault, pick-up or throw, or your own throw not caught, ends your turn at once, \
 so order safe moves first and keep risky ones for last. Otherwise your turn ends only with end_turn=true, \
 a score, or its clock (time_left_ms) running out. To get exact odds without rolling, play with dry_run=true previews its orders as one plan, each \
@@ -128,7 +129,7 @@ pub struct WaitArgs {
     pub max_wait_seconds: Option<u64>,
 }
 
-/// A goblin's action, one per turn.
+/// A goblin's action: an assault, a throw or a stance, each once per turn under rules 0.8.
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(transform = drop_integer_formats)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -143,6 +144,8 @@ pub enum PlannedAction {
         /// Teammate id such as H5.
         target: String,
     },
+    /// Brace in stance after moving: +1 defense until your next turn, at the cost of every step left.
+    Stance,
 }
 
 /// One goblin's order.
@@ -316,7 +319,7 @@ impl CoachServer {
     }
 
     #[tool(
-        description = "Play orders in order during your turn: each moves one goblin with its steps left (to a destination via the safest path, or along an exact path) then optionally assaults or throws if its action is left. A goblin may take several orders a turn. Stops at the first order that ends your turn. end_turn=true hands over after them; dry_run=true only previews them as one plan, each from where the previous ones leave the board, with the chance that the whole plan goes through."
+        description = "Play orders in order during your turn: each moves one goblin with its steps left (to a destination via the safest path, or along an exact path) then optionally assaults, throws or braces in stance if that action is left. A goblin may take several orders a turn. Stops at the first order that ends your turn. end_turn=true hands over after them; dry_run=true only previews them as one plan, each from where the previous ones leave the board, with the chance that the whole plan goes through."
     )]
     async fn play(
         &self,
@@ -615,6 +618,7 @@ fn parse_action(planned: &PlannedAction) -> Result<Action, String> {
         PlannedAction::Throw { target } => Action::Throw {
             receiver: goblin(target)?,
         },
+        PlannedAction::Stance => Action::Stance,
     })
 }
 
@@ -757,10 +761,10 @@ mod tests {
     }
 
     #[test]
-    fn given_an_order_to_brace_when_read_then_refused_since_the_rules_have_no_stance() {
-        assert!(
-            serde_json::from_value::<PlannedAction>(serde_json::json!({"type": "stance"})).is_err()
-        );
+    fn given_an_order_to_brace_when_read_then_a_stance() {
+        let planned: PlannedAction =
+            serde_json::from_value(serde_json::json!({"type": "stance"})).unwrap();
+        assert_eq!(parse_action(&planned), Ok(Action::Stance));
     }
 
     #[test]

@@ -72,13 +72,18 @@ pub struct GoblinView {
     pub health: u8,
     /// Full health.
     pub max_health: u8,
-    /// May still be ordered this turn: it has steps or its action left (only meaningful for the
+    /// Braced in Stance: +1 to its defense until its team's next turn.
+    pub in_stance: bool,
+    /// May still be ordered this turn: it has steps or an action left (only meaningful for the
     /// team playing).
     pub can_act: bool,
     /// Steps it may still take this turn (only meaningful for the team playing).
     pub steps_left: u8,
-    /// May still assault or throw this turn (only meaningful for the team playing).
+    /// May still take an action this turn (only meaningful for the team playing).
     pub has_action_left: bool,
+    /// The actions it may still take this turn, among assault, throw and stance, a step left to
+    /// pay for each where actions cost steps (only meaningful for the team playing).
+    pub actions_left: Vec<String>,
     /// Faces of the attack die.
     pub attack: u8,
     /// Faces of the defense die.
@@ -99,8 +104,11 @@ pub struct AssaultOption {
     pub target: String,
     /// Dice facing off, for example "d4 vs d4+1" (absent without hints).
     pub dice: Option<String>,
-    /// Chance to win, in percent (full hints only).
+    /// Chance the attacker keeps its feet, so your turn goes on, in percent (full hints only).
     pub success_percent: Option<f64>,
+    /// Chance the target falls, or loses health when already down, in percent (full hints only);
+    /// below success_percent where a tie stands off.
+    pub knock_down_percent: Option<f64>,
 }
 
 /// A ball move one of your goblins able to act could make this turn.
@@ -139,7 +147,7 @@ pub struct CoachView {
     pub score: PerTeam,
     /// Where the ball is.
     pub ball: String,
-    /// The bowl as text: H1 standing, h1 down, H1* carrier, o loose ball, : den.
+    /// The bowl as text: H1 standing, h1 down, H1* carrier, H1# in Stance, o loose ball, : den.
     pub board: Vec<String>,
     /// Every goblin.
     pub goblins: Vec<GoblinView>,
@@ -216,7 +224,11 @@ pub fn coach_view(
         score: per_team(&state.score),
         ball: describe_ball(snapshot),
         board: render_board(arena, state),
-        goblins: state.goblins.iter().map(goblin_view).collect(),
+        goblins: state
+            .goblins
+            .iter()
+            .map(|goblin| goblin_view(goblin, ruleset))
+            .collect(),
         assault_options,
         ball_options,
         events: unseen_events
@@ -350,12 +362,27 @@ pub fn odds_lines(odds: &ActivationOdds, hints: OddsHints) -> Vec<String> {
             target,
             dice,
             success,
-            ..
-        }) => lines.push(annotate(
-            format!("assault {target}"),
-            dice.as_ref().map(describe_dice),
-            *success,
-        )),
+            knock_down,
+            stand_off,
+        }) => {
+            lines.push(annotate(
+                format!("assault {target}"),
+                dice.as_ref().map(describe_dice),
+                *success,
+            ));
+            if hints == OddsHints::Full && *stand_off > Probability::IMPOSSIBLE {
+                lines.push(annotate(
+                    format!("{target} knocked down"),
+                    None,
+                    *knock_down,
+                ));
+                lines.push(annotate(
+                    "stand-off, nobody falls".to_string(),
+                    None,
+                    *stand_off,
+                ));
+            }
+        }
         Some(ActionOdds::Throw {
             receiver,
             throw,
@@ -425,7 +452,7 @@ fn describe_ball(snapshot: &MatchSnapshot) -> String {
     }
 }
 
-fn goblin_view(goblin: &Goblin) -> GoblinView {
+fn goblin_view(goblin: &Goblin, ruleset: &Ruleset) -> GoblinView {
     let condition = match goblin.presence {
         Presence::Standing(_) => "standing",
         Presence::Down(_) => "down",
@@ -441,9 +468,24 @@ fn goblin_view(goblin: &Goblin) -> GoblinView {
         condition: condition.to_string(),
         health: goblin.health,
         max_health: goblin.characteristics.health,
+        in_stance: goblin.in_stance,
         can_act: goblin.can_act(),
         steps_left: goblin.steps_left,
         has_action_left: goblin.has_action_left,
+        actions_left: [
+            (Action::Assault { target: goblin.id }, "assault"),
+            (
+                Action::Throw {
+                    receiver: goblin.id,
+                },
+                "throw",
+            ),
+            (Action::Stance, "stance"),
+        ]
+        .into_iter()
+        .filter(|(action, _)| goblin.may_act_after(*action, 0, ruleset))
+        .map(|(_, name)| name.to_string())
+        .collect(),
         attack: goblin.characteristics.attack,
         defense: goblin.characteristics.defense,
         agility: goblin.characteristics.agility,
@@ -483,9 +525,14 @@ fn assault_options(
                     target: defender.id,
                 }),
             };
-            let chance = activation_odds(arena, ruleset, state, seat, &order)
-                .ok()?
-                .overall_success;
+            let odds = activation_odds(arena, ruleset, state, seat, &order).ok()?;
+            let knock_down = match &odds.action {
+                Some(ActionOdds::Assault { knock_down, .. }) => odds.path_success.and(*knock_down),
+                _ => odds.overall_success,
+            };
+            let percent = |chance: Probability| {
+                (hints == OddsHints::Full).then(|| (chance.as_percentage() * 10.0).round() / 10.0)
+            };
             let dice = assault_dice(ruleset, state, attacker.id, defender.id);
             Some(AssaultOption {
                 attacker: attacker.id.to_string(),
@@ -493,8 +540,8 @@ fn assault_options(
                 dice: dice
                     .filter(|_| hints != OddsHints::None)
                     .map(|dice| describe_dice(&dice)),
-                success_percent: (hints == OddsHints::Full)
-                    .then(|| (chance.as_percentage() * 10.0).round() / 10.0),
+                success_percent: percent(odds.overall_success),
+                knock_down_percent: percent(knock_down),
             })
         })
         .collect()
@@ -742,6 +789,46 @@ mod tests {
     fn given_an_attacker_next_to_an_enemy_when_viewed_then_an_assault_option() {
         let view = attacker_next_to_an_enemy(&kick_off(), true);
         assert_eq!(view.assault_options.len(), 1);
+    }
+
+    #[test]
+    fn given_ties_that_stand_off_when_an_attacker_is_next_to_an_enemy_then_its_knock_down_chance_is_below_its_footing()
+     {
+        let view = attacker_next_to_an_enemy(&kick_off(), true);
+        let option = view.assault_options.first().unwrap();
+        assert!(option.knock_down_percent < option.success_percent);
+    }
+
+    #[test]
+    fn given_the_shipped_rules_when_a_fresh_goblin_is_viewed_then_it_may_assault_throw_and_brace() {
+        let host = kick_off();
+        let seat = host.snapshot().state.active_team().unwrap();
+        let view = view_for(&host, seat, OddsHints::Full);
+        let first = view
+            .goblins
+            .iter()
+            .find(|goblin| goblin.id.starts_with(seat.letter()))
+            .unwrap();
+        assert_eq!(first.actions_left, ["assault", "throw", "stance"]);
+    }
+
+    #[test]
+    fn given_full_hints_when_an_assault_may_stand_off_then_its_knock_down_and_stand_off_are_told() {
+        let mut odds = walk_with_a_dodge_then_an_assault();
+        odds.action = Some(ActionOdds::Assault {
+            target: "A2".parse().unwrap(),
+            dice: None,
+            success: Probability::new(5, 8),
+            knock_down: Probability::new(3, 8),
+            stand_off: Probability::new(1, 4),
+        });
+        let lines = odds_lines(&odds, OddsHints::Full);
+        assert!(
+            lines.iter().any(|line| line.starts_with("A2 knocked down"))
+                && lines
+                    .iter()
+                    .any(|line| line.starts_with("stand-off, nobody falls"))
+        );
     }
 
     #[test]
