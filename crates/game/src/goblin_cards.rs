@@ -63,6 +63,10 @@ pub fn goblin_card(side: CardSide, bold: &Handle<Font>, reading: &Handle<Font>) 
                 text_bundle("", reading, 18.0, CARD_TEXT),
                 CardLine { side, index: 2 }
             ),
+            (
+                text_bundle("", reading, 18.0, CARD_TEXT),
+                CardLine { side, index: 3 }
+            ),
         ],
     )
 }
@@ -151,7 +155,7 @@ fn refresh_cards(
             continue;
         };
         let coached = line.side == CardSide::Teammate;
-        let wanted = texts.card_lines(goblin, coached)[line.index].clone();
+        let wanted = texts.card_lines(goblin, coached, &view.ruleset)[line.index].clone();
         if text.0 != wanted {
             text.0 = wanted;
         }

@@ -6,6 +6,7 @@ use goblins_rules::command::{Action, Activation};
 use goblins_rules::event::{DodgeRoll, GameEvent, TurnEndReason};
 use goblins_rules::odds::{AgilityDice, ContestDice, Probability};
 use goblins_rules::preview::{ActionOdds, ActivationOdds, DodgeDice, RiskyStep};
+use goblins_rules::ruleset::Ruleset;
 use goblins_rules::state::Goblin;
 use goblins_rules::team::TeamId;
 
@@ -162,7 +163,7 @@ impl Texts {
 
     /// The three lines of a goblin's card: who it is, its dice, then its Move and Health. A goblin
     /// of the coach shows the steps it has left; any other shows its whole Move.
-    pub fn card_lines(&self, goblin: &Goblin, coached: bool) -> [String; 3] {
+    pub fn card_lines(&self, goblin: &Goblin, coached: bool, ruleset: &Ruleset) -> [String; 4] {
         let characteristics = goblin.characteristics;
         let movement = if coached {
             format!("{}/{}", goblin.steps_left, characteristics.movement)
@@ -181,6 +182,7 @@ impl Texts {
                     "Mouvement {movement} · Santé {}/{}",
                     goblin.health, characteristics.health
                 ),
+                self.card_status(goblin, coached, ruleset),
             ]
         } else {
             [
@@ -193,7 +195,42 @@ impl Texts {
                     "Move {movement} · Health {}/{}",
                     goblin.health, characteristics.health
                 ),
+                self.card_status(goblin, coached, ruleset),
             ]
+        }
+    }
+
+    /// The last line of a card: the actions the coached goblin may still take this turn, or for an
+    /// opponent whether it stands braced in Stance.
+    fn card_status(&self, goblin: &Goblin, coached: bool, ruleset: &Ruleset) -> String {
+        let french = self.french();
+        if !coached {
+            return match (goblin.in_stance, french) {
+                (true, true) => "En garde : +1 en défense".to_string(),
+                (true, false) => "Braced: +1 to defense".to_string(),
+                (false, _) => String::new(),
+            };
+        }
+        let left: Vec<&str> = [
+            (Action::Assault { target: goblin.id }, "assaut", "assault"),
+            (
+                Action::Throw {
+                    receiver: goblin.id,
+                },
+                "passe",
+                "throw",
+            ),
+            (Action::Stance, "garde", "stance"),
+        ]
+        .into_iter()
+        .filter(|(action, _, _)| goblin.may_act_after(*action, 0, ruleset))
+        .map(|(_, french_name, english_name)| if french { french_name } else { english_name })
+        .collect();
+        match (left.is_empty(), french) {
+            (true, true) => "Plus d'action ce tour".to_string(),
+            (true, false) => "No action left this turn".to_string(),
+            (false, true) => format!("Actions : {}", left.join(" · ")),
+            (false, false) => format!("Actions: {}", left.join(" · ")),
         }
     }
 
@@ -946,11 +983,16 @@ mod tests {
     #[test]
     fn given_french_when_carding_the_coach_s_own_sprinter_then_its_dice_steps_left_and_health() {
         assert_eq!(
-            FRENCH.card_lines(&sprinter_with_steps_and_health_lost(), true),
+            FRENCH.card_lines(
+                &sprinter_with_steps_and_health_lost(),
+                true,
+                &Ruleset::default()
+            ),
             [
                 "H4 · Sprinteur".to_string(),
                 "Attaque 3 · Défense 2 · Agilité 6".to_string(),
-                "Mouvement 2/6 · Santé 3/5".to_string()
+                "Mouvement 2/6 · Santé 3/5".to_string(),
+                "Actions : assaut · passe · garde".to_string()
             ]
         );
     }
@@ -958,8 +1000,33 @@ mod tests {
     #[test]
     fn given_english_when_carding_an_opponent_then_its_whole_move() {
         assert_eq!(
-            ENGLISH.card_lines(&sprinter_with_steps_and_health_lost(), false)[2],
+            ENGLISH.card_lines(
+                &sprinter_with_steps_and_health_lost(),
+                false,
+                &Ruleset::default()
+            )[2],
             "Move 6 · Health 3/5"
+        );
+    }
+
+    #[test]
+    fn given_english_when_carding_a_coached_goblin_that_assaulted_then_its_throw_and_stance_are_left()
+     {
+        let mut sprinter = sprinter_with_steps_and_health_lost();
+        sprinter.actions_used.assault = true;
+        assert_eq!(
+            ENGLISH.card_lines(&sprinter, true, &Ruleset::default())[3],
+            "Actions: throw · stance"
+        );
+    }
+
+    #[test]
+    fn given_french_when_carding_a_braced_opponent_then_its_stance_shows() {
+        let mut sprinter = sprinter_with_steps_and_health_lost();
+        sprinter.in_stance = true;
+        assert_eq!(
+            FRENCH.card_lines(&sprinter, false, &Ruleset::default())[3],
+            "En garde : +1 en défense"
         );
     }
 
