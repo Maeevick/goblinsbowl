@@ -1556,6 +1556,7 @@ mod tests {
         Ruleset {
             assaults_have_styles: true,
             throws_have_styles: true,
+            focused_throws_spend_steps_left: false,
             ..Ruleset::default()
         }
     }
@@ -1890,14 +1891,28 @@ mod tests {
     fn given_the_carrier_standing_still_when_asking_if_it_may_focus_then_yes() {
         let state = board(&[("H5", 7, 7)], Some("H5"));
 
-        assert!(can_still_focus(&Ruleset::default(), &state, id("H5"), 0));
+        assert!(can_still_focus(&focus_of_rules_0_9(), &state, id("H5"), 0));
+    }
+
+    fn focus_of_rules_0_9() -> Ruleset {
+        Ruleset {
+            focused_throws_spend_steps_left: false,
+            ..Ruleset::default()
+        }
+    }
+
+    #[test]
+    fn given_the_shipped_rules_when_asking_if_the_carrier_may_focus_on_its_own_then_no() {
+        let state = board(&[("H5", 7, 7)], Some("H5"));
+
+        assert!(!can_still_focus(&Ruleset::default(), &state, id("H5"), 0));
     }
 
     #[test]
     fn given_a_goblin_without_the_ball_when_asking_if_it_may_focus_then_no() {
         let state = board(&[("H5", 7, 7), ("H6", 9, 7)], Some("H6"));
 
-        assert!(!can_still_focus(&Ruleset::default(), &state, id("H5"), 0));
+        assert!(!can_still_focus(&focus_of_rules_0_9(), &state, id("H5"), 0));
     }
 
     #[test]

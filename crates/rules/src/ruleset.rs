@@ -276,7 +276,7 @@ impl Default for Ruleset {
             ball_bounces_all_around: true,
             assaults_have_styles: true,
             throws_have_styles: true,
-            focused_throws_spend_steps_left: false,
+            focused_throws_spend_steps_left: true,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

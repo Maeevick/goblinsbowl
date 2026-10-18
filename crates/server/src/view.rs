@@ -853,7 +853,9 @@ mod tests {
         let (mut snapshot, seat, carrier) = beside_an_enemy(&host, true);
         snapshot.state.ball = Ball::Carried { by: carrier };
         let ruleset = Ruleset {
+            goblins_can_take_stance: true,
             carriers_can_brace: false,
+            focused_throws_spend_steps_left: false,
             ..host.game().ruleset().clone()
         };
         let view = coach_view(

@@ -549,8 +549,19 @@ mod tests {
             carriers_can_assault: false,
             carriers_can_brace: false,
             throws_have_styles: true,
+            focused_throws_spend_steps_left: false,
             ..Ruleset::default()
         }
+    }
+
+    #[test]
+    fn given_the_shipped_rules_when_listing_the_carrier_s_actions_then_a_throw_alone() {
+        let mut state = state_with(vec![standing("H1", 3, 4), standing("H2", 3, 6)]);
+        state.ball = Ball::Carried { by: id("H1") };
+        assert_eq!(
+            state.action_kinds_left(id("H1"), &Ruleset::default()),
+            [ActionKind::Throw]
+        );
     }
 
     #[test]
