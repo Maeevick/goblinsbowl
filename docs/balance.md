@@ -346,3 +346,38 @@ What the numbers say:
 - **The corrected chaos throw closes it a little.** It used to be a free way to move the ball whenever nobody could intercept; it is now a gamble the coaches take only when teammates stand around the receiver, and every mirror scores a little less for it (0.13 to 0.09 goals for cautious-2, 0.45 to 0.42 for bold-2).
 - **Together, the balanced-2 and bold-2 mirrors open up** compared with 0.9 as first shipped (72.5 % and 54.7 % draws instead of 77.8 % and 64.1 %), while the cautious-2 mirror stays where it was (89.0 %). All remain far from the open game of 0.7.
 - **The second generation still beats the first**, 15.9 % of its matches over both seats against 5.0 %. The second-generation mirrors show no home edge (−1.0, −0.7 and −0.1 points); the first generation keeps its own (+4.3 points in the cautious mirror, +8.5 in the bold one).
+
+## Rules 0.10, 18 Oct 2026
+
+Rules 0.9 corrected without Stance, and with focused throws: a Thrower may sacrifice every step it has left after its throw for +1 each to the roll, in place of the whole-turn focus. The second generation weighs a focused pass against the plain one; the first generation never focuses. Seeds 1 to 1,000, on the tiny circle of the rules file unless said otherwise.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Assaults per match | Knock-outs per match |
+|---|---|---|---|---|---|---|
+| cautious vs cautious | 25.2 % | 20.9 % | 53.9 % | 0.61 | 48.4 | 8.27 |
+| bold vs bold | 38.5 % | 27.9 % | 33.6 % | 1.07 | 64.8 | 10.14 |
+| cautious-2 vs cautious-2 | 10.1 % | 8.5 % | 81.4 % | 0.20 | 62.4 | 1.55 |
+| balanced-2 vs balanced-2 | 11.6 % | 10.3 % | 78.1 % | 0.24 | 66.7 | 1.80 |
+| bold-2 vs bold-2 | 26.5 % | 22.8 % | 50.7 % | 0.66 | 82.5 | 4.54 |
+| cautious-2 vs bold-2 | 12.3 % | 18.2 % | 69.5 % | 0.38 | 75.7 | 2.96 |
+| bold-2 vs cautious-2 | 22.5 % | 11.7 % | 65.8 % | 0.40 | 75.3 | 3.01 |
+| cautious-2 vs cautious | 28.1 % | 12.2 % | 59.7 % | 0.49 | 52.2 | 5.14 |
+| cautious vs cautious-2 | 13.7 % | 17.3 % | 69.0 % | 0.34 | 52.3 | 5.55 |
+| cautious-2 vs cautious-2, medium circle | 8.1 % | 6.9 % | 85.0 % | 0.16 | 62.4 | 1.54 |
+| balanced-2 vs balanced-2, medium circle | 9.4 % | 8.3 % | 82.3 % | 0.19 | 67.1 | 1.77 |
+| bold-2 vs bold-2, medium circle | 20.3 % | 20.9 % | 58.8 % | 0.52 | 83.3 | 4.57 |
+
+Second-generation mirrors, same seeds (draws, goals per match):
+
+| Mirror | 0.9 corrected | 0.10 without focused throws | 0.10 |
+|---|---|---|---|
+| cautious-2 | 89.0 %, 0.12 | 82.6 %, 0.19 | 81.4 %, 0.20 |
+| balanced-2 | 72.5 %, 0.32 | 77.0 %, 0.25 | 78.1 %, 0.24 |
+| bold-2 | 54.7 %, 0.58 | 51.1 %, 0.67 | 50.7 %, 0.66 |
+
+What the numbers say:
+
+- **Without Stance, the cautious coaches open up most.** The first-generation cautious mirror draws 53.9 % of its matches instead of 70.9 % and scores 0.61 goals instead of 0.34; the cautious-2 mirror draws 81.4 % instead of 89.0 %. The bold-2 mirror opens a little (50.7 % draws), while the balanced-2 mirror closes a little (78.1 % instead of 72.5 %).
+- **The coaches fight instead of bracing.** Assaults per match rise from 42 to 67 in the balanced-2 mirror and from 26 to 62 in the cautious-2 one, and knock-outs follow (8.27 per match in the first-generation cautious mirror, 2.96 before).
+- **Focused throws change little between bots,** whose Throwers pass about twice a match: with them switched off every mirror lands within about a point, and throws are caught one to three points less often. The bots never set up long passes, so this says little about what a coach who plays around the Thrower gets from them.
+- **The medium circle**, where the latest recorded match was played, is a little more closed than the tiny one: 85.0 % draws in the cautious-2 mirror, 82.3 % for balanced-2, 58.8 % for bold-2.
+- **The second generation still beats the first**, 22.7 % of its matches over both seats against 13.0 %, a narrower gap than under 0.9. Home edges stay small in the second-generation mirrors (+1.6, +1.3 and +3.7 points) and remain in the first generation's (+4.3 cautious, +10.6 bold).
