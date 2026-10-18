@@ -25,13 +25,13 @@
       "health": 6,
       "presence": {
         "standing": [
-          6,
-          5
+          11,
+          9
         ]
       },
       "in_stance": false,
       "steps_left": 0,
-      "has_action_left": true
+      "has_action_left": false
     },
     {
       "id": "H2",
@@ -43,11 +43,11 @@
         "health": 7,
         "movement": 4
       },
-      "health": 7,
+      "health": 1,
       "presence": {
         "standing": [
-          8,
-          17
+          10,
+          10
         ]
       },
       "in_stance": false,
@@ -68,12 +68,17 @@
       "presence": {
         "standing": [
           9,
-          14
+          7
         ]
       },
-      "in_stance": false,
-      "steps_left": 1,
-      "has_action_left": true
+      "in_stance": true,
+      "steps_left": 0,
+      "has_action_left": false,
+      "actions_used": {
+        "assault": false,
+        "throw": false,
+        "stance": true
+      }
     },
     {
       "id": "H4",
@@ -88,13 +93,13 @@
       "health": 5,
       "presence": {
         "standing": [
-          15,
-          9
+          9,
+          2
         ]
       },
       "in_stance": false,
-      "steps_left": 6,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "H5",
@@ -106,16 +111,16 @@
         "health": 5,
         "movement": 6
       },
-      "health": 5,
+      "health": 2,
       "presence": {
         "standing": [
-          7,
-          7
+          15,
+          12
         ]
       },
       "in_stance": false,
-      "steps_left": 1,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "H6",
@@ -130,13 +135,13 @@
       "health": 5,
       "presence": {
         "standing": [
-          13,
-          19
+          7,
+          10
         ]
       },
       "in_stance": false,
-      "steps_left": 6,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "H7",
@@ -148,16 +153,21 @@
         "health": 5,
         "movement": 6
       },
-      "health": 4,
+      "health": 5,
       "presence": {
         "standing": [
-          6,
-          17
+          3,
+          15
         ]
       },
-      "in_stance": false,
-      "steps_left": 6,
-      "has_action_left": true
+      "in_stance": true,
+      "steps_left": 0,
+      "has_action_left": false,
+      "actions_used": {
+        "assault": false,
+        "throw": false,
+        "stance": true
+      }
     },
     {
       "id": "H8",
@@ -169,16 +179,16 @@
         "health": 6,
         "movement": 4
       },
-      "health": 6,
+      "health": 5,
       "presence": {
         "standing": [
-          0,
-          13
+          6,
+          6
         ]
       },
       "in_stance": false,
-      "steps_left": 1,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "H9",
@@ -193,13 +203,13 @@
       "health": 6,
       "presence": {
         "standing": [
-          4,
-          3
+          2,
+          11
         ]
       },
       "in_stance": false,
-      "steps_left": 2,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "A1",
@@ -211,11 +221,11 @@
         "health": 7,
         "movement": 4
       },
-      "health": 2,
+      "health": 3,
       "presence": {
         "standing": [
-          14,
-          9
+          10,
+          7
         ]
       },
       "in_stance": false,
@@ -232,11 +242,11 @@
         "health": 7,
         "movement": 4
       },
-      "health": 7,
+      "health": 6,
       "presence": {
         "standing": [
-          9,
-          10
+          12,
+          11
         ]
       },
       "in_stance": false,
@@ -257,7 +267,7 @@
       "presence": {
         "standing": [
           8,
-          10
+          12
         ]
       },
       "in_stance": false,
@@ -277,7 +287,7 @@
       "health": 5,
       "presence": {
         "standing": [
-          10,
+          8,
           3
         ]
       },
@@ -298,8 +308,8 @@
       "health": 5,
       "presence": {
         "standing": [
-          16,
-          7
+          17,
+          6
         ]
       },
       "in_stance": false,
@@ -319,8 +329,8 @@
       "health": 5,
       "presence": {
         "standing": [
-          11,
-          11
+          9,
+          19
         ]
       },
       "in_stance": false,
@@ -337,16 +347,16 @@
         "health": 5,
         "movement": 6
       },
-      "health": 4,
+      "health": 5,
       "presence": {
         "standing": [
-          16,
-          18
+          18,
+          10
         ]
       },
       "in_stance": false,
       "steps_left": 0,
-      "has_action_left": true
+      "has_action_left": false
     },
     {
       "id": "A8",
@@ -361,8 +371,8 @@
       "health": 6,
       "presence": {
         "standing": [
-          18,
-          8
+          17,
+          10
         ]
       },
       "in_stance": false,
@@ -382,8 +392,8 @@
       "health": 6,
       "presence": {
         "standing": [
-          18,
-          10
+          17,
+          15
         ]
       },
       "in_stance": false,
@@ -394,8 +404,8 @@
   "ball": {
     "loose": {
       "at": [
-        5,
-        4
+        6,
+        9
       ]
     }
   },
