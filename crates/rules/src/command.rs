@@ -31,6 +31,50 @@ pub enum Action {
     Focus,
 }
 
+/// The kind of an action, each taken once per turn where the rules say so.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionKind {
+    /// An assault, whatever its style.
+    Assault,
+    /// A throw or a hand-off, whatever its style.
+    Throw,
+    /// A Stance.
+    Stance,
+    /// A focus.
+    Focus,
+}
+
+impl ActionKind {
+    /// Every kind, in the order screens list them.
+    pub const ALL: [ActionKind; 4] = [
+        ActionKind::Assault,
+        ActionKind::Throw,
+        ActionKind::Stance,
+        ActionKind::Focus,
+    ];
+
+    /// The kind of `action`.
+    pub fn of(action: Action) -> ActionKind {
+        match action {
+            Action::Assault { .. } => ActionKind::Assault,
+            Action::Throw { .. } => ActionKind::Throw,
+            Action::Stance => ActionKind::Stance,
+            Action::Focus => ActionKind::Focus,
+        }
+    }
+
+    /// A plain action of this kind by `goblin` on itself, to ask whether the kind is still open.
+    pub fn sample(self, goblin: GoblinId) -> Action {
+        match self {
+            ActionKind::Assault => Action::assault(goblin),
+            ActionKind::Throw => Action::throw(goblin),
+            ActionKind::Stance => Action::Stance,
+            ActionKind::Focus => Action::Focus,
+        }
+    }
+}
+
 impl Action {
     /// A simple assault on `target`.
     pub fn assault(target: GoblinId) -> Action {

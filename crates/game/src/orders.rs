@@ -466,6 +466,20 @@ pub fn can_still_brace(
         && (ruleset.carriers_can_brace || state.carrier() != Some(goblin))
 }
 
+/// Whether `goblin` may still focus on its next throw once it walked `steps_walked` squares: it
+/// holds the ball, has not walked yet and has its focus still to take.
+pub fn can_still_focus(
+    ruleset: &Ruleset,
+    state: &GameState,
+    goblin: GoblinId,
+    steps_walked: usize,
+) -> bool {
+    state.carrier() == Some(goblin)
+        && state
+            .goblin(goblin)
+            .is_some_and(|goblin| goblin.may_act_after(Action::Focus, steps_walked, ruleset))
+}
+
 /// The drafted walk followed by a Stance.
 pub fn stance_order(draft: &Draft) -> Activation {
     Activation {
@@ -1074,12 +1088,12 @@ fn refresh_focus_button(
     mut focus_button: Single<&mut Node, (With<FocusButton>, Without<StanceButton>)>,
 ) {
     let focuses = prepared.0.as_ref().is_some_and(|draft| {
-        view.snapshot
-            .state
-            .goblin(draft.activation.goblin)
-            .is_some_and(|goblin| {
-                goblin.may_act_after(Action::Focus, draft.activation.path.len(), &view.ruleset)
-            })
+        can_still_focus(
+            &view.ruleset,
+            &view.snapshot.state,
+            draft.activation.goblin,
+            draft.activation.path.len(),
+        )
     });
     let display = if focuses {
         Display::Flex
@@ -1739,6 +1753,20 @@ mod tests {
         };
 
         assert!(!can_still_brace(&carriers_unbraced, &state, id("H5"), 0));
+    }
+
+    #[test]
+    fn given_the_carrier_standing_still_when_asking_if_it_may_focus_then_yes() {
+        let state = board(&[("H5", 7, 7)], Some("H5"));
+
+        assert!(can_still_focus(&Ruleset::default(), &state, id("H5"), 0));
+    }
+
+    #[test]
+    fn given_a_goblin_without_the_ball_when_asking_if_it_may_focus_then_no() {
+        let state = board(&[("H5", 7, 7), ("H6", 9, 7)], Some("H6"));
+
+        assert!(!can_still_focus(&Ruleset::default(), &state, id("H5"), 0));
     }
 
     #[test]

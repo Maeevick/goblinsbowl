@@ -155,7 +155,8 @@ fn refresh_cards(
             continue;
         };
         let coached = line.side == CardSide::Teammate;
-        let wanted = texts.card_lines(goblin, coached, &view.ruleset)[line.index].clone();
+        let actions_left = state.action_kinds_left(goblin.id, &view.ruleset);
+        let wanted = texts.card_lines(goblin, coached, &actions_left)[line.index].clone();
         if text.0 != wanted {
             text.0 = wanted;
         }

@@ -90,6 +90,16 @@ fn given_focus_when_the_turn_after_it_ends_then_the_focus_wears_off() {
 }
 
 #[test]
+fn given_focus_when_a_goblin_without_the_ball_focuses_then_it_has_no_throw_to_focus_on() {
+    let mut game = thrower_and_receiver_with_focus().game([]);
+    let refusal = game.apply(TeamId::HOME, order("H2", &[], Action::Focus));
+    assert_eq!(
+        refusal,
+        Err(RuleViolation::FocusNeedsTheBall { goblin: id("H2") })
+    );
+}
+
+#[test]
 fn given_focus_when_a_thrower_walked_first_then_it_must_stand_still() {
     let mut game = thrower_and_receiver_with_focus().game([]);
     let refusal = game.apply(TeamId::HOME, order("H1", &[(4, 8)], Action::Focus));

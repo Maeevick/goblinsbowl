@@ -49,8 +49,8 @@ resolved in order; add end_turn=true on your last call), then wait again, until 
 Each goblin has its movement in steps, spent over as many orders as you like, even after other goblins \
 played; it may assault once, throw once and brace in stance once per turn, an assault or a throw costing \
 a step and a stance every step left (steps_left, actions_left). Assaults come in styles (simple, chirurgical, \
-brutal, projection) and a goblin that has not moved may throw into chaos or focus for +1 next turn: see the \
-play schema and get_rules. \
+brutal, projection), a goblin that has not moved may throw into chaos and a carrier that has not moved may \
+focus for +1 to its throws next turn: see the play schema and get_rules. \
 Any failed dodge, assault, pick-up or throw, or your own throw not caught, ends your turn at once, \
 so order safe moves first and keep risky ones for last. Otherwise your turn ends only with end_turn=true, \
 a score, or its clock (time_left_ms) running out. To get exact odds without rolling, play with dry_run=true previews its orders as one plan, each \
@@ -159,8 +159,8 @@ pub enum PlannedAction {
     },
     /// Brace in stance after moving: +1 defense until your next turn, at the cost of every step left.
     Stance,
-    /// Focus, where the rules allow it: stand still this whole turn for +1 to this goblin's
-    /// throws on your next turn.
+    /// Focus, where the rules allow it, for the goblin holding the ball: stand still this whole
+    /// turn for +1 to its throws on your next turn.
     Focus,
 }
 

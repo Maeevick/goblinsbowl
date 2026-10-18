@@ -229,7 +229,7 @@ pub fn coach_view(
         goblins: state
             .goblins
             .iter()
-            .map(|goblin| goblin_view(goblin, ruleset))
+            .map(|goblin| goblin_view(state, goblin, ruleset))
             .collect(),
         assault_options,
         ball_options,
@@ -478,7 +478,7 @@ fn describe_ball(snapshot: &MatchSnapshot) -> String {
     }
 }
 
-fn goblin_view(goblin: &Goblin, ruleset: &Ruleset) -> GoblinView {
+fn goblin_view(state: &GameState, goblin: &Goblin, ruleset: &Ruleset) -> GoblinView {
     let condition = match goblin.presence {
         Presence::Standing(_) => "standing",
         Presence::Down(_) => "down",
@@ -498,16 +498,16 @@ fn goblin_view(goblin: &Goblin, ruleset: &Ruleset) -> GoblinView {
         can_act: goblin.can_act(),
         steps_left: goblin.steps_left,
         has_action_left: goblin.has_action_left,
-        actions_left: [
-            (Action::assault(goblin.id), "assault"),
-            (Action::throw(goblin.id), "throw"),
-            (Action::Stance, "stance"),
-            (Action::Focus, "focus"),
-        ]
-        .into_iter()
-        .filter(|(action, _)| goblin.may_act_after(*action, 0, ruleset))
-        .map(|(_, name)| name.to_string())
-        .collect(),
+        actions_left: state
+            .action_kinds_left(goblin.id, ruleset)
+            .into_iter()
+            .map(|kind| {
+                serde_json::to_value(kind)
+                    .ok()
+                    .and_then(|name| name.as_str().map(str::to_string))
+                    .unwrap_or_default()
+            })
+            .collect(),
         focused: goblin.focus == Focus::Focused,
         attack: goblin.characteristics.attack,
         defense: goblin.characteristics.defense,
@@ -824,7 +824,7 @@ mod tests {
     }
 
     #[test]
-    fn given_the_shipped_rules_when_a_fresh_goblin_is_viewed_then_it_may_assault_throw_brace_and_focus()
+    fn given_the_shipped_rules_when_a_fresh_goblin_without_the_ball_is_viewed_then_it_may_assault_throw_and_brace()
      {
         let host = kick_off();
         let seat = host.snapshot().state.active_team().unwrap();
@@ -834,7 +834,32 @@ mod tests {
             .iter()
             .find(|goblin| goblin.id.starts_with(seat.letter()))
             .unwrap();
-        assert_eq!(first.actions_left, ["assault", "throw", "stance", "focus"]);
+        assert_eq!(first.actions_left, ["assault", "throw", "stance"]);
+    }
+
+    #[test]
+    fn given_carriers_that_cannot_brace_when_the_carrier_is_viewed_then_it_may_throw_and_focus() {
+        let host = kick_off();
+        let (mut snapshot, seat, carrier) = beside_an_enemy(&host, true);
+        snapshot.state.ball = Ball::Carried { by: carrier };
+        let ruleset = Ruleset {
+            carriers_can_brace: false,
+            ..host.game().ruleset().clone()
+        };
+        let view = coach_view(
+            host.game().arena(),
+            &ruleset,
+            &snapshot,
+            seat,
+            &[],
+            OddsHints::Full,
+        );
+        let viewed = view
+            .goblins
+            .iter()
+            .find(|goblin| goblin.id == carrier.to_string())
+            .unwrap();
+        assert_eq!(viewed.actions_left, ["throw", "focus"]);
     }
 
     #[test]

@@ -103,6 +103,9 @@ pub fn validate_activation(
         {
             Err(RuleViolation::MustStandStillFirst { goblin: id })
         }
+        Some(Action::Focus) if state.carrier() != Some(id) => {
+            Err(RuleViolation::FocusNeedsTheBall { goblin: id })
+        }
         Some(Action::Focus) => Ok(()),
         Some(Action::Stance)
             if ruleset.goblins_can_take_stance

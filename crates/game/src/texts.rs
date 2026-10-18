@@ -3,11 +3,10 @@
 use clap::ValueEnum;
 use goblins_rules::bowls::{BowlShape, BowlSize};
 use goblins_rules::characteristics::Archetype;
-use goblins_rules::command::{Action, Activation};
+use goblins_rules::command::{Action, ActionKind, Activation};
 use goblins_rules::event::{DodgeRoll, GameEvent, TurnEndReason};
 use goblins_rules::odds::{AgilityDice, ContestDice, Probability};
 use goblins_rules::preview::{ActionOdds, ActivationOdds, DodgeDice, RiskyStep};
-use goblins_rules::ruleset::Ruleset;
 use goblins_rules::state::{Focus, Goblin};
 use goblins_rules::team::TeamId;
 
@@ -250,7 +249,12 @@ impl Texts {
 
     /// The three lines of a goblin's card: who it is, its dice, then its Move and Health. A goblin
     /// of the coach shows the steps it has left; any other shows its whole Move.
-    pub fn card_lines(&self, goblin: &Goblin, coached: bool, ruleset: &Ruleset) -> [String; 4] {
+    pub fn card_lines(
+        &self,
+        goblin: &Goblin,
+        coached: bool,
+        actions_left: &[ActionKind],
+    ) -> [String; 4] {
         let characteristics = goblin.characteristics;
         let movement = if coached {
             format!("{}/{}", goblin.steps_left, characteristics.movement)
@@ -269,7 +273,7 @@ impl Texts {
                     "Mouvement {movement} · Santé {}/{}",
                     goblin.health, characteristics.health
                 ),
-                self.card_status(goblin, coached, ruleset),
+                self.card_status(goblin, coached, actions_left),
             ]
         } else {
             [
@@ -282,14 +286,14 @@ impl Texts {
                     "Move {movement} · Health {}/{}",
                     goblin.health, characteristics.health
                 ),
-                self.card_status(goblin, coached, ruleset),
+                self.card_status(goblin, coached, actions_left),
             ]
         }
     }
 
     /// The last line of a card: the actions the coached goblin may still take this turn, or for an
     /// opponent whether it stands braced in Stance.
-    fn card_status(&self, goblin: &Goblin, coached: bool, ruleset: &Ruleset) -> String {
+    fn card_status(&self, goblin: &Goblin, coached: bool, actions_left: &[ActionKind]) -> String {
         let french = self.french();
         let focused = match (goblin.focus == Focus::Focused, french) {
             (true, true) => Some("concentré, +1 au lancer"),
@@ -308,16 +312,19 @@ impl Texts {
                 .collect::<Vec<_>>()
                 .join(" · ");
         }
-        let left: Vec<&str> = [
-            (Action::assault(goblin.id), "assaut", "assault"),
-            (Action::throw(goblin.id), "passe", "throw"),
-            (Action::Stance, "garde", "stance"),
-            (Action::Focus, "concentration", "focus"),
-        ]
-        .into_iter()
-        .filter(|(action, _, _)| goblin.may_act_after(*action, 0, ruleset))
-        .map(|(_, french_name, english_name)| if french { french_name } else { english_name })
-        .collect();
+        let left: Vec<&str> = actions_left
+            .iter()
+            .map(|kind| match (kind, french) {
+                (ActionKind::Assault, true) => "assaut",
+                (ActionKind::Assault, false) => "assault",
+                (ActionKind::Throw, true) => "passe",
+                (ActionKind::Throw, false) => "throw",
+                (ActionKind::Stance, true) => "garde",
+                (ActionKind::Stance, false) => "stance",
+                (ActionKind::Focus, true) => "concentration",
+                (ActionKind::Focus, false) => "focus",
+            })
+            .collect();
         let actions = match (left.is_empty(), french) {
             (true, true) => "Plus d'action ce tour".to_string(),
             (true, false) => "No action left this turn".to_string(),
@@ -1126,7 +1133,7 @@ mod tests {
             FRENCH.card_lines(
                 &sprinter_with_steps_and_health_lost(),
                 true,
-                &Ruleset::default()
+                &[ActionKind::Assault, ActionKind::Throw, ActionKind::Stance]
             ),
             [
                 "H4 · Sprinteur".to_string(),
@@ -1140,11 +1147,7 @@ mod tests {
     #[test]
     fn given_english_when_carding_an_opponent_then_its_whole_move() {
         assert_eq!(
-            ENGLISH.card_lines(
-                &sprinter_with_steps_and_health_lost(),
-                false,
-                &Ruleset::default()
-            )[2],
+            ENGLISH.card_lines(&sprinter_with_steps_and_health_lost(), false, &[])[2],
             "Move 6 · Health 3/5"
         );
     }
@@ -1155,7 +1158,7 @@ mod tests {
         let mut sprinter = sprinter_with_steps_and_health_lost();
         sprinter.actions_used.assault = true;
         assert_eq!(
-            ENGLISH.card_lines(&sprinter, true, &Ruleset::default())[3],
+            ENGLISH.card_lines(&sprinter, true, &[ActionKind::Throw, ActionKind::Stance])[3],
             "Actions: throw · stance"
         );
     }
@@ -1165,7 +1168,7 @@ mod tests {
         let mut sprinter = sprinter_with_steps_and_health_lost();
         sprinter.in_stance = true;
         assert_eq!(
-            FRENCH.card_lines(&sprinter, false, &Ruleset::default())[3],
+            FRENCH.card_lines(&sprinter, false, &[])[3],
             "en garde, +1 en défense"
         );
     }
@@ -1176,7 +1179,11 @@ mod tests {
         let mut sprinter = sprinter_with_steps_and_health_lost();
         sprinter.focus = goblins_rules::state::Focus::Focused;
         assert_eq!(
-            ENGLISH.card_lines(&sprinter, true, &Ruleset::default())[3],
+            ENGLISH.card_lines(
+                &sprinter,
+                true,
+                &[ActionKind::Assault, ActionKind::Throw, ActionKind::Stance]
+            )[3],
             "Actions: assault · throw · stance · focused, +1 to throws"
         );
     }

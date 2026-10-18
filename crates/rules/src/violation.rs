@@ -100,6 +100,12 @@ pub enum RuleViolation {
         /// The carrier.
         goblin: GoblinId,
     },
+    /// Only the goblin holding the ball may focus on its next throw.
+    #[error("{goblin} does not hold the ball and has no throw to focus on")]
+    FocusNeedsTheBall {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// The goblin would hold the ball, and the rules keep carriers from bracing.
     #[error("{goblin} holds the ball and cannot brace")]
     CarrierCannotBrace {

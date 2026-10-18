@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::characteristics::{Archetype, Characteristics};
-use crate::command::{Action, Activation, ThrowStyle};
+use crate::command::{Action, ActionKind, Activation, ThrowStyle};
 use crate::roster::{GoblinId, Roster};
 use crate::ruleset::Ruleset;
 use crate::square::{Reach, Square};
@@ -390,6 +390,26 @@ impl GameState {
         }
     }
 
+    /// The kinds of action goblin `id` may still take this turn from where it stands: the ball
+    /// barring a carrier's assault or Stance where the rules say so, and a focus left to the
+    /// carrier alone.
+    pub fn action_kinds_left(&self, id: GoblinId, ruleset: &Ruleset) -> Vec<ActionKind> {
+        let Some(goblin) = self.goblin(id) else {
+            return Vec::new();
+        };
+        let carries_the_ball = self.carrier() == Some(id);
+        ActionKind::ALL
+            .into_iter()
+            .filter(|kind| goblin.may_act_after(kind.sample(id), 0, ruleset))
+            .filter(|kind| match kind {
+                ActionKind::Assault => ruleset.carriers_can_assault || !carries_the_ball,
+                ActionKind::Stance => ruleset.carriers_can_brace || !carries_the_ball,
+                ActionKind::Focus => carries_the_ball,
+                ActionKind::Throw => true,
+            })
+            .collect()
+    }
+
     pub(crate) fn goblin_mut(&mut self, id: GoblinId) -> Option<&mut Goblin> {
         self.goblins.iter_mut().find(|goblin| goblin.id == id)
     }
@@ -506,6 +526,38 @@ mod tests {
             ..Ruleset::default()
         };
         assert!(!runner.may_act_after(Action::Stance, 0, &without_stance));
+    }
+
+    fn rules_of_carriers_that_only_throw_or_focus() -> Ruleset {
+        Ruleset {
+            goblins_can_take_stance: true,
+            carriers_can_assault: false,
+            carriers_can_brace: false,
+            throws_have_styles: true,
+            ..Ruleset::default()
+        }
+    }
+
+    #[test]
+    fn given_carriers_that_only_throw_or_focus_when_listing_the_carrier_s_actions_then_a_throw_and_a_focus()
+     {
+        let mut state = state_with(vec![standing("H1", 3, 4), standing("H2", 3, 6)]);
+        state.ball = Ball::Carried { by: id("H1") };
+        assert_eq!(
+            state.action_kinds_left(id("H1"), &rules_of_carriers_that_only_throw_or_focus()),
+            [ActionKind::Throw, ActionKind::Focus]
+        );
+    }
+
+    #[test]
+    fn given_carriers_that_only_throw_or_focus_when_listing_a_teammate_s_actions_then_an_assault_a_throw_and_a_stance()
+     {
+        let mut state = state_with(vec![standing("H1", 3, 4), standing("H2", 3, 6)]);
+        state.ball = Ball::Carried { by: id("H1") };
+        assert_eq!(
+            state.action_kinds_left(id("H2"), &rules_of_carriers_that_only_throw_or_focus()),
+            [ActionKind::Assault, ActionKind::Throw, ActionKind::Stance]
+        );
     }
 
     #[test]
