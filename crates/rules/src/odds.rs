@@ -136,14 +136,17 @@ impl Probability {
         self.denominator
     }
 
-    /// Probability that this event and an independent `other` both happen.
+    /// Probability that this event and an independent `other` both happen; a fraction too fine
+    /// for 64 bits is rounded to the nearest one that fits.
     pub fn and(self, other: Probability) -> Probability {
         let numerator = u128::from(self.numerator) * u128::from(other.numerator);
         let denominator = u128::from(self.denominator) * u128::from(other.denominator);
         let divisor = greatest_common_divisor_wide(numerator, denominator).max(1);
+        let (numerator, denominator) = (numerator / divisor, denominator / divisor);
+        let bits_too_many = (u128::BITS - denominator.leading_zeros()).saturating_sub(u64::BITS);
         Probability::new(
-            u64::try_from(numerator / divisor).unwrap_or(u64::MAX),
-            u64::try_from(denominator / divisor).unwrap_or(u64::MAX),
+            u64::try_from(numerator >> bits_too_many).unwrap_or(u64::MAX),
+            u64::try_from(denominator >> bits_too_many).unwrap_or(u64::MAX),
         )
     }
 
@@ -275,6 +278,16 @@ mod tests {
             Probability::new(1, 2).and(Probability::new(1, 2)),
             Probability::new(1, 4)
         );
+    }
+
+    #[test]
+    fn given_two_near_halves_whose_product_outgrows_64_bits_when_combined_then_near_one_quarter() {
+        let powers_of_three = 3_u64.pow(39);
+        let near_half = Probability::new(powers_of_three / 2, powers_of_three);
+
+        let near_quarter = near_half.and(near_half);
+
+        assert!((near_quarter.as_percentage() - 25.0).abs() < 1e-9);
     }
 
     #[test]
