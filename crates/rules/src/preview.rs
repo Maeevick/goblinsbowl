@@ -8,7 +8,7 @@ use crate::flight::squares_crossed;
 use crate::odds::{AgilityDice, ContestDice, Probability, agility_success};
 use crate::roster::GoblinId;
 use crate::ruleset::Ruleset;
-use crate::square::Square;
+use crate::square::{Reach, Square};
 use crate::state::{Ball, GameState, Presence};
 use crate::team::TeamId;
 use crate::validation::validate_activation;
@@ -170,11 +170,11 @@ pub fn dodge_dice(
         .map(|contest| DodgeDice::Contest { tackler, contest })
 }
 
-/// Malus on an agility dodge out of `square`: one per adjacent standing enemy, two when it stands
-/// in Stance under rules where braced tacklers weigh double.
+/// Malus on an agility dodge out of `square`: one per standing enemy within reach, two when it
+/// stands in Stance under rules where braced tacklers weigh double.
 fn dodge_malus(ruleset: &Ruleset, state: &GameState, square: Square, team: TeamId) -> u8 {
     state
-        .standing_opponents_next_to(square, team)
+        .standing_opponents_in_reach(square, team, ruleset.reach())
         .map(|enemy| 1 + u8::from(enemy.in_stance && ruleset.braced_tacklers_weigh_double))
         .fold(0, u8::saturating_add)
 }
@@ -195,7 +195,8 @@ fn tackle_dice(
     })
 }
 
-/// The adjacent standing enemy most likely to stop `mover` leaving `from`, with the mover's chance to escape.
+/// The standing enemy within reach most likely to stop `mover` leaving `from`, with the mover's
+/// chance to escape.
 pub fn most_dangerous_tackler(
     ruleset: &Ruleset,
     state: &GameState,
@@ -204,7 +205,7 @@ pub fn most_dangerous_tackler(
 ) -> Option<(GoblinId, Probability)> {
     let team = state.goblin(mover)?.team();
     state
-        .standing_opponents_next_to(from, team)
+        .standing_opponents_in_reach(from, team, ruleset.reach())
         .filter_map(|tackler| {
             tackle_dice(ruleset, state, mover, tackler.id).map(|dice| (dice.success(), tackler.id))
         })
@@ -249,7 +250,7 @@ pub fn activation_odds(
             goblin.presence = Presence::Standing(to);
         }
         if sketch.ball == (Ball::Loose { at: to }) {
-            let malus = adjacent_opponent_count(&sketch, to, team);
+            let malus = opponents_in_reach(ruleset, &sketch, to, team);
             let pick = agility_success(agility, malus, ruleset.ball_roll_target);
             risky_steps.push(RiskyStep::Pick {
                 at: to,
@@ -401,17 +402,18 @@ fn throw_odds(
     } else {
         agility_success(
             thrower_goblin.map_or(1, |goblin| goblin.characteristics.agility),
-            adjacent_opponent_count(sketch, thrower_square, team).saturating_add(distance_malus),
+            opponents_in_reach(ruleset, sketch, thrower_square, team)
+                .saturating_add(distance_malus),
             target,
         )
     };
     let interceptions: Vec<(GoblinId, Probability)> =
-        squares_crossed(thrower_square, receiver_square)
+        interceptors(ruleset, sketch, thrower_square, receiver_square, team)
             .into_iter()
-            .filter_map(|square| sketch.goblin_at(square))
-            .filter(|goblin| goblin.is_standing() && goblin.team() != team)
+            .filter_map(|id| sketch.goblin(id))
             .map(|interceptor| {
-                let malus = adjacent_opponent_count(
+                let malus = opponents_in_reach(
+                    ruleset,
                     sketch,
                     interceptor.square().unwrap_or(thrower_square),
                     interceptor.team(),
@@ -425,7 +427,7 @@ fn throw_odds(
             .collect();
     let catch = agility_success(
         receiver_goblin.map_or(1, |goblin| goblin.characteristics.agility),
-        adjacent_opponent_count(sketch, receiver_square, team),
+        opponents_in_reach(ruleset, sketch, receiver_square, team),
         target,
     );
     let success = interceptions
@@ -443,8 +445,42 @@ fn throw_odds(
     }
 }
 
-fn adjacent_opponent_count(state: &GameState, square: Square, team: TeamId) -> u8 {
-    u8::try_from(state.standing_opponents_next_to(square, team).count()).unwrap_or(u8::MAX)
+/// Standing enemies of `team` that may try to intercept a ball thrown from `from` to `to`, in the
+/// order the ball reaches them: those on a square it flies over and, where a goblin's reach covers
+/// the diagonals, those standing next to one of those squares too.
+pub fn interceptors(
+    ruleset: &Ruleset,
+    state: &GameState,
+    from: Square,
+    to: Square,
+    team: TeamId,
+) -> Vec<GoblinId> {
+    let mut found: Vec<GoblinId> = Vec::new();
+    for square in squares_crossed(from, to) {
+        for enemy in state
+            .goblins
+            .iter()
+            .filter(|goblin| goblin.team() != team && goblin.is_standing())
+        {
+            let on_the_line = enemy.square().is_some_and(|at| {
+                at == square
+                    || (ruleset.reach_covers_diagonals && at.is_within(square, Reach::AllAround))
+            });
+            if on_the_line && !found.contains(&enemy.id) {
+                found.push(enemy.id);
+            }
+        }
+    }
+    found
+}
+
+fn opponents_in_reach(ruleset: &Ruleset, state: &GameState, square: Square, team: TeamId) -> u8 {
+    u8::try_from(
+        state
+            .standing_opponents_in_reach(square, team, ruleset.reach())
+            .count(),
+    )
+    .unwrap_or(u8::MAX)
 }
 
 #[cfg(test)]
@@ -802,6 +838,48 @@ mod tests {
                 target: 2
             }))
         );
+    }
+
+    #[test]
+    fn given_a_reach_all_around_when_a_sprinter_leaves_an_enemy_on_its_diagonal_then_it_dodges_at_one()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| {
+                ruleset.dodges_test_agility = true;
+                ruleset.reach_covers_diagonals = true;
+            })
+            .goblin("H1", Sprinter, 5, 7)
+            .goblin("A1", Bruiser, 6, 6);
+        assert_eq!(
+            dice_of(scenario, |ruleset, state| dodge_dice(
+                ruleset,
+                state,
+                id("H1"),
+                Square::new(5, 7)
+            )),
+            Some(DodgeDice::Agility(AgilityDice {
+                faces: 4,
+                malus: 1,
+                target: 2
+            }))
+        );
+    }
+
+    #[test]
+    fn given_a_reach_all_around_when_a_throw_flies_past_an_enemy_next_to_the_line_then_its_interception_is_listed()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| ruleset.reach_covers_diagonals = true)
+            .goblin("H1", Thrower, 4, 7)
+            .goblin("H2", Sprinter, 8, 7)
+            .goblin("A1", Sprinter, 6, 8)
+            .ball_carried_by("H1");
+        let pass = order("H1", &[], Some(Action::Throw { receiver: id("H2") }));
+        assert!(matches!(
+            odds(scenario, &pass).unwrap().action,
+            Some(ActionOdds::Throw { interceptions, .. })
+                if interceptions == vec![(id("A1"), Probability::new(1, 2))]
+        ));
     }
 
     #[test]

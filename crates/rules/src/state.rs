@@ -6,7 +6,7 @@ use crate::characteristics::{Archetype, Characteristics};
 use crate::command::{Action, Activation};
 use crate::roster::{GoblinId, Roster};
 use crate::ruleset::Ruleset;
-use crate::square::Square;
+use crate::square::{Reach, Square};
 use crate::team::TeamId;
 
 /// Where a goblin is and whether it stands.
@@ -280,18 +280,19 @@ impl GameState {
         }
     }
 
-    /// Standing goblins opposing `team` on squares orthogonally next to `square`.
-    pub fn standing_opponents_next_to(
+    /// Standing goblins opposing `team` within `reach` of `square`.
+    pub fn standing_opponents_in_reach(
         &self,
         square: Square,
         team: TeamId,
+        reach: Reach,
     ) -> impl Iterator<Item = &Goblin> + '_ {
         self.goblins.iter().filter(move |goblin| {
             goblin.team() != team
                 && goblin.is_standing()
                 && goblin
                     .square()
-                    .is_some_and(|other| other.is_orthogonally_adjacent(square))
+                    .is_some_and(|other| other.is_within(square, reach))
         })
     }
 
@@ -500,9 +501,20 @@ mod tests {
         ]);
         assert_eq!(
             state
-                .standing_opponents_next_to(Square::new(5, 5), TeamId::HOME)
+                .standing_opponents_in_reach(Square::new(5, 5), TeamId::HOME, Reach::Orthogonal)
                 .count(),
             2
+        );
+    }
+
+    #[test]
+    fn given_an_opponent_on_a_diagonal_when_the_reach_covers_all_around_then_listed() {
+        let state = state_with(vec![standing("A1", 6, 6), standing("H2", 5, 6)]);
+        assert_eq!(
+            state
+                .standing_opponents_in_reach(Square::new(5, 5), TeamId::HOME, Reach::AllAround)
+                .count(),
+            1
         );
     }
 

@@ -199,7 +199,8 @@ impl<D: DiceRoller> Game<D> {
     }
 
     pub(super) fn agility_roll(&mut self, goblin: GoblinId, extra_malus: u8) -> AgilityRoll {
-        let (faces, adjacent_opponents) = self
+        let reach = self.ruleset.reach();
+        let (faces, opponents_in_reach) = self
             .state
             .goblin(goblin)
             .and_then(|goblin| {
@@ -207,13 +208,13 @@ impl<D: DiceRoller> Game<D> {
                     (
                         goblin.characteristics.agility,
                         self.state
-                            .standing_opponents_next_to(square, goblin.team())
+                            .standing_opponents_in_reach(square, goblin.team(), reach)
                             .count(),
                     )
                 })
             })
             .unwrap_or((1, 0));
-        let malus = u8::try_from(adjacent_opponents)
+        let malus = u8::try_from(opponents_in_reach)
             .unwrap_or(u8::MAX)
             .saturating_add(extra_malus);
         self.roll_agility_test(AgilityDice {

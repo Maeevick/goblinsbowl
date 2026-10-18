@@ -2,7 +2,7 @@
 
 use crate::dice::DiceRoller;
 use crate::event::GameEvent;
-use crate::flight::squares_crossed;
+use crate::preview::interceptors;
 use crate::roster::GoblinId;
 use crate::square::Square;
 use crate::state::Ball;
@@ -51,22 +51,21 @@ impl<D: DiceRoller> Game<D> {
             self.bounce_ball(thrower_square, events);
             return false;
         }
-        for square in squares_crossed(thrower_square, receiver_square) {
-            let interceptor = self
-                .state
-                .goblin_at(square)
-                .filter(|goblin| goblin.is_standing() && goblin.team() != team)
-                .map(|goblin| goblin.id);
-            if let Some(interceptor) = interceptor {
-                let roll = self.agility_roll(interceptor, self.ruleset.interception_surprise_malus);
-                events.push(GameEvent::InterceptAttempted {
-                    goblin: interceptor,
-                    roll,
-                });
-                if roll.success {
-                    self.state.ball = Ball::Carried { by: interceptor };
-                    return false;
-                }
+        for interceptor in interceptors(
+            &self.ruleset,
+            &self.state,
+            thrower_square,
+            receiver_square,
+            team,
+        ) {
+            let roll = self.agility_roll(interceptor, self.ruleset.interception_surprise_malus);
+            events.push(GameEvent::InterceptAttempted {
+                goblin: interceptor,
+                roll,
+            });
+            if roll.success {
+                self.state.ball = Ball::Carried { by: interceptor };
+                return false;
             }
         }
         self.receiver_catches(receiver, receiver_square, events)

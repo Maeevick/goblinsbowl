@@ -1,4 +1,4 @@
-//! Squares of the bowl grid and their orthogonal geometry.
+//! Squares of the bowl grid, their orthogonal geometry and the reach of a goblin around its square.
 
 use serde::{Deserialize, Serialize};
 
@@ -53,10 +53,30 @@ impl Direction {
     }
 }
 
+/// The squares a standing goblin weighs on around it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Reach {
+    /// The four squares one orthogonal step away.
+    Orthogonal,
+    /// The eight squares around, diagonals included.
+    AllAround,
+}
+
 impl Square {
     /// Builds the square at column `x` and row `y`.
     pub const fn new(x: u8, y: u8) -> Self {
         Self { x, y }
+    }
+
+    /// Whether `other` lies within `reach` of this square, the square itself left out.
+    pub fn is_within(self, other: Square, reach: Reach) -> bool {
+        match reach {
+            Reach::Orthogonal => self.is_orthogonally_adjacent(other),
+            Reach::AllAround => {
+                self != other && self.x.abs_diff(other.x) <= 1 && self.y.abs_diff(other.y) <= 1
+            }
+        }
     }
 
     /// Squares one orthogonal step away, in [`Direction::ALL`] order, skipping coordinates below zero.
@@ -113,6 +133,26 @@ mod tests {
     #[test]
     fn given_same_square_when_checking_adjacency_then_not_adjacent() {
         assert!(!Square::new(4, 4).is_orthogonally_adjacent(Square::new(4, 4)));
+    }
+
+    #[test]
+    fn given_diagonal_squares_when_the_reach_covers_all_around_then_within_reach() {
+        assert!(Square::new(4, 4).is_within(Square::new(5, 5), Reach::AllAround));
+    }
+
+    #[test]
+    fn given_diagonal_squares_when_the_reach_is_orthogonal_then_out_of_reach() {
+        assert!(!Square::new(4, 4).is_within(Square::new(5, 5), Reach::Orthogonal));
+    }
+
+    #[test]
+    fn given_the_same_square_when_the_reach_covers_all_around_then_out_of_reach() {
+        assert!(!Square::new(4, 4).is_within(Square::new(4, 4), Reach::AllAround));
+    }
+
+    #[test]
+    fn given_squares_two_apart_when_the_reach_covers_all_around_then_out_of_reach() {
+        assert!(!Square::new(4, 4).is_within(Square::new(6, 5), Reach::AllAround));
     }
 
     #[test]

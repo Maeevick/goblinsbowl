@@ -386,7 +386,7 @@ impl Coach<'_> {
 
     fn enemies_next_to(&self, square: Square) -> usize {
         self.state
-            .standing_opponents_next_to(square, self.team)
+            .standing_opponents_in_reach(square, self.team, self.ruleset.reach())
             .count()
     }
 
@@ -487,7 +487,7 @@ impl Coach<'_> {
         let carrier_square = carrier.square()?;
         let markers: Vec<_> = self
             .state
-            .standing_opponents_next_to(carrier_square, self.team)
+            .standing_opponents_in_reach(carrier_square, self.team, self.ruleset.reach())
             .filter_map(|marker| marker.square().map(|square| (marker.id, square)))
             .collect();
         let candidates: Vec<_> = self

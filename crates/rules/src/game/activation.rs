@@ -843,6 +843,49 @@ mod tests {
     }
 
     #[test]
+    fn given_a_reach_all_around_when_a_ball_flies_past_an_enemy_next_to_the_line_then_it_tries_to_intercept()
+     {
+        let mut game = thrower_with_the_ball()
+            .rules(|ruleset| ruleset.reach_covers_diagonals = true)
+            .goblin("A2", Sprinter, 6, 8)
+            .game([3, 1, 3]);
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert!(events.iter().any(|event| matches!(
+            event,
+            GameEvent::InterceptAttempted { goblin, .. } if *goblin == id("A2")
+        )));
+    }
+
+    #[test]
+    fn given_an_orthogonal_reach_when_a_ball_flies_past_an_enemy_next_to_the_line_then_nobody_intercepts()
+     {
+        let mut game = thrower_with_the_ball()
+            .goblin("A2", Sprinter, 6, 8)
+            .game([3, 3]);
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, GameEvent::InterceptAttempted { .. }))
+        );
+    }
+
+    #[test]
+    fn given_a_reach_all_around_when_picking_up_with_an_enemy_on_a_diagonal_then_its_malus_counts()
+    {
+        let mut game = two_sprinters_apart()
+            .rules(|ruleset| ruleset.reach_covers_diagonals = true)
+            .goblin("A2", Sprinter, 5, 8)
+            .ball_loose_at(4, 7)
+            .game([3]);
+        let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+        assert!(events.iter().any(|event| matches!(
+            event,
+            GameEvent::PickAttempted { roll, .. } if roll.malus == 1
+        )));
+    }
+
+    #[test]
     fn given_a_clear_line_when_throw_and_catch_succeed_then_the_receiver_holds_the_ball() {
         let mut game = thrower_with_the_ball().game([3, 3]);
         game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();

@@ -7,6 +7,7 @@ use crate::arena::{Arena, ArenaError, ROUND_BOWL_21_MASK};
 use crate::characteristics::{Archetype, Characteristics};
 use crate::formation::{Formation, FormationError, FormationLine, kickoff_drop_square};
 use crate::roster::{CountLimit, Roster, RosterError, RosterLimits};
+use crate::square::Reach;
 use crate::team::TeamId;
 
 /// Characteristics of each archetype.
@@ -123,6 +124,11 @@ pub struct Ruleset {
     /// Whether an enemy braced in Stance weighs two on an agility dodge instead of one.
     #[serde(default = "braced_tacklers_weigh_double")]
     pub braced_tacklers_weigh_double: bool,
+    /// Whether a standing goblin weighs on the eight squares around it rather than the four
+    /// orthogonal ones: leaving them takes a dodge, rolls made there suffer its malus, and a ball
+    /// flying over one of them, not only over its own square, may be intercepted.
+    #[serde(default)]
+    pub reach_covers_diagonals: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -238,6 +244,7 @@ impl Default for Ruleset {
             actions_cost_a_step: false,
             one_action_of_each_kind: false,
             braced_tacklers_weigh_double: braced_tacklers_weigh_double(),
+            reach_covers_diagonals: false,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())
@@ -350,6 +357,15 @@ impl Ruleset {
     /// The [`ArenaError`] of an invalid mask.
     pub fn build_arena(&self) -> Result<Arena, ArenaError> {
         Arena::from_mask(&self.arena)
+    }
+
+    /// The squares a standing goblin weighs on around it.
+    pub fn reach(&self) -> Reach {
+        if self.reach_covers_diagonals {
+            Reach::AllAround
+        } else {
+            Reach::Orthogonal
+        }
     }
 }
 
