@@ -252,3 +252,66 @@ Two throwaway builds, measured once and not shipped, split the two changes on th
 
 The planning brings the knock-outs (57 assaults per match in its mirror, 46 without it); the direction of the tie-breaks sets the goal rate, most likely because goblins closing in on the enemy carrier with ties toward their own den end up between the carrier and that den. Ties toward the enemy den give back the first generation's 2 goals and 23 % draws, keep the mirror symmetric, and cost nothing measurable: head to head over 2,000 matches the shipped cautious-2 wins 37.8 %, the one with ties toward the enemy den 35.1 %, within chance. Which of the two the second generation keeps is still open.
 
+
+## Rules 0.8, 18 Oct 2026
+
+Rules 0.7 with nine changes: dens of 7 squares on the outer column, tied assaults that stand off, a carrier defending at −1, knocked-out goblins rolling to come back at each kick-off, assaults and throws at a step each and one of each kind per goblin, Stance back at +1 Defense for every step left, an eight-square reach for dodges, roll maluses and interceptions, and bounces on a d8. Seeds 1 to 1,000.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Stances per team turn | Knock-outs per match |
+|---|---|---|---|---|---|---|
+| cautious vs cautious | 12.5 % | 10.9 % | 76.6 % | 0.27 | 5.01 | 2.65 |
+| bold vs bold | 36.3 % | 24.9 % | 38.8 % | 0.97 | 1.72 | 8.20 |
+| cautious vs bold | 30.7 % | 16.6 % | 52.7 % | 0.63 | 2.91 | 6.34 |
+| bold vs cautious | 23.2 % | 25.3 % | 51.5 % | 0.68 | 2.93 | 6.18 |
+| cautious vs random | 97.6 % | 0 % | 2.4 % | 2.58 | 1.42 | 2.52 |
+| bold vs random | 99.3 % | 0 % | 0.7 % | 3.13 | 0.89 | 2.66 |
+| cautious-2 vs cautious-2 | 1.9 % | 2.3 % | 95.8 % | 0.04 | 5.37 | 0.23 |
+| balanced-2 vs balanced-2 | 2.7 % | 3.0 % | 94.3 % | 0.06 | 5.20 | 0.66 |
+| bold-2 vs bold-2 | 11.5 % | 11.8 % | 76.7 % | 0.26 | 4.07 | 3.89 |
+| cautious-2 vs bold-2 | 2.5 % | 9.3 % | 88.2 % | 0.12 | 4.99 | 1.13 |
+| bold-2 vs cautious-2 | 8.3 % | 4.5 % | 87.2 % | 0.13 | 4.96 | 1.21 |
+
+Each change undone on its own, first-generation mirrors, same seeds:
+
+| Variant | Cautious mirror: draws, goals per match | Bold mirror: draws, goals per match | Bold mirror: knock-outs per match |
+|---|---|---|---|
+| rules 0.8 | 76.6 %, 0.27 | 38.8 %, 0.97 | 8.20 |
+| a reach of four orthogonal squares | 40.9 %, 0.91 | 30.0 %, 1.48 | 8.51 |
+| no Stance | 53.9 %, 0.61 | 33.6 %, 1.07 | 10.14 |
+| dens of 11 squares | 60.5 %, 0.56 | 30.3 %, 1.51 | 6.97 |
+| actions without a step to pay | 68.4 %, 0.40 | 33.3 %, 1.30 | 8.21 |
+| tied assaults knocking down | 69.8 %, 0.36 | 36.2 %, 1.08 | 7.92 |
+| one action in all | 71.7 %, 0.34 | 39.4 %, 0.99 | 8.95 |
+| no return from a knock-out | 74.4 %, 0.31 | 33.3 %, 1.15 | 6.81 |
+| bounces on a d4 | 75.2 %, 0.28 | 42.0 %, 0.94 | 8.35 |
+| no carrier malus | 81.0 %, 0.21 | 41.6 %, 1.00 | 6.42 |
+| rules 0.7, for reference | 23.8 %, 2.06 | 19.5 %, 2.56 | 5.84 |
+
+What the numbers say:
+
+- **Defence wins again.** The cautious mirror draws 76.6 % of its matches and scores 0.27 goals per match, where rules 0.7 gave 23.8 % and 2.06; between second-generation coaches, 94 to 96 % of matches end level.
+- **The eight-square reach closes the game most.** With the old four-square reach the cautious mirror draws 40.9 % and scores 0.91 goals: dodging out of a crowd gets much harder, and every pass draws more interceptions.
+- **Stance comes second, because it costs nothing when it is taken.** Careful coaches brace five goblins per team turn: a goblin done for the turn has no use for its steps left, so paying all of them is free. Without Stance the cautious mirror draws 53.9 %.
+- **The 7-square den comes third** (60.5 % draws with the 11-square one), as intended: no Sprinter scores two turns after a kick-off any more. Stand-offs and the step an action costs close the game a little more each; the d8 bounce changes nothing measurable, and the carrier's −1 opens it slightly.
+- **Knocked-out goblins come back**, so knock-outs no longer snowball: the bold mirror loses 8.2 goblins per match but plays most of its second half in numbers.
+- **The home edge is the first generation's.** The bold mirror shows +11.4 points for home; the three second-generation mirrors stay within chance (−0.4, −0.3, −0.3).
+
+## Rules 0.9, 18 Oct 2026
+
+Rules 0.8 with chirurgical, brutal and projection assaults, chaos throws and focus. The first-generation coaches never use a style, so they play exactly as under 0.8; the second generation sacks and frees chirurgically, finishes a goblin brutally and throws into chaos when no pass is worth it. Seeds 1 to 1,000.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Stances per team turn | Knock-outs per match |
+|---|---|---|---|---|---|---|
+| cautious-2 vs cautious-2 | 6.0 % | 6.1 % | 87.9 % | 0.13 | 5.06 | 0.58 |
+| balanced-2 vs balanced-2 | 11.8 % | 10.4 % | 77.8 % | 0.25 | 4.44 | 1.25 |
+| bold-2 vs bold-2 | 15.9 % | 20.0 % | 64.1 % | 0.45 | 3.05 | 3.11 |
+| cautious-2 vs bold-2 | 12.2 % | 13.5 % | 74.3 % | 0.30 | 3.94 | 1.96 |
+| bold-2 vs cautious-2 | 14.9 % | 11.7 % | 73.4 % | 0.29 | 3.97 | 1.86 |
+| cautious-2 vs cautious | 19.2 % | 3.7 % | 77.1 % | 0.26 | 5.25 | 1.22 |
+| cautious vs cautious-2 | 4.5 % | 13.5 % | 82.0 % | 0.20 | 4.92 | 1.42 |
+
+What the numbers say:
+
+- **The styles open the game a little.** The cautious-2 mirror scores three times as often as under 0.8 (0.13 goals per match) and draws 87.9 % of its matches instead of 95.8 %; the bold-2 mirror draws 64.1 % instead of 76.7 %. A chirurgical sack knocks the carrier down 62.5 % of the time between Bruisers, against 37.5 % for a simple one.
+- **Still far from the open game of 0.7**, for the reasons measured above: the eight-square reach and a Stance free at the end of a goblin's turn.
+- **The second generation beats the first** over both seats, 16.4 % of its matches against 4.1 %, most of them still drawn.
