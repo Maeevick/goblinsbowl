@@ -109,6 +109,11 @@ pub enum GameEvent {
         /// Health rolled on its health die.
         health: u8,
     },
+    /// A knocked-out goblin rolled no Health back at the kick-off and stays out until the next one.
+    StillKnockedOut {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// The ball dropped on a square.
     BallDropped {
         /// Square it dropped on.

@@ -251,6 +251,67 @@ fn given_health_that_lasts_the_match_when_a_bruiser_is_out_at_the_kick_off_then_
     );
 }
 
+fn knocked_out_bruiser_that_may_return() -> Scenario {
+    home_carrier_near_the_away_den()
+        .rules(|ruleset| {
+            ruleset.goblins_heal_at_kick_off = false;
+            ruleset.knocked_out_goblins_may_return = true;
+        })
+        .goblin("A2", Bruiser, 10, 3)
+        .edit("A2", |goblin| {
+            goblin.presence = Presence::KnockedOut;
+            goblin.health = 0;
+        })
+}
+
+#[test]
+fn given_knocked_out_goblins_that_may_return_when_one_rolls_five_at_the_kick_off_then_it_lines_up_with_four_health()
+ {
+    let mut game = knocked_out_bruiser_that_may_return().game([5, KICK_OFF_BOUNCE_NORTH]);
+    let events = game
+        .apply(TeamId::HOME, act("H1", &[(13, 7), (14, 7)], None))
+        .unwrap();
+    let bruiser = game.state().goblin(id("A2")).unwrap();
+    assert_eq!(
+        (
+            bruiser.is_standing(),
+            bruiser.health,
+            events.contains(&GameEvent::ReturnedFromKnockOut {
+                goblin: id("A2"),
+                health: 4
+            })
+        ),
+        (true, 4, true)
+    );
+}
+
+#[test]
+fn given_knocked_out_goblins_that_may_return_when_one_rolls_one_at_the_kick_off_then_it_stays_out()
+{
+    let mut game = knocked_out_bruiser_that_may_return().game([1, KICK_OFF_BOUNCE_NORTH]);
+    let events = game
+        .apply(TeamId::HOME, act("H1", &[(13, 7), (14, 7)], None))
+        .unwrap();
+    assert_eq!(
+        (
+            game.state().goblin(id("A2")).unwrap().presence,
+            events.contains(&GameEvent::StillKnockedOut { goblin: id("A2") })
+        ),
+        (Presence::KnockedOut, true)
+    );
+}
+
+#[test]
+fn given_knocked_out_goblins_that_may_return_when_a_hurt_goblin_lines_up_then_it_keeps_its_health()
+{
+    let mut game = knocked_out_bruiser_that_may_return()
+        .edit("A1", |goblin| goblin.health = 2)
+        .game([5, KICK_OFF_BOUNCE_NORTH]);
+    game.apply(TeamId::HOME, act("H1", &[(13, 7), (14, 7)], None))
+        .unwrap();
+    assert_eq!(game.state().goblin(id("A1")).unwrap().health, 2);
+}
+
 #[test]
 fn given_a_hurt_goblin_when_the_next_kick_off_comes_then_it_is_back_to_full_health() {
     let mut game = home_carrier_near_the_away_den()

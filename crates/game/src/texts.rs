@@ -385,6 +385,11 @@ impl Texts {
                 format!("{goblin} revient avec {health} PV"),
                 format!("{goblin} is back with {health} health"),
             ),
+            GameEvent::StillKnockedOut { goblin } => pick(
+                french,
+                format!("{goblin} reste KO"),
+                format!("{goblin} stays knocked out"),
+            ),
             GameEvent::CatchAttempted { goblin, roll } => pick(
                 french,
                 if roll.success {

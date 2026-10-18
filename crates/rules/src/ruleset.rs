@@ -108,6 +108,10 @@ pub struct Ruleset {
     /// Malus on the defense roll of the goblin holding the ball when it is assaulted.
     #[serde(default)]
     pub carrier_defense_malus: u8,
+    /// Whether, at a kick-off where nobody heals, each knocked-out goblin rolls its Health die minus
+    /// one and comes back with that much Health, a 0 keeping it out until the next kick-off.
+    #[serde(default)]
+    pub knocked_out_goblins_may_return: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -215,6 +219,7 @@ impl Default for Ruleset {
             turn_ends_when_no_goblin_can_act: false,
             assault_ties_knock_down: ties_knock_down(),
             carrier_defense_malus: 0,
+            knocked_out_goblins_may_return: false,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

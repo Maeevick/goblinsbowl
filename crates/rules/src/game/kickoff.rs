@@ -21,10 +21,19 @@ impl<D: DiceRoller> Game<D> {
         events.push(GameEvent::KickedOff { receiving_team });
         for team in TeamId::DUEL {
             let heals = self.ruleset.goblins_heal_at_kick_off;
+            let returning = if !heals && self.ruleset.knocked_out_goblins_may_return {
+                self.roll_returns_from_knock_out(team, events)
+            } else {
+                Vec::new()
+            };
             let lining_up: Vec<&Goblin> = self
                 .state
                 .goblins_of(team)
-                .filter(|goblin| heals || goblin.presence != Presence::KnockedOut)
+                .filter(|goblin| {
+                    heals
+                        || goblin.presence != Presence::KnockedOut
+                        || returning.contains(&goblin.id)
+                })
                 .collect();
             let roster = if lining_up.len() == self.state.goblins_of(team).count() {
                 self.state.rosters[team.index()]
@@ -46,6 +55,36 @@ impl<D: DiceRoller> Game<D> {
             };
             self.bounce_ball(at, events);
         }
+    }
+
+    /// Each knocked-out goblin of `team` rolls its Health die minus one: the ones above 0 come back
+    /// with that much Health, the others stay out.
+    fn roll_returns_from_knock_out(
+        &mut self,
+        team: TeamId,
+        events: &mut Vec<GameEvent>,
+    ) -> Vec<GoblinId> {
+        let knocked_out: Vec<(GoblinId, u8)> = self
+            .state
+            .goblins_of(team)
+            .filter(|goblin| goblin.presence == Presence::KnockedOut)
+            .map(|goblin| (goblin.id, goblin.characteristics.health))
+            .collect();
+        knocked_out
+            .into_iter()
+            .filter_map(|(goblin, full_health)| {
+                let health = self.dice.roll(full_health).saturating_sub(1);
+                if health == 0 {
+                    events.push(GameEvent::StillKnockedOut { goblin });
+                    return None;
+                }
+                if let Some(back) = self.state.goblin_mut(goblin) {
+                    back.health = health;
+                }
+                events.push(GameEvent::ReturnedFromKnockOut { goblin, health });
+                Some(goblin)
+            })
+            .collect()
     }
 
     fn kickoff_drop(&mut self, receiving_team: TeamId) -> Square {

@@ -51,6 +51,7 @@ pub fn event_team(event: &GameEvent) -> Option<TeamId> {
         | GameEvent::TurnEnded { team, .. }
         | GameEvent::Scored { team, .. } => Some(*team),
         GameEvent::ReturnedFromKnockOut { goblin, .. }
+        | GameEvent::StillKnockedOut { goblin }
         | GameEvent::CatchAttempted { goblin, .. }
         | GameEvent::StoodUp { goblin }
         | GameEvent::Moved { goblin, .. }

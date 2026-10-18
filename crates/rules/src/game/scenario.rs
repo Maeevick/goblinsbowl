@@ -40,6 +40,7 @@ fn rules_0_1() -> Ruleset {
         turn_ends_when_no_goblin_can_act: true,
         assault_ties_knock_down: true,
         carrier_defense_malus: 0,
+        knocked_out_goblins_may_return: false,
         archetypes: ArchetypeCharacteristics {
             bruiser: Characteristics {
                 attack: 4,
