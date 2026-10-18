@@ -3,7 +3,8 @@
 //! `make balance ARGS="--games 1000 --home cautious --away bold --rules rules.toml --seed 1"`;
 //! coaches are `random`, `cautious`, `bold`, `cautious-2`, `balanced-2` or `bold-2`. With `--risk`,
 //! every match is also replayed to report each coach's own safe-first index, as the assessment
-//! reads it for agents.
+//! reads it for agents. `--arena circle|cross|rectangle` and `--arena-size tiny|medium|huge` play
+//! in another bowl than the rules file's.
 
 use std::error::Error;
 use std::path::PathBuf;
@@ -11,6 +12,7 @@ use std::time::Instant;
 
 use goblins_rules::assessment::{ActivationRow, activation_rows, summarise};
 use goblins_rules::balance::{BalanceSummary, MatchStats};
+use goblins_rules::bowls::{BowlShape, BowlSize, with_bowl};
 use goblins_rules::dice::SeededDice;
 use goblins_rules::host::{MatchHost, MatchRecord, MatchSetup, SeatKind};
 use goblins_rules::policies::Bot;
@@ -25,6 +27,8 @@ struct Options {
     rules: Option<PathBuf>,
     seed: u64,
     risk: bool,
+    arena: Option<BowlShape>,
+    arena_size: Option<BowlSize>,
 }
 
 fn options() -> Result<Options, String> {
@@ -34,6 +38,8 @@ fn options() -> Result<Options, String> {
         rules: None,
         seed: 1,
         risk: false,
+        arena: None,
+        arena_size: None,
     };
     let mut arguments = std::env::args().skip(1);
     while let Some(flag) = arguments.next() {
@@ -52,6 +58,10 @@ fn options() -> Result<Options, String> {
             "--away" => options.coaches[1] = value.parse().map_err(|error| format!("{error}"))?,
             "--rules" => options.rules = Some(PathBuf::from(value)),
             "--seed" => options.seed = value.parse().map_err(|_| format!("bad --seed {value}"))?,
+            "--arena" => options.arena = Some(value.parse().map_err(|error| format!("{error}"))?),
+            "--arena-size" => {
+                options.arena_size = Some(value.parse().map_err(|error| format!("{error}"))?)
+            }
             other => return Err(format!("unknown flag {other}")),
         }
     }
@@ -94,10 +104,14 @@ fn play(
 
 fn main() -> Result<(), Box<dyn Error>> {
     let options = options()?;
-    let ruleset = match &options.rules {
-        Some(path) => Ruleset::from_toml_str(&std::fs::read_to_string(path)?)?,
-        None => Ruleset::default(),
-    };
+    let ruleset = with_bowl(
+        match &options.rules {
+            Some(path) => Ruleset::from_toml_str(&std::fs::read_to_string(path)?)?,
+            None => Ruleset::default(),
+        },
+        options.arena,
+        options.arena_size,
+    );
     let started = Instant::now();
     let mut summary = BalanceSummary::default();
     let mut rows_by_team: [Vec<ActivationRow>; 2] = [Vec::new(), Vec::new()];

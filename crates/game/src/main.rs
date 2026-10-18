@@ -9,6 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
 use clap::Parser;
+use goblins_rules::bowls::with_bowl;
 use goblins_rules::event::GameEvent;
 use goblins_rules::host::MatchHost;
 use goblins_rules::ruleset::{Ruleset, RulesetError};
@@ -34,7 +35,7 @@ enum MatchSource {
 fn main() -> AppExit {
     let options = GameOptions::parse();
     let ruleset = match load_ruleset(&options.rules) {
-        Ok(ruleset) => ruleset,
+        Ok(ruleset) => with_bowl(ruleset, options.arena, options.arena_size),
         Err(problem) => {
             eprintln!("{problem}");
             return AppExit::from_code(2);

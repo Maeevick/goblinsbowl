@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, ValueEnum};
+use goblins_rules::bowls::{BowlShape, BowlSize};
 use goblins_rules::host::SeatKind;
 use goblins_rules::policies::Bot;
 
@@ -72,6 +73,12 @@ pub struct ServerOptions {
     /// Rules file; the built-in rules are used when it does not exist.
     #[arg(long, default_value = "rules.toml")]
     pub rules: PathBuf,
+    /// Shape of the bowl: circle, cross or rectangle; the rules file's bowl when left out.
+    #[arg(long)]
+    pub arena: Option<BowlShape>,
+    /// Size of the bowl: tiny (21 squares from den to den), medium (31) or huge (51).
+    #[arg(long)]
+    pub arena_size: Option<BowlSize>,
     /// Folder where the match record is saved at the final whistle.
     #[arg(long, default_value = "runs")]
     pub record_dir: PathBuf,

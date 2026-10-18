@@ -6,6 +6,8 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+use crate::ruleset::Ruleset;
+
 /// Squares in a den, whatever the bowl.
 pub const DEN_SQUARES: u8 = 7;
 
@@ -132,6 +134,21 @@ pub fn bowl_mask(shape: BowlShape, size: BowlSize) -> Vec<String> {
         .collect()
 }
 
+/// `ruleset` played in the bowl of `shape` and `size`, a circle and tiny when one is left out; the
+/// ruleset's own bowl when both are.
+pub fn with_bowl(ruleset: Ruleset, shape: Option<BowlShape>, size: Option<BowlSize>) -> Ruleset {
+    if shape.is_none() && size.is_none() {
+        return ruleset;
+    }
+    Ruleset {
+        arena: bowl_mask(
+            shape.unwrap_or(BowlShape::Circle),
+            size.unwrap_or(BowlSize::Tiny),
+        ),
+        ..ruleset
+    }
+}
+
 fn in_bounds(shape: BowlShape, length: u8, width: u8, x: u8, y: u8) -> bool {
     match shape {
         BowlShape::Circle => {
@@ -154,7 +171,6 @@ fn in_bounds(shape: BowlShape, length: u8, width: u8, x: u8, y: u8) -> bool {
 mod tests {
     use super::*;
     use crate::arena::{Arena, ROUND_BOWL_21_MASK};
-    use crate::ruleset::Ruleset;
     use crate::square::Square;
     use crate::team::TeamId;
 
@@ -214,6 +230,21 @@ mod tests {
             })
             .collect();
         assert_eq!(invalid, []);
+    }
+
+    #[test]
+    fn given_only_a_size_when_picking_the_bowl_then_a_circle_of_that_size() {
+        let ruleset = with_bowl(Ruleset::default(), None, Some(BowlSize::Medium));
+        assert_eq!(
+            ruleset.arena,
+            bowl_mask(BowlShape::Circle, BowlSize::Medium)
+        );
+    }
+
+    #[test]
+    fn given_no_shape_nor_size_when_picking_the_bowl_then_the_rules_keep_theirs() {
+        let ruleset = with_bowl(Ruleset::default(), None, None);
+        assert_eq!(ruleset, Ruleset::default());
     }
 
     #[test]

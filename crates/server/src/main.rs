@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use clap::Parser;
+use goblins_rules::bowls::with_bowl;
 use goblins_rules::host::{MatchHost, MatchSetup};
 use goblins_rules::ruleset::Ruleset;
 use goblins_server::match_server::{ServerPacing, spawn_match};
@@ -22,7 +23,11 @@ const SERVER_TICK: Duration = Duration::from_millis(100);
 async fn main() -> anyhow::Result<()> {
     let options = ServerOptions::parse();
     let seed = options.seed.unwrap_or_else(seed_from_clock);
-    let ruleset = load_ruleset(&options.rules)?;
+    let ruleset = with_bowl(
+        load_ruleset(&options.rules)?,
+        options.arena,
+        options.arena_size,
+    );
     let tokens = SeatTokens {
         home: options.home_token.clone().unwrap_or_else(random_token),
         away: options.away_token.clone().unwrap_or_else(random_token),

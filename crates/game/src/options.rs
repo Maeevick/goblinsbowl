@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use bevy::prelude::Resource;
 use clap::{Parser, ValueEnum};
+use goblins_rules::bowls::{BowlShape, BowlSize};
 use goblins_rules::host::{MatchSetup, SeatKind};
 use goblins_rules::policies::Bot;
 use goblins_rules::ruleset::Ruleset;
@@ -60,6 +61,12 @@ pub struct GameOptions {
     /// Rules file; the built-in rules are used when it does not exist.
     #[arg(long, default_value = "rules.toml")]
     pub rules: PathBuf,
+    /// Shape of the bowl: circle, cross or rectangle; the rules file's bowl when left out.
+    #[arg(long)]
+    pub arena: Option<BowlShape>,
+    /// Size of the bowl: tiny (21 squares from den to den), medium (31) or huge (51).
+    #[arg(long)]
+    pub arena_size: Option<BowlSize>,
     /// Language of the screens.
     #[arg(long, value_enum, default_value_t = Language::French)]
     pub lang: Language,
@@ -161,6 +168,20 @@ mod tests {
     #[test]
     fn given_no_bot_style_when_parsed_then_the_cautious_bot() {
         assert_eq!(parse(&[]).bot, Bot::Cautious);
+    }
+
+    #[test]
+    fn given_a_medium_rectangle_when_parsed_then_its_shape_and_size() {
+        let options = parse(&["--arena", "rectangle", "--arena-size", "medium"]);
+        assert_eq!(
+            (options.arena, options.arena_size),
+            (Some(BowlShape::Rectangle), Some(BowlSize::Medium))
+        );
+    }
+
+    #[test]
+    fn given_an_unknown_arena_when_parsed_then_refused() {
+        assert!(GameOptions::try_parse_from(["goblinsbowl", "--arena", "triangle"]).is_err());
     }
 
     #[test]
