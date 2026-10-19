@@ -1,7 +1,7 @@
 //! Plays many seeded matches between scripted coaches and reports how the rules play out.
 //!
 //! `make balance ARGS="--games 1000 --home cautious --away bold --rules rules.toml --seed 1"`;
-//! coaches are `random`, `cautious`, `bold`, `cautious-2`, `balanced-2` or `bold-2`. With `--risk`,
+//! coaches are `random`, `cautious-2`, `balanced-2` or `bold-2`. With `--risk`,
 //! every match is also replayed to report each coach's own safe-first index, as the assessment
 //! reads it for agents. `--arena circle|cross|rectangle` and `--arena-size tiny|medium|huge` play
 //! in another bowl than the rules file's.
@@ -32,7 +32,7 @@ struct Options {
 fn options() -> Result<Options, String> {
     let mut options = Options {
         games: 200,
-        coaches: [Bot::Cautious, Bot::Cautious],
+        coaches: [Bot::Balanced2, Bot::Balanced2],
         rules: None,
         seed: 1,
         risk: false,

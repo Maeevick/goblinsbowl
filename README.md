@@ -10,13 +10,13 @@ Goblin football in a bowl: a minimalist, turn-based tactics game played with dic
 ```bash
 make run                              # two humans on this machine (Bevy window), opening on a menu to pick the arena
 make run ARGS="--no-menu"             # the same, straight into the match on the rules file's arena
-make run ARGS="--away bot"            # play against the computer, the cautious bot by default
-make run ARGS="--home bot --bot balanced-2"  # the computer on the home seat with another coach: --bot cautious, bold, random, cautious-2, balanced-2 or bold-2
+make run ARGS="--away bot"            # play against the computer, the balanced-2 bot by default
+make run ARGS="--home bot --bot cautious-2"  # the computer on the home seat with another coach: --bot cautious-2, balanced-2, bold-2 or random
 make run ARGS="--away bot --record"   # the same, its record saved to runs/ (make assess ARGS="runs/<file>.jsonl" reads it)
 make run ARGS="--arena rectangle --arena-size medium"  # another bowl: circle, cross or rectangle; tiny (21), medium (31) or huge (51)
 make run ARGS="--home-turn-seconds 90 --lang en"
 make check                            # lint + unit + integrated tests
-make balance ARGS="--games 1000 --home cautious --away bold"
+make balance ARGS="--games 1000 --home cautious-2 --away bold-2"
 ```
 
 Rules 0.10 (French and English, printable for a paper playtest): [`docs/rules.md`](docs/rules.md). Every tunable number lives in `rules.toml`; how they play out between bots: [`docs/balance.md`](docs/balance.md).
@@ -39,7 +39,7 @@ Rules 0.10 (French and English, printable for a paper playtest): [`docs/rules.md
 
 ```bash
 make run ARGS="--away agent"          # you against Claude in the window: it prints how to connect the agent
-make serve                            # headless MCP server on http://127.0.0.1:7878/mcp: an agent against the cautious bot
+make serve                            # headless MCP server on http://127.0.0.1:7878/mcp: an agent against the balanced-2 bot
 make serve ARGS="--arena cross"       # the same in another bowl (--arena and --arena-size, as in the window)
 make serve ARGS="--rules assessment/rules-0.10.toml --rules-text assessment/rules-0.10.md"   # the frozen assessment benchmark: its ruleset, and the rules agents read
 scripts/agent-vs-agent.sh 4           # two Claude Code coaches, at most $4 each; everything lands in runs/<timestamp>/

@@ -1,6 +1,9 @@
 //! Scripted coaches after the Bot Bowl recipe: score when the odds are good, free the ball, then
 //! move without dice and brace, taking a risk only within the coach's appetite, and ending the turn
-//! otherwise. The cautious and bold coaches differ only in their appetite.
+//! otherwise. Coaches differ only in their temper: a fixed appetite, or one sliding from careful to
+//! daring as fewer goblins are left to play. Ties between equally good squares break the same way
+//! for both teams, and before a gamble a coach plays another goblin's certain move when that move
+//! leaves the gamble its chance.
 
 use std::cmp::Reverse;
 
@@ -87,17 +90,6 @@ enum Risk {
     Hit,
 }
 
-/// Which scripted coach plays.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Generation {
-    /// The coaches of the first batches: orders by priority alone, ties broken by square order.
-    First,
-    /// Ties broken the same way for both teams, the square nearest its own den first, then the
-    /// northern one; and before a gamble, another goblin's certain move when it leaves the gamble
-    /// its chance.
-    Second,
-}
-
 /// How much a scripted coach risks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Temper {
@@ -128,70 +120,31 @@ fn between(low: Probability, high: Probability, weight: u64, scale: u64) -> Prob
     )
 }
 
-/// A scripted coach: its generation and its temper.
+/// A scripted coach: its temper.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Style {
-    /// Which coach plays.
-    pub generation: Generation,
     /// How much it risks.
     pub temper: Temper,
 }
 
 impl Style {
-    /// The second-generation coach with a fixed `appetite`.
-    pub fn second(appetite: Appetite) -> Self {
+    /// The coach with a fixed `appetite`.
+    pub fn fixed(appetite: Appetite) -> Self {
         Self {
-            generation: Generation::Second,
             temper: Temper::Fixed(appetite),
         }
     }
 
-    /// The second-generation coach as cautious as the cautious one while every other goblin can
-    /// still play, and as bold as the bold one once none can.
+    /// The coach as cautious as the cautious one while every other goblin can still play, and as
+    /// bold as the bold one once none can.
     pub fn balanced() -> Self {
         Self {
-            generation: Generation::Second,
             temper: Temper::Exposed {
                 careful: Appetite::cautious(),
                 daring: Appetite::bold(),
             },
         }
     }
-}
-
-/// The next command of a careful coach for `team`: [`scripted_command`] with a cautious appetite.
-pub fn cautious_command(
-    arena: &Arena,
-    ruleset: &Ruleset,
-    state: &GameState,
-    team: TeamId,
-) -> Command {
-    scripted_command(arena, ruleset, state, team, Appetite::cautious())
-}
-
-/// The next command of a daring coach for `team`: [`scripted_command`] with a bold appetite.
-pub fn bold_command(arena: &Arena, ruleset: &Ruleset, state: &GameState, team: TeamId) -> Command {
-    scripted_command(arena, ruleset, state, team, Appetite::bold())
-}
-
-/// The next command of a first-generation scripted coach for `team` with this `appetite`.
-pub fn scripted_command(
-    arena: &Arena,
-    ruleset: &Ruleset,
-    state: &GameState,
-    team: TeamId,
-    appetite: Appetite,
-) -> Command {
-    styled_command(
-        arena,
-        ruleset,
-        state,
-        team,
-        Style {
-            generation: Generation::First,
-            temper: Temper::Fixed(appetite),
-        },
-    )
 }
 
 /// The next command of the scripted coach of this `style` for `team`, without any randomness.
@@ -218,12 +171,10 @@ pub fn styled_command(
         style,
         excluded: None,
     };
-    let chosen = coach.by_priority();
-    let chosen = match (style.generation, chosen) {
-        (Generation::Second, Some(gamble)) => Some(coach.certain_before(&gamble).unwrap_or(gamble)),
-        (_, chosen) => chosen,
-    };
-    chosen.map_or(Command::EndTurn, Command::Act)
+    coach
+        .by_priority()
+        .map(|gamble| coach.certain_before(&gamble).unwrap_or(gamble))
+        .map_or(Command::EndTurn, Command::Act)
 }
 
 #[derive(Clone, Copy)]
@@ -317,20 +268,15 @@ impl Coach<'_> {
     }
 
     fn tie_break(&self, square: Square) -> (u8, u8) {
-        match self.style.generation {
-            Generation::First => (0, 0),
-            Generation::Second => {
-                let from_own_den = if self.team == TeamId::HOME {
-                    square.x
-                } else {
-                    self.arena
-                        .width()
-                        .saturating_sub(1)
-                        .saturating_sub(square.x)
-                };
-                (from_own_den, square.y)
-            }
-        }
+        let from_own_den = if self.team == TeamId::HOME {
+            square.x
+        } else {
+            self.arena
+                .width()
+                .saturating_sub(1)
+                .saturating_sub(square.x)
+        };
+        (from_own_den, square.y)
     }
 
     fn destination(&self, activation: &Activation) -> Option<Square> {
@@ -361,16 +307,13 @@ impl Coach<'_> {
             .map(|odds| odds.overall_success)
     }
 
-    /// The chance `activation` does what it is played for: for the second generation, an assault's
-    /// chance to knock its target down, a stand-off doing nothing; otherwise the chance the turn
-    /// goes on, which is the same where ties knock the target down.
+    /// The chance `activation` does what it is played for: an assault's chance to knock its target
+    /// down, a stand-off doing nothing; otherwise the chance the turn goes on.
     fn chance_played_for(&self, activation: &Activation) -> Option<Probability> {
         let odds =
             activation_odds(self.arena, self.ruleset, self.state, self.team, activation).ok()?;
-        Some(match (self.style.generation, &odds.action) {
-            (Generation::Second, Some(ActionOdds::Assault { knock_down, .. })) => {
-                odds.path_success.and(*knock_down)
-            }
+        Some(match &odds.action {
+            Some(ActionOdds::Assault { knock_down, .. }) => odds.path_success.and(*knock_down),
             _ => odds.overall_success,
         })
     }
@@ -616,12 +559,11 @@ impl Coach<'_> {
             .or_else(|| self.chaos_pass(carrier))
     }
 
-    /// How `carrier` may throw a pass: simply, and focused too for a second-generation coach's
-    /// Thrower where the rules have focused throws, the better chance then winning.
+    /// How `carrier` may throw a pass: simply, and focused too for a Thrower where the rules have
+    /// focused throws, the better chance then winning.
     fn throw_styles_of(&self, carrier: &Goblin) -> Vec<ThrowStyle> {
-        let focuses = self.style.generation == Generation::Second
-            && self.ruleset.focused_throws_spend_steps_left
-            && carrier.archetype == Archetype::Thrower;
+        let focuses =
+            self.ruleset.focused_throws_spend_steps_left && carrier.archetype == Archetype::Thrower;
         if focuses {
             vec![ThrowStyle::Simple, ThrowStyle::Focused]
         } else {
@@ -629,14 +571,12 @@ impl Coach<'_> {
         }
     }
 
-    /// Where the rules have styles, a second-generation coach whose carrier has not moved and finds
-    /// no pass worth its appetite throws into chaos towards a teammate three squares closer to the
+    /// Where the rules have styles, a coach whose carrier has not moved and finds no pass worth its
+    /// appetite throws into chaos towards a teammate three squares closer to the
     /// enemy den at least, the one around whom a teammate most likely ends up holding the ball, when
     /// that chance is worth its appetite for passes; otherwise nothing.
     fn chaos_pass(&self, carrier: &Goblin) -> Option<Activation> {
-        if self.style.generation != Generation::Second
-            || !self.ruleset.throws_have_styles
-            || carrier.steps_left < carrier.characteristics.movement
+        if !self.ruleset.throws_have_styles || carrier.steps_left < carrier.characteristics.movement
         {
             return None;
         }
@@ -666,17 +606,17 @@ impl Coach<'_> {
         self.most_likely(candidates, Risk::Pass)
     }
 
-    /// How a second-generation coach assaults to knock a goblin down where the rules have styles:
-    /// chirurgically, +1 to win; otherwise simply.
+    /// How a coach assaults to knock a goblin down where the rules have styles: chirurgically, +1 to
+    /// win; otherwise simply.
     fn style_to_knock_down(&self) -> AssaultStyle {
-        if self.style.generation == Generation::Second && self.ruleset.assaults_have_styles {
+        if self.ruleset.assaults_have_styles {
             AssaultStyle::Chirurgical
         } else {
             AssaultStyle::Simple
         }
     }
 
-    /// How a second-generation coach hits `enemy` where the rules have styles: brutally when it lies
+    /// How a coach hits `enemy` where the rules have styles: brutally when it lies
     /// down or has 3 Health or less, a win then knocking it out; chirurgically otherwise.
     fn style_to_hit(&self, enemy: &Goblin) -> AssaultStyle {
         let finishable = !enemy.is_standing() || enemy.health <= 3;
@@ -877,7 +817,13 @@ mod tests {
 
     fn choose(scenario: Scenario) -> Command {
         let game = scenario.game([]);
-        cautious_command(game.arena(), game.ruleset(), game.state(), TeamId::HOME)
+        styled_command(
+            game.arena(),
+            game.ruleset(),
+            game.state(),
+            TeamId::HOME,
+            Style::fixed(Appetite::cautious()),
+        )
     }
 
     fn activation(command: Command) -> Activation {
@@ -933,15 +879,29 @@ mod tests {
     }
 
     #[test]
-    fn given_a_loose_ball_within_reach_when_choosing_then_the_best_placed_goblin_goes_for_it() {
-        let scenario = Scenario::new()
+    fn given_a_loose_ball_within_reach_when_choosing_twice_then_a_certain_move_first_and_the_best_placed_goblin_goes_for_it()
+     {
+        let mut game = Scenario::new()
             .goblin("H1", Bruiser, 4, 7)
             .goblin("H5", Sprinter, 7, 7)
-            .ball_loose_at(9, 7);
-        let chosen = activation(choose(scenario));
+            .ball_loose_at(9, 7)
+            .game([]);
+        let cautious = |game: &crate::game::Game<_>| {
+            styled_command(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                TeamId::HOME,
+                Style::fixed(Appetite::cautious()),
+            )
+        };
+        let first = activation(cautious(&game));
+        game.apply(TeamId::HOME, Command::Act(first.clone()))
+            .unwrap();
+        let second = activation(cautious(&game));
         assert_eq!(
-            (chosen.goblin, chosen.path.last().copied()),
-            (id("H5"), Some(Square::new(9, 7)))
+            (first.goblin, second.goblin, second.path.last().copied()),
+            (id("H1"), id("H5"), Some(Square::new(9, 7)))
         );
     }
 
@@ -1278,14 +1238,6 @@ mod tests {
     }
 
     #[test]
-    fn given_ties_that_stand_off_when_the_first_bold_coach_faces_an_even_fight_then_it_still_hits_on_its_five_eighths_to_keep_its_feet()
-     {
-        let game = bruisers_face_to_face_where_ties_stand_off().game([]);
-        let command = bold_command(game.arena(), game.ruleset(), game.state(), TeamId::HOME);
-        assert!(is_an_assault(&command));
-    }
-
-    #[test]
     fn given_ties_that_stand_off_when_the_second_bold_coach_faces_an_even_fight_then_its_three_eighths_to_knock_down_hold_it_back()
      {
         let game = bruisers_face_to_face_where_ties_stand_off().game([]);
@@ -1294,7 +1246,7 @@ mod tests {
             game.ruleset(),
             game.state(),
             TeamId::HOME,
-            Style::second(Appetite::bold()),
+            Style::fixed(Appetite::bold()),
         );
         assert!(!is_an_assault(&command));
     }
@@ -1327,7 +1279,7 @@ mod tests {
                 .ball_carried_by("A5"),
         );
         assert!(matches!(
-            styled_command_of(scenario, Style::second(Appetite::cautious())),
+            styled_command_of(scenario, Style::fixed(Appetite::cautious())),
             Command::Act(Activation {
                 action: Some(Action::Assault {
                     style: AssaultStyle::Chirurgical,
@@ -1353,7 +1305,7 @@ mod tests {
                 }),
         );
         assert!(matches!(
-            styled_command_of(scenario, Style::second(Appetite::bold())),
+            styled_command_of(scenario, Style::fixed(Appetite::bold())),
             Command::Act(Activation {
                 action: Some(Action::Assault {
                     style: AssaultStyle::Brutal,
@@ -1379,7 +1331,7 @@ mod tests {
         assert_eq!(
             styled_command_of(
                 thrower_far_from_its_receiver_with_focused_throws(),
-                Style::second(Appetite::cautious())
+                Style::fixed(Appetite::cautious())
             ),
             Command::Act(Activation {
                 goblin: id("H9"),
@@ -1390,21 +1342,6 @@ mod tests {
                 }),
             })
         );
-    }
-
-    #[test]
-    fn given_focused_throws_when_a_first_generation_thrower_finds_the_same_pass_then_it_never_throws_focused()
-     {
-        assert!(!matches!(
-            choose(thrower_far_from_its_receiver_with_focused_throws()),
-            Command::Act(Activation {
-                action: Some(Action::Throw {
-                    style: ThrowStyle::Focused,
-                    ..
-                }),
-                ..
-            })
-        ));
     }
 
     fn marked_thrower_with_the_ball() -> Scenario {
@@ -1428,7 +1365,7 @@ mod tests {
                 .goblin("H8", Thrower, 12, 8),
         );
         assert_eq!(
-            styled_command_of(scenario, Style::second(Appetite::cautious())),
+            styled_command_of(scenario, Style::fixed(Appetite::cautious())),
             Command::Act(Activation {
                 goblin: id("H9"),
                 path: Vec::new(),
@@ -1444,7 +1381,7 @@ mod tests {
     fn given_throw_styles_when_a_marked_thrower_s_teammate_stands_alone_then_no_chaos_throw() {
         let scenario = with_styles(marked_thrower_with_the_ball());
         assert!(!matches!(
-            styled_command_of(scenario, Style::second(Appetite::cautious())),
+            styled_command_of(scenario, Style::fixed(Appetite::cautious())),
             Command::Act(Activation {
                 action: Some(Action::Throw {
                     style: ThrowStyle::Chaos,
@@ -1504,20 +1441,14 @@ mod tests {
     fn given_actions_at_a_step_one_of_each_kind_and_stance_when_every_coach_plays_whole_matches_then_no_order_is_refused()
      {
         let ruleset = rules_where_goblins_act_often_at_a_cost();
-        let first = |appetite| Style {
-            generation: Generation::First,
-            temper: Temper::Fixed(appetite),
-        };
         assert_eq!(
             [
-                first(Appetite::cautious()),
-                first(Appetite::bold()),
-                Style::second(Appetite::cautious()),
+                Style::fixed(Appetite::cautious()),
                 Style::balanced(),
-                Style::second(Appetite::bold()),
+                Style::fixed(Appetite::bold()),
             ]
             .map(|style| refusals_over_whole_matches(style, &ruleset, 2)),
-            [0, 0, 0, 0, 0]
+            [0, 0, 0]
         );
     }
 
@@ -1529,20 +1460,14 @@ mod tests {
             focused_throws_spend_steps_left: true,
             ..rules_where_goblins_act_often_at_a_cost()
         };
-        let first = |appetite| Style {
-            generation: Generation::First,
-            temper: Temper::Fixed(appetite),
-        };
         assert_eq!(
             [
-                first(Appetite::cautious()),
-                first(Appetite::bold()),
-                Style::second(Appetite::cautious()),
+                Style::fixed(Appetite::cautious()),
                 Style::balanced(),
-                Style::second(Appetite::bold()),
+                Style::fixed(Appetite::bold()),
             ]
             .map(|style| refusals_over_whole_matches(style, &ruleset, 2)),
-            [0, 0, 0, 0, 0]
+            [0, 0, 0]
         );
     }
 
@@ -1583,22 +1508,13 @@ mod tests {
      {
         assert_eq!(
             [
-                Style::second(Appetite::cautious()),
+                Style::fixed(Appetite::cautious()),
                 Style::balanced(),
-                Style::second(Appetite::bold())
+                Style::fixed(Appetite::bold())
             ]
             .map(|style| mirror_breaks(style, 1..=6, 120)),
             [0, 0, 0]
         );
-    }
-
-    #[test]
-    fn given_the_first_generation_when_the_bowl_is_mirrored_then_its_square_order_shows() {
-        let first = Style {
-            generation: Generation::First,
-            temper: Temper::Fixed(Appetite::cautious()),
-        };
-        assert!(mirror_breaks(first, 1..=6, 120) > 0);
     }
 
     fn ball_next_to_a_bruiser_and_a_sprinter_far_away() -> Scenario {
@@ -1610,12 +1526,6 @@ mod tests {
     }
 
     #[test]
-    fn given_the_first_generation_when_a_pick_up_is_within_its_appetite_then_it_gambles_at_once() {
-        let chosen = activation(choose(ball_next_to_a_bruiser_and_a_sprinter_far_away()));
-        assert_eq!(chosen.goblin, id("H1"));
-    }
-
-    #[test]
     fn given_the_second_generation_when_a_pick_up_is_within_its_appetite_then_another_goblin_closes_in_without_dice_first()
      {
         let game = ball_next_to_a_bruiser_and_a_sprinter_far_away().game([]);
@@ -1624,7 +1534,7 @@ mod tests {
             game.ruleset(),
             game.state(),
             TeamId::HOME,
-            Style::second(Appetite::cautious()),
+            Style::fixed(Appetite::cautious()),
         ));
         let chance = activation_odds(
             game.arena(),

@@ -3,7 +3,7 @@
 How rules 0.1 play out between scripted coaches, measured with `make balance`: 1,000 seeded matches per line (seeds 1 to 1,000), the same seeds for every line.
 
 ```bash
-make balance ARGS="--games 1000 --home cautious --away bold --rules rules.toml"
+make balance ARGS="--games 1000 --home cautious-2 --away bold-2 --rules rules.toml"
 make balance ARGS="--games 1000 --home cautious-2 --away bold-2 --arena rectangle --arena-size medium"
 ```
 
@@ -17,7 +17,7 @@ make balance ARGS="--games 1000 --home cautious-2 --away bold-2 --arena rectangl
 | cautious | 70 % | 50 % | 50 % | 50 % | 75 % |
 | bold | 50 % | 33 % | 33 % | 33 % | 50 % |
 
-- **cautious-2**, **balanced-2** and **bold-2**, since 17 Oct 2026: the second generation, beside the first, see [the second-generation coaches](#second-generation-coaches-17-oct-2026).
+- **cautious-2**, **balanced-2** and **bold-2**, since 17 Oct 2026: the second generation, see [the second-generation coaches](#second-generation-coaches-17-oct-2026). On 19 Oct 2026 the first generation, `cautious` and `bold`, was retired from the game and the assessment; the tables below that name them stay as they were measured, but no longer replay.
 
 ## Rules 0.1
 

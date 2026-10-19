@@ -127,7 +127,7 @@ proptest! {
         coach_seed in any::<u64>(),
         bold in any::<bool>(),
     ) {
-        let scripted = if bold { Bot::Bold } else { Bot::Cautious };
+        let scripted = if bold { Bot::Bold2 } else { Bot::Cautious2 };
         let host = play_match(match_seed, coach_seed, [scripted, Bot::Random]);
         prop_assert!(host.is_ok(), "{:?}", host.err());
     }
@@ -142,7 +142,7 @@ proptest! {
         coach_seed in any::<u64>(),
         bold in any::<bool>(),
     ) {
-        let scripted = if bold { Bot::Bold } else { Bot::Cautious };
+        let scripted = if bold { Bot::Bold2 } else { Bot::Cautious2 };
         let rules = goblins_moving_after_action_and_turns_waiting_for_the_coach();
         let against_random = play_match_under(rules.clone(), match_seed, coach_seed, [scripted, Bot::Random]);
         let mirror = play_match_under(rules, match_seed, coach_seed, [scripted, scripted]);
@@ -184,7 +184,7 @@ fn given_a_random_match_when_it_ends_then_the_phase_is_finished() {
 fn given_eight_seeds_when_the_bold_coach_plays_the_random_one_then_it_scores() {
     let goals: u32 = (1..=8)
         .map(|seed| {
-            let host = play_match(seed, seed, [Bot::Bold, Bot::Random]).unwrap();
+            let host = play_match(seed, seed, [Bot::Bold2, Bot::Random]).unwrap();
             u32::from(host.game().state().score[0])
         })
         .sum();
@@ -193,7 +193,7 @@ fn given_eight_seeds_when_the_bold_coach_plays_the_random_one_then_it_scores() {
 
 #[test]
 fn given_two_scripted_coaches_when_their_match_is_replayed_then_the_same_final_state() {
-    let host = play_match(3, 3, [Bot::Cautious, Bot::Bold]).unwrap();
+    let host = play_match(3, 3, [Bot::Cautious2, Bot::Bold2]).unwrap();
     let replayed = host.record().replay().unwrap();
     assert_eq!(replayed.state(), &host.snapshot().state);
 }

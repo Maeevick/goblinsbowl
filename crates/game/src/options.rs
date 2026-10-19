@@ -43,8 +43,8 @@ pub struct GameOptions {
     /// Who plays the away team (gold, east den).
     #[arg(long, value_enum, default_value_t = LocalSeat::Human)]
     pub away: LocalSeat,
-    /// How the bot seats play: random, cautious, bold, cautious-2, balanced-2 or bold-2.
-    #[arg(long, default_value_t = Bot::Cautious)]
+    /// How the bot seats play: random, cautious-2, balanced-2 or bold-2.
+    #[arg(long, default_value_t = Bot::Balanced2)]
     pub bot: Bot,
     /// Dice seed; random when left out.
     #[arg(long)]
@@ -169,8 +169,8 @@ mod tests {
     }
 
     #[test]
-    fn given_no_bot_style_when_parsed_then_the_cautious_bot() {
-        assert_eq!(parse(&[]).bot, Bot::Cautious);
+    fn given_no_bot_style_when_parsed_then_the_balanced_bot() {
+        assert_eq!(parse(&[]).bot, Bot::Balanced2);
     }
 
     #[test]
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn given_a_bold_bot_when_parsed_then_the_bold_bot() {
-        assert_eq!(parse(&["--bot", "bold"]).bot, Bot::Bold);
+        assert_eq!(parse(&["--bot", "bold-2"]).bot, Bot::Bold2);
     }
 
     #[test]

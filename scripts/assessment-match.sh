@@ -5,7 +5,7 @@
 # unless it ran out of budget. Everything lands in <batch-dir>/<model>/seed<seed>-<seat>/.
 # When a coach hits the account's session or usage limit, the match is abandoned without a
 # match.json (a later run replays it) and <batch-dir>/LIMIT_HIT tells the other jobs to stand down.
-# Settings: GB_BOT (cautious), GB_TURN_SECONDS (60), GB_HINTS (full), GB_RULES and GB_RULES_TEXT (the
+# Settings: GB_BOT (balanced-2), GB_TURN_SECONDS (60), GB_HINTS (full), GB_RULES and GB_RULES_TEXT (the
 # frozen ruleset and rules text of the benchmark, assessment/rules-0.10.toml and .md),
 # GB_BUDGET (10 USD per coach run, a 24-turn match), GB_RESUMES (1), GB_MATCH_TIMEOUT (seconds
 # allowed after the coach ends; by default every turn of the coach's team running out, 15 s of
@@ -28,7 +28,7 @@ if [ "$seat" = home ]; then
 else
   seat_flags=(--home bot --away agent); home_token="$other_token"; away_token="$agent_token"
 fi
-"$root/target/debug/goblinsbowl-server" "${seat_flags[@]}" --bot "${GB_BOT:-cautious}" --seed "$seed" --port "$port" \
+"$root/target/debug/goblinsbowl-server" "${seat_flags[@]}" --bot "${GB_BOT:-balanced-2}" --seed "$seed" --port "$port" \
   --turn-seconds "${GB_TURN_SECONDS:-60}" --odds-hints "${GB_HINTS:-full}" --rules "$rules" --rules-text "$rules_text" \
   --home-token "$home_token" --away-token "$away_token" --record-dir "$dir" > "$dir/server.log" 2>&1 &
 server=$!
@@ -69,4 +69,4 @@ finished=$(grep -q "Final whistle" "$dir/server.log" && echo true || echo false)
 kill "$server" 2>/dev/null; wait "$server" 2>/dev/null
 cost=$(grep -o '"total_cost_usd":[0-9.]*' "$dir/$seat-transcript.jsonl" | cut -d: -f2 | awk '{ total += $1 } END { printf "%.4f", total }')
 printf '{"model":"%s","bot":"%s","seed":%s,"seat":"%s","finished":%s,"coach_runs":%s,"coach_seconds":%s,"match_seconds":%s,"cost_usd":%s}\n' \
-  "$model" "${GB_BOT:-cautious}" "$seed" "$seat" "$finished" "$coach_runs" "$coach_seconds" "$(( $(date +%s) - started ))" "$cost" > "$dir/match.json"
+  "$model" "${GB_BOT:-balanced-2}" "$seed" "$seat" "$finished" "$coach_runs" "$coach_seconds" "$(( $(date +%s) - started ))" "$cost" > "$dir/match.json"

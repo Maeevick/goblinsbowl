@@ -37,8 +37,8 @@ pub struct ServerOptions {
     /// Who coaches the away team (east den).
     #[arg(long, value_enum, default_value_t = RemoteSeat::Bot)]
     pub away: RemoteSeat,
-    /// How the bot seats play: random, cautious, bold, cautious-2, balanced-2 or bold-2.
-    #[arg(long, default_value_t = Bot::Cautious)]
+    /// How the bot seats play: random, cautious-2, balanced-2 or bold-2.
+    #[arg(long, default_value_t = Bot::Balanced2)]
     pub bot: Bot,
     /// Dice seed; random when left out.
     #[arg(long)]
@@ -135,8 +135,8 @@ mod tests {
     }
 
     #[test]
-    fn given_no_bot_style_when_parsed_then_the_cautious_bot() {
-        assert_eq!(parse(&[]).bot, Bot::Cautious);
+    fn given_no_bot_style_when_parsed_then_the_balanced_bot() {
+        assert_eq!(parse(&[]).bot, Bot::Balanced2);
     }
 
     #[test]

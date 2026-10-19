@@ -21,16 +21,11 @@ pub enum Bot {
     /// Legal commands at random.
     Random,
     /// The scripted coach with a cautious appetite.
-    #[default]
-    Cautious,
-    /// The scripted coach with a bold appetite.
-    Bold,
-    /// The second-generation scripted coach with a cautious appetite.
     Cautious2,
-    /// The second-generation scripted coach with a bold appetite.
+    /// The scripted coach with a bold appetite.
     Bold2,
-    /// The second-generation scripted coach, cautious while many goblins are left to play and
-    /// bold once few are.
+    /// The scripted coach cautious while many goblins are left to play and bold once few are.
+    #[default]
     Balanced2,
 }
 
@@ -46,21 +41,19 @@ impl Bot {
     ) -> Command {
         match self {
             Bot::Random => random::random_command(arena, ruleset, state, team, dice),
-            Bot::Cautious => scripted::cautious_command(arena, ruleset, state, team),
-            Bot::Bold => scripted::bold_command(arena, ruleset, state, team),
             Bot::Cautious2 => scripted::styled_command(
                 arena,
                 ruleset,
                 state,
                 team,
-                Style::second(Appetite::cautious()),
+                Style::fixed(Appetite::cautious()),
             ),
             Bot::Bold2 => scripted::styled_command(
                 arena,
                 ruleset,
                 state,
                 team,
-                Style::second(Appetite::bold()),
+                Style::fixed(Appetite::bold()),
             ),
             Bot::Balanced2 => {
                 scripted::styled_command(arena, ruleset, state, team, Style::balanced())
@@ -71,7 +64,7 @@ impl Bot {
 
 /// A bot name that is not one of the built-in coaches.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("unknown bot {0}: random, cautious, bold, cautious-2, balanced-2 or bold-2")]
+#[error("unknown bot {0}: random, cautious-2, balanced-2 or bold-2")]
 pub struct UnknownBot(pub String);
 
 impl FromStr for Bot {
@@ -80,8 +73,6 @@ impl FromStr for Bot {
     fn from_str(name: &str) -> Result<Self, Self::Err> {
         match name {
             "random" => Ok(Bot::Random),
-            "cautious" => Ok(Bot::Cautious),
-            "bold" => Ok(Bot::Bold),
             "cautious-2" => Ok(Bot::Cautious2),
             "bold-2" => Ok(Bot::Bold2),
             "balanced-2" => Ok(Bot::Balanced2),
@@ -94,8 +85,6 @@ impl fmt::Display for Bot {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
             Bot::Random => "random",
-            Bot::Cautious => "cautious",
-            Bot::Bold => "bold",
             Bot::Cautious2 => "cautious-2",
             Bot::Bold2 => "bold-2",
             Bot::Balanced2 => "balanced-2",
@@ -111,8 +100,16 @@ mod tests {
     use crate::roster::Roster;
 
     #[test]
-    fn given_the_name_bold_when_reading_a_bot_then_the_bold_coach() {
-        assert_eq!("bold".parse(), Ok(Bot::Bold));
+    fn given_the_name_bold_2_when_reading_a_bot_then_the_bold_coach() {
+        assert_eq!("bold-2".parse(), Ok(Bot::Bold2));
+    }
+
+    #[test]
+    fn given_the_retired_first_cautious_coach_when_reading_its_name_then_no_bot() {
+        assert_eq!(
+            "cautious".parse::<Bot>(),
+            Err(UnknownBot("cautious".to_string()))
+        );
     }
 
     #[test]
@@ -125,7 +122,7 @@ mod tests {
 
     #[test]
     fn given_a_bot_when_writing_its_name_then_it_reads_back_the_same() {
-        assert_eq!(Bot::Cautious.to_string().parse(), Ok(Bot::Cautious));
+        assert_eq!(Bot::Balanced2.to_string().parse(), Ok(Bot::Balanced2));
     }
 
     #[test]
@@ -137,7 +134,8 @@ mod tests {
     }
 
     #[test]
-    fn given_the_cautious_bot_when_choosing_then_it_plays_like_the_cautious_coach() {
+    fn given_the_cautious_bot_when_choosing_then_it_plays_like_the_coach_with_a_cautious_appetite()
+    {
         let (game, _) = Game::start(
             Ruleset::default(),
             [Roster::DEFAULT, Roster::DEFAULT],
@@ -146,14 +144,20 @@ mod tests {
         .unwrap();
         let team = game.state().active_team().unwrap();
         assert_eq!(
-            Bot::Cautious.command(
+            Bot::Cautious2.command(
                 game.arena(),
                 game.ruleset(),
                 game.state(),
                 team,
                 &mut ScriptedDice::new([])
             ),
-            scripted::cautious_command(game.arena(), game.ruleset(), game.state(), team)
+            scripted::styled_command(
+                game.arena(),
+                game.ruleset(),
+                game.state(),
+                team,
+                Style::fixed(Appetite::cautious())
+            )
         );
     }
 }

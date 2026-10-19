@@ -36,7 +36,7 @@ impl Default for ServerPacing {
         Self {
             tick: Duration::from_millis(100),
             bot_delay: Duration::from_millis(400),
-            bot: Bot::Cautious,
+            bot: Bot::Balanced2,
             bot_seed: 7,
         }
     }

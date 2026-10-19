@@ -104,7 +104,7 @@ mod tests {
                 record_to: None,
             },
             BotSeatPlugin {
-                bot: Bot::Cautious,
+                bot: Bot::Balanced2,
                 seed: 7,
                 pause: Duration::from_millis(500),
             },
