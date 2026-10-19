@@ -1,0 +1,155 @@
+# Goblins Bowl, rules 0.10, frozen on 19 Oct 2026 as the ruleset of the assessment benchmark
+# (docs/assessment.md). Never edit it: a new benchmark ruleset is a new file, linked to this one by a
+# bridging batch.
+# Attack, Defense and Agility are rolled as dice with that many faces.
+
+turns_per_half = 12
+halves = 2
+turn_seconds = 60
+team_size = 9
+
+# An agility test (Pick, Throw, Catch, Intercept) must reach this value after its maluses.
+ball_roll_target = 2
+# Orthogonal steps a throw covers before losing 1 per extra step.
+throw_free_range = 6
+interception_surprise_malus = 1
+# Malus on the defense roll of a goblin assaulted while down.
+downed_defense_malus = 2
+# The kick-off drops the ball kickoff_depth squares into the receiving half (0: the centre square), plus a
+# die of 0 to kickoff_depth_spread more, up to kickoff_across_spread rows to either side (a die too), then
+# bounces kickoff_bounces times unless a goblin catches it.
+kickoff_depth = 4
+kickoff_depth_spread = 3
+kickoff_across_spread = 5
+kickoff_bounces = 3
+# Whether a dodge is an agility test, each adjacent standing enemy a malus of 1
+# (false: the Agility die against the Defense die of the most dangerous enemy).
+dodges_test_agility = true
+# Whether a goblin can brace in Stance, a Defense bonus until its team's next turn (rules 0.1 to 0.4,
+# then 0.8 and 0.9, where it cost every step the goblin had left).
+goblins_can_take_stance = false
+# Most a Stance bonus adds to one roll, and most braced neighbours it counts: +1 for the goblin itself.
+stance_bonus_cap = 1
+neighbour_stance_bonus_cap = 0
+# Whether a goblin of the team on turn missing a bouncing ball ends the turn
+# (false: only a missed catch of the team's own throw does, as a failed pick-up or throw does).
+missed_bounces_end_the_turn = false
+# Whether the goblin holding the ball may assault.
+carriers_can_assault = false
+# Whether the goblin holding the ball may brace in Stance (false: it may focus instead, where throws
+# have styles).
+carriers_can_brace = false
+# Whether a throw to an adjacent teammate is a hand-off: no throw roll, only the receiver's catch.
+adjacent_throws_are_hand_offs = true
+# Whether every goblin gets its Health back at a kick-off, a knocked-out one rolling its Health die
+# (false: Health lasts the whole match and a knocked-out goblin stays out of it).
+goblins_heal_at_kick_off = false
+# Whether a goblin keeps the steps it did not walk after its action, its Move and one action
+# per turn spent over several orders (false: its first order ends its turn).
+keeps_moving_after_action = true
+# Whether a turn ends on its own once no goblin can act (false: it waits for "end turn" or the clock).
+turn_ends_when_no_goblin_can_act = false
+# Whether a tied assault knocks the defender down unhurt (false: nobody falls and the turn goes on).
+assault_ties_knock_down = false
+# Malus on the defense roll of the goblin holding the ball when it is assaulted.
+carrier_defense_malus = 1
+# Whether a knocked-out goblin rolls its Health die minus 1 at each kick-off, coming back with that
+# much Health unless it rolls 0 (only where goblins_heal_at_kick_off is false).
+knocked_out_goblins_may_return = true
+# Whether an assault or a throw costs a step of the goblin's Move, and a Stance every step it has left.
+actions_cost_a_step = true
+# Whether a goblin may assault, throw and brace once each per turn (false: one action in all).
+one_action_of_each_kind = true
+# Whether an enemy braced in Stance weighs two on an agility dodge (false: one, like any enemy).
+braced_tacklers_weigh_double = false
+# Whether a goblin weighs on the eight squares around it rather than the four orthogonal ones:
+# leaving them takes a dodge, rolls made there suffer its malus, and it may intercept a ball flying
+# over them. Moves and assaults stay orthogonal.
+reach_covers_diagonals = true
+# Whether a bouncing ball goes to one of the eight squares around on a d8, clockwise from north
+# (false: one of the four orthogonal ones on a d4).
+ball_bounces_all_around = true
+# Whether an assault may be chirurgical (+1 to win, no Health lost), brutal (-1 to win, one more
+# Health lost) or a projection (-1 to win, the target falls on a square picked around the attacker).
+assaults_have_styles = true
+# Whether a goblin that has not moved may throw into chaos (no throw roll, the ball bouncing three
+# times from the receiver's square, the turn ending unless a teammate then holds it), costing its whole
+# Move; under rules 0.9 the carrier could also focus on its own for +1 to its throws next turn.
+throws_have_styles = true
+# Whether a Thrower may throw focused, every step it has left after the throw sacrificed for +1 to the
+# throw roll (false: focus, where throws have styles, is a whole turn standing still for +1 next turn).
+focused_throws_spend_steps_left = true
+
+# x out of bounds, O in bounds, H home den (west), A away den (east): 7 squares on the outermost column.
+arena = [
+    "xxxxxxxOOOOOOOxxxxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxOOOOOOOOOOOOOxxxx",
+    "xxxOOOOOOOOOOOOOOOxxx",
+    "xxOOOOOOOOOOOOOOOOOxx",
+    "xOOOOOOOOOOOOOOOOOOOx",
+    "xOOOOOOOOOOOOOOOOOOOx",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "HOOOOOOOOOOOOOOOOOOOA",
+    "xOOOOOOOOOOOOOOOOOOOx",
+    "xOOOOOOOOOOOOOOOOOOOx",
+    "xxOOOOOOOOOOOOOOOOOxx",
+    "xxxOOOOOOOOOOOOOOOxxx",
+    "xxxxOOOOOOOOOOOOOxxxx",
+    "xxxxxOOOOOOOOOOOxxxxx",
+    "xxxxxxxOOOOOOOxxxxxxx",
+]
+
+# Kick-off formation of the home team, mirrored for away: each line stands `depth` columns behind
+# the centre column, on the rows `across` counted from the centre row (negative: north), and its
+# squares go first to the archetypes it prefers, then to any goblin left.
+[[formation]]
+depth = 1
+across = [-1, 0, 1]
+prefers = ["bruiser", "sprinter", "thrower"]
+
+[[formation]]
+depth = 3
+across = [-5, -4, 4, 5]
+prefers = ["sprinter", "bruiser", "thrower"]
+
+[[formation]]
+depth = 8
+across = [-2, 2]
+prefers = ["thrower", "bruiser", "sprinter"]
+
+[archetypes.bruiser]
+attack = 4
+defense = 4
+agility = 3
+health = 7
+movement = 4
+
+[archetypes.sprinter]
+attack = 3
+defense = 2
+agility = 6
+health = 5
+movement = 6
+
+[archetypes.thrower]
+attack = 3
+defense = 3
+agility = 6
+health = 6
+movement = 4
+
+[roster_limits]
+bruiser = { min = 0, max = 8 }
+sprinter = { min = 0, max = 8 }
+thrower = { min = 1, max = 2 }
+
+[default_roster]
+bruisers = 3
+sprinters = 4
+throwers = 2
