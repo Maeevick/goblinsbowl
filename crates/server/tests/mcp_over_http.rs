@@ -23,6 +23,7 @@ use serde_json::{Value, json};
 type Outcome<T> = Result<T, Box<dyn std::error::Error>>;
 
 const HOME_TOKEN: &str = "home-secret";
+const FROZEN_RULES: &str = "# Goblins Bowl, rules 0.10\n\nThe frozen rules of the benchmark.\n";
 const AWAY_TOKEN: &str = "away-secret";
 
 #[derive(Clone, Default)]
@@ -85,6 +86,7 @@ async fn start_server() -> Outcome<Running> {
         client.clone(),
         tokens,
         OddsHints::Full,
+        FROZEN_RULES.into(),
         CallLog::to_writer(calls.clone()),
     ));
     Ok(Running { url, client, calls })
@@ -145,6 +147,21 @@ async fn given_a_coach_when_listing_tools_then_wait_state_rules_play_and_compare
             "wait_for_my_turn"
         ]
     );
+    Ok(())
+}
+
+#[tokio::test]
+async fn given_a_server_serving_frozen_rules_when_a_coach_reads_the_rules_then_it_reads_those()
+-> Outcome<()> {
+    let server = start_server().await?;
+    let coach = coach(&server.url, HOME_TOKEN).await?;
+    let result = call(&coach, "get_rules", json!({})).await?;
+    let read: Vec<String> = result
+        .content
+        .iter()
+        .filter_map(|content| content.as_text().map(|text| text.text.clone()))
+        .collect();
+    assert_eq!(read, [FROZEN_RULES]);
     Ok(())
 }
 

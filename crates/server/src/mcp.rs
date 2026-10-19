@@ -41,7 +41,7 @@ use crate::view::{CoachView, OddsHints, coach_view, describe_chance, odds_lines}
 const LONGEST_WAIT_SECONDS: u64 = 50;
 const DEFAULT_WAIT_SECONDS: u64 = 45;
 const RULES: &str = include_str!("../../../docs/rules.md");
-const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules 0.10";
+const ENGLISH_RULES_HEADING: &str = "# Goblins Bowl, rules";
 
 const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based goblin football game played with dice. \
 Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
@@ -57,13 +57,18 @@ from where the previous ones leave the board, and compare_plans weighs alternati
 Squares are [x, y]; goblins are H1..H9 (home, west den) and A1..A9 (away, east den). Call get_rules once \
 for the full rules.";
 
-/// The English half of `docs/rules.md`, from its heading on, as agents read it.
-fn english_rules() -> String {
-    RULES
-        .split_once(ENGLISH_RULES_HEADING)
-        .map_or(RULES.to_string(), |(_, english)| {
-            format!("{ENGLISH_RULES_HEADING}{english}")
-        })
+/// The English half of a rules `document`, from the line opening with its English heading on, as
+/// agents read it; the whole document when it has no such line.
+pub fn english_half(document: &str) -> &str {
+    document
+        .match_indices(ENGLISH_RULES_HEADING)
+        .find(|(index, _)| *index == 0 || document[..*index].ends_with('\n'))
+        .map_or(document, |(index, _)| &document[index..])
+}
+
+/// The rules agents read when no other document is given: the English half of `docs/rules.md`.
+pub fn built_in_rules() -> &'static str {
+    english_half(RULES)
 }
 
 /// A fresh seat secret, unpredictable enough for a match on the local machine.
@@ -299,23 +304,27 @@ pub struct CoachServer {
     client: MatchClient,
     memories: Arc<Mutex<[SeatMemory; 2]>>,
     hints: OddsHints,
+    rules: Arc<str>,
     log: CallLog,
     tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
 impl CoachServer {
-    /// A coach server answering for the seat found in each request, logging every call to `log`.
+    /// A coach server answering for the seat found in each request, `rules` the document its
+    /// agents read, logging every call to `log`.
     pub fn new(
         client: MatchClient,
         memories: Arc<Mutex<[SeatMemory; 2]>>,
         hints: OddsHints,
+        rules: Arc<str>,
         log: CallLog,
     ) -> Self {
         Self {
             client,
             memories,
             hints,
+            rules,
             log,
             tool_router: Self::tool_router(),
         }
@@ -358,16 +367,16 @@ impl CoachServer {
         .await
     }
 
-    #[tool(description = "The full rules of Goblins Bowl 0.9 (read once).")]
+    #[tool(description = "The full rules of Goblins Bowl (read once).")]
     async fn get_rules(&self, context: RequestContext<RoleServer>) -> Result<String, String> {
         self.logged(&context, "get_rules", serde_json::json!({}), async |_| {
-            Ok(english_rules())
+            Ok(self.rules.to_string())
         })
         .await
     }
 
     #[tool(
-        description = "Play orders in order during your turn: each moves one goblin with its steps left (to a destination via the safest path, or along an exact path) then optionally assaults, throws or braces in stance if that action is left. A goblin may take several orders a turn. Stops at the first order that ends your turn. end_turn=true hands over after them; dry_run=true only previews them as one plan, each from where the previous ones leave the board, with the chance that the whole plan goes through."
+        description = "Play orders in order during your turn: each moves one goblin with its steps left (to a destination via the safest path, or along an exact path) then optionally assaults or throws if that action is left. A goblin may take several orders a turn. Stops at the first order that ends your turn. end_turn=true hands over after them; dry_run=true only previews them as one plan, each from where the previous ones leave the board, with the chance that the whole plan goes through."
     )]
     async fn play(
         &self,
@@ -771,7 +780,8 @@ async fn authorize(
     Ok(next.run(request).await)
 }
 
-/// Serves the coach tools on `listener` at `/mcp` until the process stops, logging every call to `log`.
+/// Serves the coach tools on `listener` at `/mcp` until the process stops, its agents reading
+/// `rules`, logging every call to `log`.
 ///
 /// # Errors
 /// The IO error that stopped the HTTP server.
@@ -780,6 +790,7 @@ pub async fn serve_mcp(
     client: MatchClient,
     tokens: SeatTokens,
     hints: OddsHints,
+    rules: Arc<str>,
     log: CallLog,
 ) -> std::io::Result<()> {
     let memories = Arc::new(Mutex::new([SeatMemory::default(); 2]));
@@ -790,6 +801,7 @@ pub async fn serve_mcp(
                     client.clone(),
                     memories.clone(),
                     hints,
+                    rules.clone(),
                     log.clone(),
                 ))
             },
@@ -817,10 +829,19 @@ mod tests {
     }
 
     #[test]
-    fn given_the_rules_document_when_sent_to_agents_then_only_its_english_half_from_the_0_2_heading()
-     {
-        let rules = english_rules();
+    fn given_the_built_in_rules_when_sent_to_agents_then_only_their_english_half() {
+        let rules = built_in_rules();
         assert!(rules.starts_with("# Goblins Bowl, rules 0.10") && !rules.contains("règles"));
+    }
+
+    #[test]
+    fn given_a_frozen_rules_document_when_halved_then_its_english_half_from_its_own_heading() {
+        let document =
+            "# Goblins Bowl, règles 0.7\n\nLe bowl.\n\n# Goblins Bowl, rules 0.7\n\nThe bowl.\n";
+        assert_eq!(
+            english_half(document),
+            "# Goblins Bowl, rules 0.7\n\nThe bowl.\n"
+        );
     }
 
     #[test]

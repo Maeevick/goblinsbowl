@@ -11,7 +11,7 @@ use goblins_rules::bowls::with_bowl;
 use goblins_rules::host::{MatchHost, MatchSetup};
 use goblins_rules::ruleset::Ruleset;
 use goblins_server::match_server::{ServerPacing, spawn_match};
-use goblins_server::mcp::{SeatTokens, random_token, serve_mcp};
+use goblins_server::mcp::{SeatTokens, built_in_rules, english_half, random_token, serve_mcp};
 use goblins_server::options::{RemoteSeat, ServerOptions};
 use goblins_server::runs::{
     RunFiles, save_record, save_record_at_final_whistle, seconds_since_epoch,
@@ -40,6 +40,14 @@ async fn main() -> anyhow::Result<()> {
         turn_seconds: options.turn_seconds_per_seat(),
         agent_ready_grace_seconds: options.agent_grace_seconds,
     };
+    let rules_text: std::sync::Arc<str> = match &options.rules_text {
+        Some(path) => english_half(
+            &std::fs::read_to_string(path)
+                .with_context(|| format!("cannot read {}", path.display()))?,
+        )
+        .into(),
+        None => built_in_rules().into(),
+    };
     let (host, _) = MatchHost::start(setup).context("the match cannot start")?;
     let (files, log) = RunFiles::open(&options.record_dir, seed)?;
     let client = spawn_match(
@@ -65,7 +73,7 @@ async fn main() -> anyhow::Result<()> {
         files.record.clone(),
     ));
     tokio::select! {
-        served = serve_mcp(listener, client.clone(), tokens, options.odds_hints, log) => {
+        served = serve_mcp(listener, client.clone(), tokens, options.odds_hints, rules_text, log) => {
             served.context("the MCP server stopped")
         }
         () = shutdown_signal() => {

@@ -9,7 +9,7 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use goblins_rules::host::MatchHost;
 use goblins_server::match_server::{MatchClient, ServerPacing, spawn_match};
-use goblins_server::mcp::{SeatTokens, serve_mcp};
+use goblins_server::mcp::{SeatTokens, built_in_rules, serve_mcp};
 use goblins_server::runs::{RunFiles, save_record, save_record_at_final_whistle};
 use goblins_server::view::OddsHints;
 use tokio::runtime::Runtime;
@@ -62,6 +62,7 @@ impl ServerLink {
                 client.clone(),
                 settings.tokens,
                 settings.hints,
+                built_in_rules().into(),
                 log,
             ));
             tokio::spawn(save_record_at_final_whistle(

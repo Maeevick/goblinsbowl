@@ -41,6 +41,7 @@ Rules 0.10 (French and English, printable for a paper playtest): [`docs/rules.md
 make run ARGS="--away agent"          # you against Claude in the window: it prints how to connect the agent
 make serve                            # headless MCP server on http://127.0.0.1:7878/mcp: an agent against the cautious bot
 make serve ARGS="--arena cross"       # the same in another bowl (--arena and --arena-size, as in the window)
+make serve ARGS="--rules assessment/rules-0.10.toml --rules-text assessment/rules-0.10.md"   # the frozen assessment benchmark: its ruleset, and the rules agents read
 scripts/agent-vs-agent.sh 4           # two Claude Code coaches, at most $4 each; everything lands in runs/<timestamp>/
 ```
 

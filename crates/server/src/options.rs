@@ -73,6 +73,10 @@ pub struct ServerOptions {
     /// Rules file; the built-in rules are used when it does not exist.
     #[arg(long, default_value = "rules.toml")]
     pub rules: PathBuf,
+    /// Rules document agents read with get_rules, its English half from its "# Goblins Bowl, rules"
+    /// heading on; the built-in docs/rules.md when left out.
+    #[arg(long)]
+    pub rules_text: Option<PathBuf>,
     /// Shape of the bowl: circle, cross or rectangle; the rules file's bowl when left out.
     #[arg(long)]
     pub arena: Option<BowlShape>,
@@ -119,6 +123,14 @@ mod tests {
         assert_eq!(
             parse(&["--home-turn-seconds", "90"]).turn_seconds_per_seat(),
             [90, 60]
+        );
+    }
+
+    #[test]
+    fn given_a_frozen_rules_document_when_parsed_then_agents_read_it() {
+        assert_eq!(
+            parse(&["--rules-text", "assessment/rules-0.10.md"]).rules_text,
+            Some(PathBuf::from("assessment/rules-0.10.md"))
         );
     }
 
