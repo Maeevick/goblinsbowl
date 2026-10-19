@@ -209,3 +209,54 @@ What the batch says:
 - **The clock took more turns**: 29 over the 30 matches, against 6 over batch 3's 20. Ten came while the coach was gone, after a budget stop or before its resume; nineteen while it was still at work when its 60 seconds ran out, seven of them right after a preview. At about $10 of usage a match ($353 for the batch), the budget now binds.
 - **The interface holds.** 5 to 11 refused calls per batch (stale plans, squares out of the bowl or out of reach), well under the criterion, and no stance or stand-alone focus ordered after the fix. About half of the real plays came right after a preview (44 to 51 %), and 6 to 15 % of activations carried an estimate.
 - **Batch 3 is no clean baseline**: the rules (0.7 then, 0.10 now) and the opponents (first then second generation) both changed, so no difference between the two batches can be put down to Haiku alone.
+
+### Batch 5, 19 Oct 2026: the bridge, Haiku 5.5 against the first-generation bots on the frozen benchmark
+
+Seeds 1 to 5 from both seats against `cautious` and `bold`, on the frozen ruleset (`assessment/rules-0.10.toml`; the rules text agents read was the one compiled in, identical to `assessment/rules-0.10.md`), full hints, 60 s turns, five matches at a time, $10 per coach run, with batch 4's server build. The 20 matches played from 15:59 to 16:48 without hitting a session limit; three coaches stopped early and were resumed once, five were stopped by their budget, and every match reached its final whistle. They were read with the yardstick of batches 2 to 5, the first-generation `cautious`, before the first generation was retired, so these yardstick rows can no longer be replayed.
+
+| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| claude-haiku-5-5 against cautious | 10 | 3-6-1 | 4-1 | 0.83 | 7.3 | 6.5 | 1.1 pts | 11 | 72.4 % | 70.4 % | 6 | 6 | 1 | 0 | $106.85 | 9.5 |
+| claude-haiku-5-5 against bold | 10 | 2-4-4 | 3-6 | 0.82 | 7.4 | 6.2 | 1.5 pts | 17 | 71.6 % | 70.5 % | 11 | 11 | 2 | 0 | $118.99 | 10.8 |
+
+| Bot | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|
+| cautious | 0.39 | 5.4 | 6.5 | 0.3 pts | 6 | 80.0 % | 78.1 % |
+| bold | 0.46 | 13.1 | 6.1 | 0.3 pts | 8 | 70.1 % | 70.7 % |
+
+| Yardstick (`cautious`) | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|---|---|---|
+| against cautious | 10 | 1-8-1 | 1-1 | 0.44 | 5.4 | 6.5 | 0.0 pts | 0 | 80.9 % | 78.0 % |
+| against bold | 10 | 3-2-5 | 4-5 | 0.44 | 5.7 | 6.1 | 0.3 pts | 7 | 81.0 % | 82.6 % |
+
+| Batch | Safe-first at least 0.90 | Mean gap under 5 pts | Under 10 % of risky orders 5 pts below the best | No tilt (within 5 pts after a failure) | Under one refused call per two turns | Goal difference at least the yardstick's |
+|---|---|---|---|---|---|---|
+| against cautious | fail | pass | pass | pass | pass | pass |
+| against bold | fail | pass | pass | pass | pass | fail |
+
+### Batches 3 to 5 read against their yardsticks, 19 Oct 2026
+
+The bridge splits the change from batch 3 to batch 4 in two, each step changing one factor: the rules from batch 3 to batch 5, the opponents from batch 5 to batch 4. Each condition is read against its yardstick on the same seeds and seats; batch 4 shows the first-generation `cautious` yardstick, then `cautious-2`, the yardstick from now on. Batch 3's matches did not name their bot yet, so their yardstick was read from a copy naming it after the batch folder.
+
+| Opponent's line | | Batch 3: rules 0.7, first generation | Batch 5: rules 0.10, first generation | Batch 4: rules 0.10, second generation |
+|---|---|---|---|---|
+| cautious | Haiku | 3-4-3, 11-10 | 3-6-1, 4-1 | 1-7-2, 1-3 |
+| | yardstick | 5-0-5, 10-10 | 1-8-1, 1-1 | 2-6-2, 2-2 / 0-10-0, 0-0 |
+| | goal difference against the yardstick's | +1 | +3 | −2 / −2 |
+| | safe-first, Haiku (bot) | 0.78 (0.37) | 0.83 (0.39) | 0.79 (0.86) |
+| bold | Haiku | 2-6-2, 9-11 | 2-4-4, 3-6 | 2-3-5, 2-6 |
+| | yardstick | 6-2-2, 18-10 | 3-2-5, 4-5 | 1-6-3, 2-4 / 3-5-2, 3-2 |
+| | goal difference against the yardstick's | −10 | −2 | −2 / −5 |
+| | safe-first, Haiku (bot) | 0.76 (0.43) | 0.82 (0.46) | 0.73 (0.95) |
+| balanced-2 | Haiku | | | 1-6-3, 4-6 |
+| | yardstick | | | 0-10-0, 1-1 / 1-9-0, 1-0 |
+| | goal difference against the yardstick's | | | −2 / −3 |
+| | safe-first, Haiku (bot) | | | 0.83 (0.94) |
+
+What the bridge says:
+
+- **The rules alone, from batch 3 to batch 5:** the goals collapse (21 to 5 in the cautious line, 20 to 9 in the bold line), Haiku fails less (10.0 to 7.3 failures per match) and its safe-first index rises by five or six hundredths (0.78 to 0.83, 0.76 to 0.82). Against the yardstick its results improve, from +1 to +3 and from −10 to −2, mostly because the cautious coach no longer wins big against the bold one once the game is closed.
+- **The opponents alone, from batch 5 to batch 4:** Haiku's results turn negative (+3 to −2 in the cautious line, −3 to −4 in the bold one), two goals under the yardstick in both lines. Its safe-first index drops a little against `cautious-2` (0.83 to 0.79) and more against `bold-2` (0.82 to 0.73), while the second-generation bots order their own turns at 0.86 to 0.95, against 0.39 to 0.46 for the first generation.
+- **So batch 4's fall in results comes from the stronger opponents, not from the rules.** The safe-first gap to 0.90 is Haiku's own under every rules and opponent tried, between 0.73 and 0.83, and its odds reading passes everywhere.
+- **Against `cautious-2`, the yardstick from now on**, Haiku is two to five goals short in every batch-4 line, the baseline for the next batches on the frozen benchmark.
+- **Small samples:** 10 matches and 1 to 21 goals per condition, so a goal or two either way is within what the dice alone can do; the safe-first index pools hundreds of pairs per batch and moves by a few hundredths.
