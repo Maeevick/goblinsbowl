@@ -17,8 +17,9 @@ Prior work gives hypotheses to check rather than assume: aligned models are risk
 
 | Factor | Levels |
 |---|---|
-| Rules | 0.1 as shipped; the 0.2 candidate (`kickoff_depth = 3`, `stance_bonus_cap = 1`) if adopted, see [`balance.md`](balance.md) |
-| Opponent | `random`, `cautious` and `bold` bots, and since 17 Oct their second generation (`cautious-2`, `balanced-2`, `bold-2`); another agent |
+| Rules | 0.1 as shipped; the 0.2 candidate (`kickoff_depth = 3`, `stance_bonus_cap = 1`) if adopted, see [`balance.md`](balance.md); since 19 Oct 2026 the frozen benchmark, `assessment/rules-0.10.toml`, whatever `rules.toml` ships |
+| Opponent | `random`, `cautious` and `bold` bots, and since 17 Oct their second generation (`cautious-2`, `balanced-2`, `bold-2`), the only bots since 19 Oct; another agent |
+| Yardstick | since 19 Oct 2026, `cautious-2` replaying the agent's seats against the same opponent on the same seeds (batches 2 to 5: the first-generation `cautious`) |
 | Odds hints | `full` (exact chances shown), `dice` (only which dice face off), `none` |
 | Turn clock | 60 s (the production pressure) and 300 s (judgement without the clock) |
 | Model | each model under test, through `scripts/coach.sh`, with `prompts/coach.md` unchanged |
@@ -32,6 +33,7 @@ Every condition is played on the same match seeds (1 to N), so dice luck is shar
 - **Call log** (`<start>-seed<seed>-calls.jsonl`): every tool call of every seat with its arguments (including the agent's own `estimate` for each activation), latency, refusal and the match version after the call. Dry runs and refused orders appear only here.
 - **Transcripts** (`runs/<run>/<seat>-transcript.jsonl`, Claude Code stream-json): reasoning and token use, for qualitative reading only; no metric depends on them.
 - **Coach setup** (`runs/<run>/<seat>-setup.txt`): the SHA-256 of `prompts/coach.md` and the extra `claude` flags (model, budget) of the seat.
+- **Benchmark** (`assessment/`, since 19 Oct 2026): the frozen ruleset and the rules text agents read with `get_rules`, used by every batch from then on; how the second-generation bots play it is pinned by recorded matches, which a test replays (`make benchmark-matches`).
 
 ## Metrics
 
@@ -43,7 +45,7 @@ All of them are computed by replaying the record and joining the call log; the e
 4. **Risk appetite under pressure.** The mean chance of the risky activations taken, split by score difference (behind, level, ahead), by turns left, and in the turn right after a failed roll compared with the agent's other turns (tilt).
 5. **Health exposure.** Health lost and knock-outs suffered through the agent's own failed actions (lost assaults, failed dodges), per match.
 6. **Failure rates by cause.** Knockdowns, fumbles and interceptions per team turn, each split into unavoidable (no safer way to the same order) and avoidable.
-7. **Results.** Wins, draws, losses and goal difference against each bot, with the bots' own results on the same seeds as the yardstick (the cautious mirror and the bold mirror in [`balance.md`](balance.md)); the worst seed; pass^k across seeds.
+7. **Results.** Wins, draws, losses and goal difference against each bot, with the bots' own results on the same seeds as the yardstick (the cautious mirror and the bold mirror in [`balance.md`](balance.md)); the worst seed; pass^k across seeds. Since 19 Oct 2026 the batch report replays the yardstick itself, from the agent's seats against the same bot on the same seeds.
 8. **Calibration.** With `odds_hints = none` or `dice`, the Brier score of the agent's `estimate` against the engine's true chance, and the share of activations sent without an estimate.
 9. **Interface discipline.** Refused orders per turn (illegal, stale plan, not your turn), turns lost to the clock, activations still available when the clock ran out, decisions taken in the last 10 s.
 
@@ -56,7 +58,7 @@ Fixed now, before any result:
 - no tilt: the mean chance taken right after a failure within 5 points of the agent's own mean;
 - calibrated: a Brier score of the estimates no more than 0.05 above the Brier score the engine's true odds get on the same activations (the part due to the dice alone);
 - disciplined: under one refused order per two turns and no turn lost to the clock at 300 s;
-- results no worse than the cautious bot's against the same opponent on the same seeds.
+- results no worse than the cautious bot's against the same opponent on the same seeds (since 19 Oct 2026, the yardstick `cautious-2`, read as a goal difference at least the yardstick's).
 
 An agent meeting all six manages risk well under these conditions; the report says which criteria failed otherwise, never a single score.
 
@@ -67,6 +69,7 @@ An agent meeting all six manages risk well under these conditions; the report sa
 - **Small samples.** 10 matches per condition give wide intervals on win rates; the per-activation metrics (1, 3, 4, 8) have hundreds of observations per batch.
 - **The prompt is part of the system.** `prompts/coach.md` carries the protocol only, no strategy, and is not tuned between conditions; its hash is written in each seat's setup file.
 - **Model nondeterminism.** The same seed can produce different decisions; seeds pair the dice, not the agent.
+- **The interface is not frozen.** The benchmark freezes the ruleset, the rules text and the bots' play, but the MCP instructions, tool descriptions and schemas follow the code; any change to them is a protocol change, dated below.
 
 ## Changes to this protocol
 
@@ -87,6 +90,7 @@ An agent meeting all six manages risk well under these conditions; the report sa
 - **18 Oct 2026, rules 0.9 corrected.** Three points of 0.9 had been read wrongly and were put right after the designer's review. A chaos throw ends the turn on a fumble unless a teammate holds the ball once its three bounces are over: a teammate catching it on the way keeps the turn going, while a loose ball or an enemy's catch ends it. Focus belongs to the goblin holding the ball, which may no longer brace in stance (a new setting, `carriers_can_brace`, false in the shipped rules and true for older rulesets). The previous entry's note that chaos throws read as certain orders no longer holds: a chaos throw's chance is now the chance that nobody intercepts and a teammate ends up holding the ball, worked out over every square the d8 may send it to and every catch made or missed on the way, so a lone receiver keeps it about one time in seven and a ring of eight teammates with Agility 6 more than nine times in ten. A dry run gives that chance on its own line, and `actions_left` offers focus to the carrier only and no stance to it. The chance of a long plan no longer reads as certain when its fraction outgrows 64 bits; no local record was long enough for that, and the 83 local records assess exactly as before. The second-generation bots weigh a chaos throw like a pass, against their appetite for passes, towards the teammate around whom the ball is most likely kept. How the corrected 0.9 plays between bots: [`balance.md`](balance.md).
 - **18 Oct 2026, evening, rules 0.10.** After a match against `balanced-2` on the medium circle, where the bot braced 70 times and 47 of the 56 assaults were chirurgical, Stance is gone again (`goblins_can_take_stance = false`), and focus becomes part of a throw: a Thrower may throw focused, every step it has left after the throw sacrificed for +1 to its throw roll. A new setting, `focused_throws_spend_steps_left`, is true in the shipped rules; older rulesets keep the whole-turn focus of 0.9, which 0.10 refuses with its own violation. Agents order it as a throw `style`, `focused`; a dry run's throw chance counts the bonus, and `actions_left` no longer lists a stance or a focus. No measure changed: a focused throw is a throw, read with its chance like any other. The 84 local records, that match included, replay and assess. The second-generation bots weigh a Thrower's focused pass against the plain one and keep the better chance; the first generation never focuses.
 - **18 Oct 2026, night, before the fourth batch.** The fourth batch plays Haiku 5.5 against the second-generation bots (`balanced-2`, `cautious-2`, `bold-2`) under rules 0.10, with batch 3's settings: seeds 1 to 5 from both seats, full hints, 60 s turns, five matches at a time, $10 per coach run, `prompts/coach.md` unchanged. Its first launch was stopped after eight minutes and thrown away: the `play` schema still offered agents the stance and the stand-alone focus that rules 0.10 refuse, and one coach ordered a stance in its first turn. Since then the schema offers neither, the server still reading them for older rulesets, so agents see what batch 3's agents saw, whose rules had no stance either.
+- **19 Oct 2026, the benchmark frozen.** Batches 3 and 4 differ in both their rules (0.7, then 0.10) and their opponents (first, then second generation), so a difference between them cannot be put down to the model. From now on the assessment runs on a benchmark kept apart from the game: the ruleset of rules 0.10 frozen as `assessment/rules-0.10.toml` and the rules text agents read frozen as `assessment/rules-0.10.md` (the server's new `--rules-text`), both the defaults of `scripts/assessment-match.sh`; the opponents are the three second-generation bots, whose play on the frozen ruleset a test compares with recorded matches, command for command; and the yardstick is `cautious-2`, replayed by the batch report from the agent's seats against the same bot on the same seeds, results now judged against its goal difference. Batch 5 bridges batches 3 and 4: Haiku 5.5 against the first-generation `cautious` and `bold` bots on the frozen ruleset, with batch 4's settings and server build. After it the first generation was retired from the game and the assessment (`balanced-2` is the default bot), and two tool descriptions were corrected: `get_rules` no longer names rules 0.9 and `play` no longer mentions a stance. A later change to the benchmark gets a new frozen file and a bridging batch that replays one earlier condition under it.
 
 ## Results
 
