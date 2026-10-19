@@ -61,6 +61,14 @@ pub enum MatchOrder {
 #[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MatchRestarted;
 
+/// The match moved to another point of its story, as a replay jumping between turns: screens show it
+/// as it now stands without playing out what led there, and count again from `story`.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub struct MatchJumped {
+    /// Every event from the match's start to where it now stands, in order.
+    pub story: Vec<GameEvent>,
+}
+
 /// Present when the match runs inside the app and can be started again.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct RestartableMatch;

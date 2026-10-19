@@ -10,7 +10,9 @@ use goblins_rules::team::TeamId;
 
 use crate::goblin_view::BowlAnimation;
 use crate::hud::{BOLD_FONT, READING_FONT, button, overlay, panel, story_colour, text_bundle};
-use crate::local_match::{MatchOrder, MatchRestarted, MatchSystems, MatchView, RestartableMatch};
+use crate::local_match::{
+    MatchJumped, MatchOrder, MatchRestarted, MatchSystems, MatchView, RestartableMatch,
+};
 use crate::texts::Texts;
 
 const LABEL_COLOUR: Color = Color::srgb(0.92, 0.9, 0.84);
@@ -134,6 +136,7 @@ pub struct FinalWhistlePlugin;
 impl Plugin for FinalWhistlePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<MatchRestarted>()
+            .add_message::<MatchJumped>()
             .init_resource::<MatchScoresheet>()
             .add_systems(Startup, spawn_final_screen)
             .add_systems(
@@ -234,10 +237,14 @@ fn quit_pressed(_activate: On<Activate>, mut exit: MessageWriter<AppExit>) {
 
 fn forget_the_last_match(
     mut restarts: MessageReader<MatchRestarted>,
+    mut jumps: MessageReader<MatchJumped>,
     mut scoresheet: ResMut<MatchScoresheet>,
 ) {
     if restarts.read().count() > 0 {
         scoresheet.0 = Scoresheet::default();
+    }
+    if let Some(jump) = jumps.read().last() {
+        scoresheet.0 = Scoresheet::default().tally(&jump.story);
     }
 }
 

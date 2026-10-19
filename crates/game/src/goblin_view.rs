@@ -3,6 +3,7 @@
 use std::collections::VecDeque;
 use std::f32::consts::FRAC_PI_2;
 
+use bevy::ecs::system::SystemParam;
 use bevy::light::NotShadowCaster;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
@@ -18,7 +19,7 @@ use goblins_rules::team::TeamId;
 use crate::beats::{Beat, Headline, RollShown, timeline_of};
 use crate::bowl_view::{BoardClick, square_centre};
 use crate::hud::event_team;
-use crate::local_match::{MatchRestarted, MatchSystems, MatchView};
+use crate::local_match::{MatchJumped, MatchRestarted, MatchSystems, MatchView};
 use crate::texts::Texts;
 
 const WALK_SPEED: f32 = 7.0;
@@ -96,6 +97,58 @@ struct Choreography {
     ball_rests_on: Option<BallAnchor>,
     front_held_for: f32,
     front_announced: bool,
+    snapping: bool,
+}
+
+/// How fast the bowl plays out what happens: 1 in a match, up to 3 in a replay played faster.
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct PlaybackSpeed(pub f32);
+
+impl Default for PlaybackSpeed {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+/// The length of a frame of the bowl, and how fast the bowl plays.
+#[derive(SystemParam)]
+struct BowlClock<'w> {
+    time: Res<'w, Time>,
+    playback: Res<'w, PlaybackSpeed>,
+}
+
+/// How far, this frame, figures walk, bodies fall and the ball flies.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FrameReach {
+    /// Distance a figure walks.
+    pub walk: f32,
+    /// Share of a fall a body goes through.
+    pub fall: f32,
+    /// Distance the ball flies.
+    pub flight: f32,
+}
+
+/// How far things move in a frame of `seconds`, `queued` beats waiting and the bowl played at
+/// `playback`; right after a jump, all the way at once.
+pub fn frame_reach(
+    seconds: f32,
+    queued: usize,
+    playback: PlaybackSpeed,
+    snapping: bool,
+) -> FrameReach {
+    if snapping {
+        return FrameReach {
+            walk: f32::INFINITY,
+            fall: f32::INFINITY,
+            flight: f32::INFINITY,
+        };
+    }
+    let speed_up = pace(queued) * playback.0 * seconds;
+    FrameReach {
+        walk: WALK_SPEED * speed_up,
+        fall: FALL_SPEED * speed_up,
+        flight: BALL_SPEED * speed_up,
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -237,13 +290,16 @@ impl Plugin for GoblinViewPlugin {
         app.add_message::<BoardClick>()
             .add_message::<RollShown>()
             .add_message::<MatchRestarted>()
+            .add_message::<MatchJumped>()
             .init_resource::<Choreography>()
             .init_resource::<BowlAnimation>()
+            .init_resource::<PlaybackSpeed>()
             .add_systems(Startup, (spawn_figures, spawn_ball))
             .add_systems(
                 Update,
                 (
                     forget_the_last_match,
+                    jump_where_the_match_stands,
                     queue_beats,
                     play_beats,
                     report_animation,
@@ -690,6 +746,18 @@ fn forget_the_last_match(
     }
 }
 
+fn jump_where_the_match_stands(
+    mut jumps: MessageReader<MatchJumped>,
+    mut choreography: ResMut<Choreography>,
+) {
+    if jumps.read().count() > 0 {
+        *choreography = Choreography {
+            snapping: true,
+            ..Choreography::default()
+        };
+    }
+}
+
 fn queue_beats(view: Res<MatchView>, texts: Res<Texts>, mut choreography: ResMut<Choreography>) {
     if !view.fresh_events.is_empty() {
         let beats = timeline_of(&view.fresh_events, |event| {
@@ -770,7 +838,7 @@ fn settle_figures(
 }
 
 fn play_beats(
-    time: Res<Time>,
+    clock: BowlClock,
     view: Res<MatchView>,
     mut choreography: ResMut<Choreography>,
     mut figures: FigureParts,
@@ -778,10 +846,17 @@ fn play_beats(
     mut ball: BallPlacement,
     mut rolls: MessageWriter<RollShown>,
 ) {
-    let speed_up = pace(choreography.beats.len());
-    let walk = WALK_SPEED * speed_up * time.delta_secs();
-    let fall = FALL_SPEED * speed_up * time.delta_secs();
-    let fly = BALL_SPEED * speed_up * time.delta_secs();
+    let speed_up = pace(choreography.beats.len()) * clock.playback.0;
+    let FrameReach {
+        walk,
+        fall,
+        flight: fly,
+    } = frame_reach(
+        clock.time.delta_secs(),
+        choreography.beats.len(),
+        *clock.playback,
+        choreography.snapping,
+    );
     let Some(beat) = choreography.beats.front().cloned() else {
         settle_figures(&view, &mut figures, &mut bodies, walk, fall);
         return;
@@ -809,7 +884,7 @@ fn play_beats(
                 choreography.front_announced = true;
                 rolls.write(RollShown { goblin, roll });
             }
-            choreography.front_held_for += speed_up * time.delta_secs();
+            choreography.front_held_for += speed_up * clock.time.delta_secs();
             choreography.front_held_for >= ROLL_HOLD_SECONDS
         }
         Beat::LineUp => settle_figures(&view, &mut figures, &mut bodies, walk, fall),
@@ -822,7 +897,7 @@ fn play_beats(
             arrived
         }
         Beat::Headline(_) => {
-            choreography.front_held_for += time.delta_secs();
+            choreography.front_held_for += clock.playback.0 * clock.time.delta_secs();
             choreography.front_held_for >= HEADLINE_HOLD_SECONDS
         }
         Beat::BallToGoblin { goblin } => {
@@ -863,7 +938,7 @@ fn ball_in_flight(choreography: &Choreography) -> bool {
 }
 
 fn carry_ball(
-    time: Res<Time>,
+    clock: BowlClock,
     view: Res<MatchView>,
     mut choreography: ResMut<Choreography>,
     figures: Query<(&GoblinFigure, &Transform), Without<BallFigure>>,
@@ -886,9 +961,15 @@ fn carry_ball(
         None => None,
     };
     if let Some(target) = target {
-        let speed_up = pace(choreography.beats.len());
-        step(&mut ball, target, BALL_SPEED * speed_up * time.delta_secs());
+        let reach = frame_reach(
+            clock.time.delta_secs(),
+            choreography.beats.len(),
+            *clock.playback,
+            choreography.snapping,
+        );
+        step(&mut ball, target, reach.flight);
     }
+    choreography.snapping = false;
 }
 
 fn mark_loose_ball(
@@ -1106,6 +1187,19 @@ mod tests {
         let mut goblin = kicked_off().goblins[0].clone();
         goblin.presence = presence;
         goblin
+    }
+
+    #[test]
+    fn given_a_replay_played_three_times_faster_when_reaching_this_frame_then_three_times_further()
+    {
+        let at = |speed| frame_reach(0.1, 0, PlaybackSpeed(speed), false);
+        assert!((at(3.0).walk - 3.0 * at(1.0).walk).abs() < 1e-5);
+    }
+
+    #[test]
+    fn given_a_jump_when_reaching_this_frame_then_figures_and_ball_get_there_at_once() {
+        let reach = frame_reach(0.016, 0, PlaybackSpeed::default(), true);
+        assert!(reach.walk.is_infinite() && reach.fall.is_infinite() && reach.flight.is_infinite());
     }
 
     #[test]

@@ -14,7 +14,7 @@ use goblins_rules::team::TeamId;
 
 use crate::camera_rig::CameraRig;
 use crate::goblin_view::BowlAnimation;
-use crate::local_match::{MatchOrder, MatchRestarted, MatchSystems, MatchView};
+use crate::local_match::{MatchJumped, MatchOrder, MatchRestarted, MatchSystems, MatchView};
 use crate::start_menu::StartMenu;
 use crate::texts::Texts;
 
@@ -271,6 +271,7 @@ pub struct HudPlugin;
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<MatchRestarted>()
+            .add_message::<MatchJumped>()
             .init_resource::<EventLog>()
             .init_resource::<EndTurnConfirmation>()
             .init_resource::<Handover>()
@@ -609,10 +610,16 @@ fn ready_pressed(
 
 fn forget_the_last_match(
     mut restarts: MessageReader<MatchRestarted>,
+    mut jumps: MessageReader<MatchJumped>,
+    texts: Res<Texts>,
     mut log: ResMut<EventLog>,
     mut handover: ResMut<Handover>,
     mut confirmation: ResMut<EndTurnConfirmation>,
 ) {
+    if let Some(jump) = jumps.read().last() {
+        *log = EventLog::default();
+        log.push_lines(story_lines(&jump.story, &texts));
+    }
     if restarts.read().count() == 0 {
         return;
     }
@@ -621,13 +628,21 @@ fn forget_the_last_match(
     confirmation.seconds_left = 0.0;
 }
 
-fn collect_log_lines(view: Res<MatchView>, texts: Res<Texts>, mut log: ResMut<EventLog>) {
-    log.push_lines(view.fresh_events.iter().filter_map(|event| {
+/// The lines the log tells of `events`, in order.
+fn story_lines<'a>(
+    events: &'a [GameEvent],
+    texts: &'a Texts,
+) -> impl Iterator<Item = StoryLine> + 'a {
+    events.iter().filter_map(|event| {
         texts.describe_event(event).map(|text| StoryLine {
             text,
             team: event_team(event),
         })
-    }));
+    })
+}
+
+fn collect_log_lines(view: Res<MatchView>, texts: Res<Texts>, mut log: ResMut<EventLog>) {
+    log.push_lines(story_lines(&view.fresh_events, &texts));
 }
 
 fn refresh_headline(
