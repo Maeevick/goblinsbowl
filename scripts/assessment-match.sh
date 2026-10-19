@@ -5,7 +5,8 @@
 # unless it ran out of budget. Everything lands in <batch-dir>/<model>/seed<seed>-<seat>/.
 # When a coach hits the account's session or usage limit, the match is abandoned without a
 # match.json (a later run replays it) and <batch-dir>/LIMIT_HIT tells the other jobs to stand down.
-# Settings: GB_BOT (cautious), GB_TURN_SECONDS (60), GB_HINTS (full), GB_RULES (rules.toml),
+# Settings: GB_BOT (cautious), GB_TURN_SECONDS (60), GB_HINTS (full), GB_RULES and GB_RULES_TEXT (the
+# frozen ruleset and rules text of the benchmark, assessment/rules-0.10.toml and .md),
 # GB_BUDGET (10 USD per coach run, a 24-turn match), GB_RESUMES (1), GB_MATCH_TIMEOUT (seconds
 # allowed after the coach ends; by default every turn of the coach's team running out, 15 s of
 # readiness grace included, plus 20 minutes for the bot's turns, from GB_TURN_SECONDS and GB_RULES).
@@ -14,6 +15,8 @@ set -uo pipefail
 batch_dir="$1"; model="$2"; seed="$3"; seat="$4"; port="$5"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 dir="$batch_dir/$model/seed$seed-$seat"
+rules="${GB_RULES:-$root/assessment/rules-0.10.toml}"
+rules_text="${GB_RULES_TEXT:-$root/assessment/rules-0.10.md}"
 [ -f "$dir/match.json" ] && exit 0
 [ -f "$batch_dir/LIMIT_HIT" ] && exit 0
 rm -rf "$dir"
@@ -26,7 +29,7 @@ else
   seat_flags=(--home bot --away agent); home_token="$other_token"; away_token="$agent_token"
 fi
 "$root/target/debug/goblinsbowl-server" "${seat_flags[@]}" --bot "${GB_BOT:-cautious}" --seed "$seed" --port "$port" \
-  --turn-seconds "${GB_TURN_SECONDS:-60}" --odds-hints "${GB_HINTS:-full}" --rules "${GB_RULES:-$root/rules.toml}" \
+  --turn-seconds "${GB_TURN_SECONDS:-60}" --odds-hints "${GB_HINTS:-full}" --rules "$rules" --rules-text "$rules_text" \
   --home-token "$home_token" --away-token "$away_token" --record-dir "$dir" > "$dir/server.log" 2>&1 &
 server=$!
 trap 'kill "$server" 2>/dev/null' EXIT
@@ -57,7 +60,6 @@ while ! grep -q "Final whistle" "$dir/server.log" && [ "$coach_runs" -le "${GB_R
   abandon_if_limited
 done
 coach_seconds=$(( $(date +%s) - started ))
-rules="${GB_RULES:-$root/rules.toml}"
 team_turns=$(awk -F= '/^turns_per_half/ { turns = $2 } /^halves/ { halves = $2 } END { print turns * halves }' "$rules")
 [ "${team_turns:-0}" -gt 0 ] 2>/dev/null || team_turns=24
 match_timeout=$(( team_turns * (${GB_TURN_SECONDS:-60} + 15) + 1200 ))
