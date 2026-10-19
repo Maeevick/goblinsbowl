@@ -3,9 +3,12 @@
 
 use std::collections::HashMap;
 
-use goblins_rules::assessment::{ActivationRow, RiskSummary, summarise};
+use goblins_rules::assessment::{ActivationRow, RiskSummary, activation_rows, summarise};
+use goblins_rules::balance::MatchStats;
+use goblins_rules::bot_match::play_bot_match;
 use goblins_rules::command::Command;
-use goblins_rules::host::MatchRecord;
+use goblins_rules::host::{MatchRecord, MatchSetup};
+use goblins_rules::policies::Bot;
 use goblins_rules::team::TeamId;
 use serde_json::Value;
 
@@ -277,6 +280,10 @@ fn verdict_of(model: &str, own: &[&BatchMatch]) -> ModelVerdict {
     }
 }
 
+fn goal_difference(verdict: &ModelVerdict) -> i64 {
+    i64::from(verdict.goals[0]) - i64::from(verdict.goals[1])
+}
+
 fn shown(value: Option<f64>, unit: &str) -> String {
     value.map_or("n/a".to_string(), |value| format!("{value:.1}{unit}"))
 }
@@ -312,8 +319,45 @@ fn risk_cells(summary: &RiskSummary, matches: u32) -> String {
     )
 }
 
-/// The verdicts as Markdown: a table of measures, then the protocol's criteria for each model.
-pub fn batch_report(verdicts: &[ModelVerdict]) -> Vec<String> {
+/// The match `yardstick` plays from the agent's seat of a batch match set up as `setup`, against
+/// the batch's `opponent`, on the same ruleset, rosters and seed.
+///
+/// # Errors
+/// The bot match cannot be played out, or its record cannot be read again.
+pub fn yardstick_match(
+    setup: &MatchSetup,
+    agent: TeamId,
+    opponent: Bot,
+    yardstick: Bot,
+) -> anyhow::Result<BatchMatch> {
+    let coaches = if agent == TeamId::HOME {
+        [yardstick, opponent]
+    } else {
+        [opponent, yardstick]
+    };
+    let (record, events) = play_bot_match(&setup.ruleset, setup.rosters, setup.seed, coaches)?;
+    let stats = MatchStats::from_events(&events);
+    let goals = stats
+        .goals
+        .map(|goals| u8::try_from(goals).unwrap_or(u8::MAX));
+    Ok(BatchMatch {
+        model: yardstick.to_string(),
+        agent,
+        rows: activation_rows(&record)?,
+        goals,
+        turns: stats.turns,
+        turns_lost_to_the_clock: 0,
+        refused_calls: 0,
+        finished: true,
+        coach_runs: 1,
+        cost_usd: 0.0,
+        seconds: 0,
+    })
+}
+
+/// The verdicts as Markdown: a table of measures, the opponent bot's and the `yardstick`'s, then
+/// the protocol's criteria for each model, its results judged against the yardstick's.
+pub fn batch_report(verdicts: &[ModelVerdict], yardstick: Option<&ModelVerdict>) -> Vec<String> {
     let mut lines = vec![
         "| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |".to_string(),
         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|".to_string(),
@@ -350,9 +394,35 @@ pub fn batch_report(verdicts: &[ModelVerdict]) -> Vec<String> {
         ));
     }
     lines.push(String::new());
+    match yardstick {
+        Some(yardstick) => {
+            lines.push(format!(
+                "The yardstick, {}, from the agent's seat against the same bot on the same seeds:",
+                yardstick.model
+            ));
+            lines.push(String::new());
+            lines.push("| Yardstick | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |".to_string());
+            lines.push("|---|---|---|---|---|---|---|---|---|---|---|".to_string());
+            lines.push(format!(
+                "| {} | {} | {}-{}-{} | {}-{} | {} |",
+                yardstick.model,
+                yardstick.matches,
+                yardstick.results[0],
+                yardstick.results[1],
+                yardstick.results[2],
+                yardstick.goals[0],
+                yardstick.goals[1],
+                risk_cells(&yardstick.agent, yardstick.matches)
+            ));
+        }
+        None => {
+            lines.push("No yardstick: the matches do not name a bot that still plays.".to_string())
+        }
+    }
+    lines.push(String::new());
     lines.push("Criteria fixed before the batch (docs/assessment.md):".to_string());
     lines.push(String::new());
-    lines.push("| Model | Safe-first at least 0.90 | Mean gap under 5 pts | Under 10 % of risky orders 5 pts below the best | No tilt (within 5 pts after a failure) | Under one refused call per two turns | Goal difference not negative |".to_string());
+    lines.push("| Model | Safe-first at least 0.90 | Mean gap under 5 pts | Under 10 % of risky orders 5 pts below the best | No tilt (within 5 pts after a failure) | Under one refused call per two turns | Goal difference at least the yardstick's |".to_string());
     lines.push("|---|---|---|---|---|---|---|".to_string());
     for verdict in verdicts {
         let agent = &verdict.agent;
@@ -373,7 +443,7 @@ pub fn batch_report(verdicts: &[ModelVerdict]) -> Vec<String> {
             mark((verdict.agent_turns > 0).then(|| {
                 f64::from(verdict.refused_calls) < 0.5 * f64::from(verdict.agent_turns)
             })),
-            mark(Some(verdict.goals[0] >= verdict.goals[1])),
+            mark(yardstick.map(|yardstick| goal_difference(verdict) >= goal_difference(yardstick))),
         ));
     }
     lines
@@ -383,7 +453,7 @@ pub fn batch_report(verdicts: &[ModelVerdict]) -> Vec<String> {
 mod tests {
     use super::*;
     use goblins_rules::command::Activation;
-    use goblins_rules::host::{MatchSetup, RecordEntry, SeatKind};
+    use goblins_rules::host::{RecordEntry, SeatKind};
     use goblins_rules::odds::Probability;
     use goblins_rules::roster::Roster;
     use goblins_rules::ruleset::Ruleset;
@@ -536,9 +606,53 @@ mod tests {
     fn given_a_verdict_when_reporting_the_batch_then_its_model_has_a_row_in_the_table() {
         let verdicts = model_verdicts(&[batch_match("haiku", TeamId::HOME, [1, 0], Vec::new())]);
         assert!(
-            batch_report(&verdicts)
+            batch_report(&verdicts, None)
                 .iter()
                 .any(|line| line.starts_with("| haiku | 1 | 1-0-0 |"))
+        );
+    }
+
+    #[test]
+    fn given_a_yardstick_that_drew_where_the_model_lost_when_reporting_the_batch_then_its_results_fail_against_it()
+     {
+        let verdicts = model_verdicts(&[batch_match("haiku", TeamId::HOME, [1, 3], Vec::new())]);
+        let yardstick =
+            &model_verdicts(&[batch_match("cautious-2", TeamId::HOME, [2, 2], Vec::new())])[0];
+        let report = batch_report(&verdicts, Some(yardstick));
+        assert_eq!(
+            (
+                report
+                    .iter()
+                    .any(|line| line.starts_with("| cautious-2 | 1 | 0-1-0 | 2-2 |")),
+                report.last().map(|line| line.ends_with("| fail |"))
+            ),
+            (true, Some(true))
+        );
+    }
+
+    #[test]
+    fn given_a_batch_match_from_the_away_seat_when_the_yardstick_plays_it_then_it_coaches_away_on_the_same_seed()
+     {
+        let ruleset = Ruleset::default();
+        let setup = MatchSetup {
+            rosters: [ruleset.default_roster; 2],
+            ruleset: ruleset.clone(),
+            seed: 3,
+            seats: [SeatKind::Bot, SeatKind::Agent],
+            turn_seconds: [60, 60],
+            agent_ready_grace_seconds: 15,
+        };
+        let played = yardstick_match(&setup, TeamId::AWAY, Bot::Bold2, Bot::Cautious2).unwrap();
+        let (direct, _) = play_bot_match(
+            &ruleset,
+            [ruleset.default_roster; 2],
+            3,
+            [Bot::Bold2, Bot::Cautious2],
+        )
+        .unwrap();
+        assert_eq!(
+            (played.agent, played.rows),
+            (TeamId::AWAY, activation_rows(&direct).unwrap())
         );
     }
 

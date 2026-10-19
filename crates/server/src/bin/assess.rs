@@ -1,5 +1,7 @@
 //! Prints how each coach of a run handled risk: `goblinsbowl-assess <record.jsonl> [<calls.jsonl>]`,
-//! or a whole batch of `scripts/assessment-batch.sh` as Markdown: `goblinsbowl-assess --batch <dir>`.
+//! or a whole batch of `scripts/assessment-batch.sh` as Markdown, next to the yardstick bot replaying
+//! the agent's seats against the same bot: `goblinsbowl-assess --batch <dir> [--yardstick <bot>]`,
+//! cautious-2 unless told otherwise.
 //!
 //! The call log defaults to the file saved next to the record (`<record>-calls.jsonl`).
 
@@ -8,10 +10,11 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use goblins_rules::assessment::{activation_rows, summarise};
 use goblins_rules::host::MatchRecord;
+use goblins_rules::policies::Bot;
 use goblins_rules::team::TeamId;
 use goblins_server::assess::{
     BatchMatch, batch_report, calibration, estimates_by_entry, model_verdicts, refused_calls,
-    team_of_seat, turns_lost_to_the_clock,
+    team_of_seat, turns_lost_to_the_clock, yardstick_match,
 };
 use goblins_server::call_log::CallEntry;
 
@@ -91,7 +94,24 @@ fn batch_match(folder: &Path) -> anyhow::Result<BatchMatch> {
     })
 }
 
-fn print_batch(folder: &Path) -> anyhow::Result<()> {
+/// The yardstick's match for the batch match in `folder`, when its summary names a bot that still
+/// plays; none otherwise.
+fn yardstick_for(folder: &Path, yardstick: Bot) -> anyhow::Result<Option<BatchMatch>> {
+    let summary: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(folder.join("match.json"))?)?;
+    let Some(opponent) = summary["bot"]
+        .as_str()
+        .and_then(|name| name.parse::<Bot>().ok())
+    else {
+        return Ok(None);
+    };
+    let agent = team_of_seat(summary["seat"].as_str().unwrap_or_default())
+        .with_context(|| format!("unknown seat in {}", folder.display()))?;
+    let record = MatchRecord::from_json_lines(&std::fs::read_to_string(record_in(folder)?)?)?;
+    yardstick_match(&record.setup, agent, opponent, yardstick).map(Some)
+}
+
+fn print_batch(folder: &Path, yardstick: Bot) -> anyhow::Result<()> {
     let mut folders: Vec<PathBuf> = std::fs::read_dir(folder)?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
@@ -111,7 +131,26 @@ fn print_batch(folder: &Path) -> anyhow::Result<()> {
         .iter()
         .map(|match_folder| batch_match(match_folder))
         .collect::<anyhow::Result<Vec<_>>>()?;
-    for line in batch_report(&model_verdicts(&matches)) {
+    let mut seats_played = Vec::new();
+    let mut yardstick_matches = Vec::new();
+    for match_folder in &folders {
+        let seat = match_folder
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string());
+        if seats_played.contains(&seat) {
+            continue;
+        }
+        seats_played.push(seat);
+        match yardstick_for(match_folder, yardstick)? {
+            Some(played) => yardstick_matches.push(played),
+            None => {
+                yardstick_matches.clear();
+                break;
+            }
+        }
+    }
+    let yardstick = model_verdicts(&yardstick_matches).into_iter().next();
+    for line in batch_report(&model_verdicts(&matches), yardstick.as_ref()) {
         println!("{line}");
     }
     Ok(())
@@ -121,10 +160,14 @@ fn main() -> anyhow::Result<()> {
     let mut arguments = std::env::args().skip(1);
     let first = arguments.next();
     if first.as_deref() == Some("--batch") {
-        let folder = arguments
-            .next()
-            .context("usage: goblinsbowl-assess --batch <batch-folder>")?;
-        return print_batch(Path::new(&folder));
+        let usage = "usage: goblinsbowl-assess --batch <batch-folder> [--yardstick <bot>]";
+        let folder = arguments.next().context(usage)?;
+        let yardstick = match (arguments.next().as_deref(), arguments.next()) {
+            (None, _) => Bot::Cautious2,
+            (Some("--yardstick"), Some(bot)) => bot.parse().map_err(anyhow::Error::msg)?,
+            _ => anyhow::bail!(usage),
+        };
+        return print_batch(Path::new(&folder), yardstick);
     }
     let mut arguments = first.into_iter().chain(arguments);
     let record_path = PathBuf::from(
