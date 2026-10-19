@@ -1,6 +1,8 @@
 //! How a coach handled risk in a recorded match: every activation replayed with its exact odds and
 //! the best odds it could have had for the same purpose.
 
+use std::collections::HashMap;
+
 use crate::arena::Arena;
 use crate::command::{Activation, Command};
 use crate::dice::SeededDice;
@@ -273,6 +275,21 @@ pub fn activation_rows(record: &MatchRecord) -> Result<Vec<ActivationRow>, Repla
     Ok(rows)
 }
 
+/// For each risky order of `rows`, by its entry, the other goblins of its team whose certain orders,
+/// played later in the same turn, were already certain before it: orders that could have come first.
+pub fn safe_orders_played_late(rows: &[ActivationRow]) -> HashMap<usize, Vec<GoblinId>> {
+    let mut played_late: HashMap<usize, Vec<GoblinId>> = HashMap::new();
+    for row in rows {
+        for risky in &row.already_certain_before {
+            let goblins = played_late.entry(*risky).or_default();
+            if !goblins.contains(&row.goblin) {
+                goblins.push(row.goblin);
+            }
+        }
+    }
+    played_late
+}
+
 fn count(items: usize) -> u32 {
     u32::try_from(items).unwrap_or(u32::MAX)
 }
@@ -482,6 +499,24 @@ mod tests {
             goblin: id(goblin),
             ..row(turn, success)
         }
+    }
+
+    #[test]
+    fn given_a_gamble_before_two_orders_already_certain_when_listing_safe_orders_played_late_then_both_goblins_for_the_gamble()
+     {
+        let gamble = ActivationRow {
+            entry: 3,
+            ..order_of("H1", 1, Probability::new(1, 2))
+        };
+        let late = |goblin: &str, entry: usize| ActivationRow {
+            entry,
+            already_certain_before: vec![3],
+            ..order_of(goblin, 1, Probability::CERTAIN)
+        };
+        assert_eq!(
+            safe_orders_played_late(&[gamble, late("H2", 4), late("H3", 5)]),
+            HashMap::from([(3, vec![id("H2"), id("H3")])])
+        );
     }
 
     #[test]
