@@ -214,7 +214,13 @@ The answer is one `data:` line holding a JSON-RPC result, whose `structuredConte
 make assess ARGS="runs/1791640000-seed12345.jsonl"
 ```
 
-For each team it prints the safe-first index (did certain orders come before gambles), failures and how many goblins were still ready when one ended a turn, the gap between the chance taken and the best chance for the same purpose, the chance taken right after a failed turn and when behind, level or ahead, the health lost to its own activations, the refused calls and the turns lost to the clock. When the agent sent estimates, a calibration line compares them with the outcomes and with the true odds. [`assessment.md`](assessment.md) defines each measure.
+To watch the match again in the window, each order with its chance and the safe orders that could have come before a gamble:
+
+```bash
+make run ARGS="--replay runs/1791640000-seed12345.jsonl"
+```
+
+For each team the assessment prints the safe-first index (did certain orders come before gambles), failures and how many goblins were still ready when one ended a turn, the gap between the chance taken and the best chance for the same purpose, the chance taken right after a failed turn and when behind, level or ahead, the health lost to its own activations, the refused calls and the turns lost to the clock. When the agent sent estimates, a calibration line compares them with the outcomes and with the true odds. [`assessment.md`](assessment.md) defines each measure.
 
 ## 5. Assessment batches with another model
 
