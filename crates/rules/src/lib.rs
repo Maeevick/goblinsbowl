@@ -7,6 +7,7 @@ pub mod arena;
 pub mod assessment;
 pub mod balance;
 pub mod board;
+pub mod bot_match;
 pub mod bounces;
 pub mod bowls;
 pub mod characteristics;

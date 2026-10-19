@@ -12,14 +12,12 @@ use std::time::Instant;
 
 use goblins_rules::assessment::{ActivationRow, activation_rows, summarise};
 use goblins_rules::balance::{BalanceSummary, MatchStats};
+use goblins_rules::bot_match::play_bot_match;
 use goblins_rules::bowls::{BowlShape, BowlSize, with_bowl};
-use goblins_rules::dice::SeededDice;
-use goblins_rules::host::{MatchHost, MatchRecord, MatchSetup, SeatKind};
+use goblins_rules::host::MatchRecord;
 use goblins_rules::policies::Bot;
 use goblins_rules::ruleset::Ruleset;
 use goblins_rules::team::TeamId;
-
-const COMMAND_LIMIT: usize = 4_000;
 
 struct Options {
     games: u64,
@@ -73,33 +71,8 @@ fn play(
     seed: u64,
     coaches: [Bot; 2],
 ) -> Result<(MatchStats, MatchRecord), Box<dyn Error>> {
-    let (mut host, _) = MatchHost::start(MatchSetup {
-        ruleset: ruleset.clone(),
-        rosters: [ruleset.default_roster, ruleset.default_roster],
-        seed,
-        seats: [SeatKind::Bot, SeatKind::Bot],
-        turn_seconds: [ruleset.turn_seconds, ruleset.turn_seconds],
-        agent_ready_grace_seconds: 15,
-    })?;
-    let mut coach_dice = SeededDice::from_seed(seed.wrapping_add(1_000_003));
-    for _ in 0..COMMAND_LIMIT {
-        let Some(team) = host.game().state().active_team() else {
-            return Ok((
-                MatchStats::from_events(host.events_since(0)),
-                host.record().clone(),
-            ));
-        };
-        let game = host.game();
-        let command = coaches[team.index()].command(
-            game.arena(),
-            game.ruleset(),
-            game.state(),
-            team,
-            &mut coach_dice,
-        );
-        host.submit(team, command)?;
-    }
-    Err(format!("match {seed} did not finish").into())
+    let (record, events) = play_bot_match(ruleset, [ruleset.default_roster; 2], seed, coaches)?;
+    Ok((MatchStats::from_events(&events), record))
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
