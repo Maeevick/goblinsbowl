@@ -1,4 +1,4 @@
-.PHONY: test-unit test-integrated test-system test-all lint fmt run serve check golden balance assess
+.PHONY: test-unit test-integrated test-system test-all lint fmt run serve check golden benchmark-matches balance assess
 
 test-unit:
 	cargo test --workspace --lib --bins
@@ -28,6 +28,9 @@ serve:
 
 golden:
 	cargo run -p goblins_rules --example record_golden_match
+
+benchmark-matches:
+	cargo run -p goblins_rules --example record_benchmark_matches
 
 balance:
 	cargo run --release -q -p goblins_rules --example balance -- $(ARGS)

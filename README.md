@@ -49,4 +49,6 @@ With an agent seat, the window and the headless server both open an MCP endpoint
 
 ## Development
 
+`make benchmark-matches` records how the second-generation bots play the frozen assessment ruleset (`assessment/`); a test fails as soon as they play it differently, since that would move the benchmark: run it again only after a bridging batch ([`docs/assessment.md`](docs/assessment.md)).
+
 `GOBLINSBOWL_SCREENSHOT=/tmp/shot.png make run` renders the game offscreen, saves a PNG after a few frames and quits (works while the screen is locked), the start menu included. `GOBLINSBOWL_SCREENSHOT_FRAME` picks the frame, and `GOBLINSBOWL_SCRIPT="30:ready;60:click A5;90:click 12,6;120:done A6;150:end"` plays inputs before the capture: `ready`, a `click` on a goblin or a square, `hover` to rest the pointer on one, `done` for a goblin that stays put for the rest of its turn, `end` for the end of the turn, and `restart` for a new match; a script starts the match without the start menu.
