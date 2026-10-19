@@ -16,6 +16,7 @@ pub mod options;
 pub mod orders;
 pub mod pointer;
 pub mod replay;
+pub mod replay_bar;
 pub mod server_link;
 pub mod start_menu;
 #[cfg(test)]

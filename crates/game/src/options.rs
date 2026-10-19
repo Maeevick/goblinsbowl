@@ -92,6 +92,10 @@ pub struct GameOptions {
     /// Start the match straight away, without the start menu.
     #[arg(long)]
     pub no_menu: bool,
+    /// Replay a recorded match, whoever played it (a record of runs/), instead of playing one; its
+    /// bowl, rules and dice come from the record.
+    #[arg(long, value_name = "RECORD")]
+    pub replay: Option<PathBuf>,
 }
 
 impl GameOptions {
@@ -135,6 +139,16 @@ mod tests {
         assert_eq!(
             parse(&["--away", "bot", "--record"]).local_record_dir(),
             Some(PathBuf::from("runs"))
+        );
+    }
+
+    #[test]
+    fn given_a_record_to_replay_when_parsed_then_the_window_replays_it() {
+        assert_eq!(
+            parse(&["--replay", "runs/1792350689-seed6159427397358632990.jsonl"]).replay,
+            Some(PathBuf::from(
+                "runs/1792350689-seed6159427397358632990.jsonl"
+            ))
         );
     }
 

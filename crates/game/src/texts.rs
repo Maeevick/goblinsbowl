@@ -7,6 +7,7 @@ use goblins_rules::command::{Action, ActionKind, Activation};
 use goblins_rules::event::{DodgeRoll, GameEvent, TurnEndReason};
 use goblins_rules::odds::{AgilityDice, ContestDice, Probability};
 use goblins_rules::preview::{ActionOdds, ActivationOdds, DodgeDice, RiskyStep};
+use goblins_rules::roster::GoblinId;
 use goblins_rules::state::{Focus, Goblin};
 use goblins_rules::team::TeamId;
 
@@ -990,6 +991,76 @@ impl Texts {
         if self.french() { "Quitter" } else { "Quit" }
     }
 
+    /// Label of the replay's button back to the turn before.
+    pub fn previous_turn_button(&self) -> &'static str {
+        if self.french() {
+            "Tour précédent"
+        } else {
+            "Previous turn"
+        }
+    }
+
+    /// Label of the replay's button on to the next turn.
+    pub fn next_turn_button(&self) -> &'static str {
+        if self.french() {
+            "Tour suivant"
+        } else {
+            "Next turn"
+        }
+    }
+
+    /// Label of the replay's button playing on.
+    pub fn replay_play_button(&self) -> &'static str {
+        if self.french() { "Lecture" } else { "Play" }
+    }
+
+    /// Label of the replay's button pausing it.
+    pub fn pause_button(&self) -> &'static str {
+        "Pause"
+    }
+
+    /// Label of the replay's button playing `speed` times faster than a match, from 1 to 3.
+    pub fn speed_button(&self, speed: u8) -> &'static str {
+        match speed {
+            0 | 1 => "×1",
+            2 => "×2",
+            _ => "×3",
+        }
+    }
+
+    /// An order of a replay with its chance, for example "H5 · Passe à H9 : 83 %".
+    pub fn replayed_order(&self, activation: &Activation, odds: &ActivationOdds) -> String {
+        format!(
+            "{} · {}",
+            activation.goblin,
+            self.describe_draft(activation, odds)
+        )
+    }
+
+    /// The goblins whose safe orders could have come before a risky one, for example "H3 et H7
+    /// pouvaient jouer sans risque avant"; nothing when there are none.
+    pub fn safe_orders_first(&self, goblins: &[GoblinId]) -> String {
+        let names: Vec<String> = goblins.iter().map(GoblinId::to_string).collect();
+        let (and, one, many) = if self.french() {
+            (
+                " et ",
+                "pouvait jouer sans risque avant",
+                "pouvaient jouer sans risque avant",
+            )
+        } else {
+            (
+                " and ",
+                "had a safe order to play first",
+                "had safe orders to play first",
+            )
+        };
+        match names.as_slice() {
+            [] => String::new(),
+            [only] => format!("{only} {one}"),
+            [first @ .., last] => format!("{}{and}{last} {many}", first.join(", ")),
+        }
+    }
+
     /// Final line once the match is over.
     pub fn final_whistle(&self, home_score: u8, away_score: u8) -> String {
         if self.french() {
@@ -1126,6 +1197,24 @@ mod tests {
         assert_eq!(
             FRENCH.variation_label(Variation::Focused, Probability::new(5, 6), 3),
             format!("Concentration +3 {}", FRENCH.chance(Probability::new(5, 6)))
+        );
+    }
+
+    #[test]
+    fn given_french_when_three_goblins_had_safe_orders_to_play_first_then_they_are_named_together()
+    {
+        let goblins = [id("H2"), id("H3"), id("H7")];
+        assert_eq!(
+            FRENCH.safe_orders_first(&goblins),
+            "H2, H3 et H7 pouvaient jouer sans risque avant"
+        );
+    }
+
+    #[test]
+    fn given_english_when_one_goblin_had_a_safe_order_to_play_first_then_it_is_named() {
+        assert_eq!(
+            ENGLISH.safe_orders_first(&[id("A4")]),
+            "A4 had a safe order to play first"
         );
     }
 

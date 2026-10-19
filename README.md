@@ -13,6 +13,7 @@ make run ARGS="--no-menu"             # the same, straight into the match on the
 make run ARGS="--away bot"            # play against the computer, the balanced-2 bot by default
 make run ARGS="--home bot --bot cautious-2"  # the computer on the home seat with another coach: --bot cautious-2, balanced-2, bold-2 or random
 make run ARGS="--away bot --record"   # the same, its record saved to runs/ (make assess ARGS="runs/<file>.jsonl" reads it)
+make run ARGS="--replay runs/<file>.jsonl"   # watch any recorded match again, played by humans, bots or agents
 make run ARGS="--arena rectangle --arena-size medium"  # another bowl: circle, cross or rectangle; tiny (21), medium (31) or huge (51)
 make run ARGS="--home-turn-seconds 90 --lang en"
 make check                            # lint + unit + integrated tests
@@ -34,6 +35,7 @@ Rules 0.10 (French and English, printable for a paper playtest): [`docs/rules.md
 - **Fin du tour** ends the turn, which no longer ends on its own: once no goblin can play, a reminder shows and the button pulses. A second click confirms while goblins can still play.
 - At the final whistle, a scoresheet shows what each team did; **Rejouer** starts a new match and **Quitter** closes the game.
 - Camera: Q/E or right-drag to turn, WASD/arrows or middle-drag to pan, the wheel to zoom, R to reset. P pauses a match between humans.
+- Replay (`--replay`): the bar at the bottom left tells each order with its chance, in the colour of its risk, and in orange which goblins had a safe order that could have been played first. Its buttons go to the previous or the next turn, play or pause (Space), pick the speed ×1, ×2 or ×3 (keys 1, 2 and 3) and quit; Play again on the final sheet replays from the kick-off.
 
 ## Agents
 

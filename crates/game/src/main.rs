@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use clap::Parser;
 use goblins_rules::bowls::with_bowl;
 use goblins_rules::event::GameEvent;
-use goblins_rules::host::MatchHost;
+use goblins_rules::host::{MatchHost, MatchRecord};
 use goblins_rules::ruleset::{Ruleset, RulesetError};
 use goblins_server::match_server::ServerPacing;
 use goblins_server::mcp::{SeatTokens, random_token};
@@ -21,6 +21,8 @@ use goblinsbowl::local_match::LocalMatchPlugin;
 use goblinsbowl::options::{GameOptions, LocalSeat};
 use goblinsbowl::orders::OrdersPlugin;
 use goblinsbowl::pointer::PointerPlugin;
+use goblinsbowl::replay::{ReplayCursor, ReplayPlugin};
+use goblinsbowl::replay_bar::ReplayBarPlugin;
 use goblinsbowl::server_link::{LinkSettings, ServerLink, ServerLinkPlugin};
 use goblinsbowl::start_menu::StartMenuPlugin;
 use goblinsbowl::texts::Texts;
@@ -35,6 +37,23 @@ enum MatchSource {
 
 fn main() -> AppExit {
     let options = GameOptions::parse();
+    if let Some(record) = options.replay.clone() {
+        return match open_replay(&record) {
+            Ok((cursor, opening_events)) => window(options, |app| {
+                app.add_plugins((
+                    ReplayPlugin {
+                        cursor,
+                        opening_events,
+                    },
+                    ReplayBarPlugin,
+                ));
+            }),
+            Err(problem) => {
+                eprintln!("{problem}");
+                AppExit::from_code(2)
+            }
+        };
+    }
     let ruleset = match load_ruleset(&options.rules) {
         Ok(ruleset) => with_bowl(ruleset, options.arena, options.arena_size),
         Err(problem) => {
@@ -85,24 +104,10 @@ fn main() -> AppExit {
     } else {
         MatchSource::Local(Box::new(host), opening_events)
     };
-    let mut app = App::new();
-    app.insert_resource(ClearColor(Color::srgb(0.12, 0.14, 0.2)))
-        .insert_resource(Texts {
-            language: options.lang,
-        })
-        .insert_resource(options)
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Goblins Bowl".into(),
-                    ..default()
-                }),
-                ..default()
-            }),
-            MeshPickingPlugin,
-        ));
-    match source {
-        MatchSource::Linked(link) => app.add_plugins(ServerLinkPlugin { link }),
+    window(options, |app| match source {
+        MatchSource::Linked(link) => {
+            app.add_plugins(ServerLinkPlugin { link });
+        }
         MatchSource::Local(host, opening_events) => {
             app.add_plugins((
                 LocalMatchPlugin {
@@ -119,9 +124,44 @@ fn main() -> AppExit {
             if opens_on_the_menu {
                 app.add_plugins(StartMenuPlugin);
             }
-            &mut app
         }
+    })
+}
+
+/// The replay of the record in `path`, at its kick-off, and the events of the kick-off.
+fn open_replay(path: &Path) -> Result<(ReplayCursor, Vec<GameEvent>), String> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+    let record = MatchRecord::from_json_lines(&text)
+        .map_err(|error| format!("{} is no match record: {error}", path.display()))?;
+    ReplayCursor::open(record)
+        .map_err(|error| format!("the match of {} cannot start: {error}", path.display()))
+}
+
+/// Opens the window on the match `add_source` brings, and runs it until it closes.
+fn window(options: GameOptions, add_source: impl FnOnce(&mut App)) -> AppExit {
+    let title = if options.replay.is_some() {
+        "Goblins Bowl · replay"
+    } else {
+        "Goblins Bowl"
     };
+    let mut app = App::new();
+    app.insert_resource(ClearColor(Color::srgb(0.12, 0.14, 0.2)))
+        .insert_resource(Texts {
+            language: options.lang,
+        })
+        .insert_resource(options)
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: title.into(),
+                    ..default()
+                }),
+                ..default()
+            }),
+            MeshPickingPlugin,
+        ));
+    add_source(&mut app);
     app.add_plugins((
         bowl_view::BowlViewPlugin,
         goblin_view::GoblinViewPlugin,
