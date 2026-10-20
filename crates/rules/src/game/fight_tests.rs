@@ -495,6 +495,60 @@ fn projection_north_east() -> AssaultStyle {
     AssaultStyle::Projection(crate::square::Compass::NorthEast)
 }
 
+fn bruiser_styles_against_a_sprinter() -> Scenario {
+    bruisers_face_to_face_with_styles()
+        .rules(|ruleset| ruleset.brutal_and_projection_need_a_bruiser = true)
+        .goblin("H3", Sprinter, 6, 6)
+}
+
+#[test]
+fn given_brutal_assaults_for_bruisers_only_when_a_sprinter_assaults_brutally_then_refused() {
+    let mut game = bruiser_styles_against_a_sprinter().game([]);
+
+    let refusal = game.apply(
+        TeamId::HOME,
+        styled_assault("H3", "A1", AssaultStyle::Brutal),
+    );
+
+    assert_eq!(
+        refusal,
+        Err(RuleViolation::StyleNeedsABruiser { goblin: id("H3") })
+    );
+}
+
+#[test]
+fn given_projections_for_bruisers_only_when_a_sprinter_projects_then_refused() {
+    let mut game = bruiser_styles_against_a_sprinter().game([]);
+
+    let refusal = game.apply(
+        TeamId::HOME,
+        styled_assault(
+            "H3",
+            "A1",
+            AssaultStyle::Projection(crate::square::Compass::East),
+        ),
+    );
+
+    assert_eq!(
+        refusal,
+        Err(RuleViolation::StyleNeedsABruiser { goblin: id("H3") })
+    );
+}
+
+#[test]
+fn given_brutal_assaults_for_bruisers_only_when_a_bruiser_assaults_brutally_then_it_hurts_one_more()
+{
+    let mut game = bruiser_styles_against_a_sprinter().game([4, 2]);
+
+    game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", AssaultStyle::Brutal),
+    )
+    .unwrap();
+
+    assert_eq!(game.state().goblin(id("A1")).unwrap().health, 3);
+}
+
 #[test]
 fn given_assault_styles_when_a_projection_wins_then_the_defender_falls_on_the_chosen_square_around_the_attacker()
  {

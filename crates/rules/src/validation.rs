@@ -63,6 +63,15 @@ pub fn validate_activation(
     {
         return Err(RuleViolation::StyleNotInTheseRules { goblin: id });
     }
+    if let Some(Action::Assault {
+        style: AssaultStyle::Brutal | AssaultStyle::Projection(_),
+        ..
+    }) = activation.action
+        && ruleset.brutal_and_projection_need_a_bruiser
+        && goblin.archetype != Archetype::Bruiser
+    {
+        return Err(RuleViolation::StyleNeedsABruiser { goblin: id });
+    }
     if let Some(Action::Throw {
         style: ThrowStyle::Chaos,
         ..

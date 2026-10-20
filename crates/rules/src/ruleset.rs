@@ -152,6 +152,9 @@ pub struct Ruleset {
     /// the attacker); otherwise every assault is simple.
     #[serde(default)]
     pub assaults_have_styles: bool,
+    /// Whether only a Bruiser may assault brutally or project, where assaults have styles.
+    #[serde(default)]
+    pub brutal_and_projection_need_a_bruiser: bool,
     /// Whether a goblin that has not moved this turn may throw into chaos, with no throw roll, the
     /// ball bouncing three times from the receiver's square and the turn ending unless a teammate
     /// then holds it, or, holding the ball, focus, +1 to its throws on its team's next turn;
@@ -301,6 +304,7 @@ impl Default for Ruleset {
             assaults_reach_diagonals: false,
             ball_bounces_all_around: true,
             assaults_have_styles: true,
+            brutal_and_projection_need_a_bruiser: false,
             throws_have_styles: true,
             only_throwers_throw_into_chaos: false,
             focused_throws_spend_steps_left: true,

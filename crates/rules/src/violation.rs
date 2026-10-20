@@ -76,6 +76,12 @@ pub enum RuleViolation {
         /// The goblin.
         goblin: GoblinId,
     },
+    /// Only Bruisers assault brutally or project, under rules that keep those styles for them.
+    #[error("{goblin} is no Bruiser: only Bruisers assault brutally or project")]
+    StyleNeedsABruiser {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// A projection throws a standing enemy down; this one already lies down.
     #[error("{target} already lies down and cannot be projected")]
     ProjectionNeedsAStandingTarget {
