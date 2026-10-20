@@ -842,7 +842,7 @@ mod tests {
     #[test]
     fn given_the_built_in_rules_when_sent_to_agents_then_only_their_english_half() {
         let rules = built_in_rules();
-        assert!(rules.starts_with("# Goblins Bowl, rules 0.10") && !rules.contains("règles"));
+        assert!(rules.starts_with("# Goblins Bowl, rules 0.11") && !rules.contains("règles"));
     }
 
     #[test]
