@@ -11,6 +11,7 @@ use crate::bounces::{
 };
 use crate::characteristics::Archetype;
 use crate::command::{Action, Activation, AssaultStyle, ThrowStyle};
+use crate::dives::dive_chances;
 use crate::flight::squares_crossed;
 use crate::odds::{AgilityDice, ContestDice, Probability, agility_success};
 use crate::roster::GoblinId;
@@ -615,7 +616,7 @@ fn chaos_odds(
         .map(|(from, to)| interception_chances(ruleset, sketch, from, to, thrower.team))
         .unwrap_or_default();
     let kept = to.map_or(Probability::IMPOSSIBLE, |to| {
-        ChaosBounces::new(arena, ruleset, sketch, thrower.team).chance_kept_from(to)
+        ChaosBounces::new(arena, ruleset, thrower.team).chance_kept_from(sketch, to)
     });
     let success = interceptions
         .iter()
@@ -632,60 +633,76 @@ fn chaos_odds(
 
 /// The bounces of a ball thrown into chaos, weighed for the chance a goblin of `team` ends up
 /// holding it: every square the direction die may send it to, each catch a goblin standing there
-/// may make or miss, the ball going on past a miss or a goblin lying down.
+/// may make or miss, each dive of the Sprinters around an empty square, the ball going on past a
+/// miss or a goblin lying down, a diver that missed lying down for the rest of the bounces.
 struct ChaosBounces<'a> {
     arena: &'a Arena,
     ruleset: &'a Ruleset,
-    state: &'a GameState,
     team: TeamId,
-    known: HashMap<(Square, u8, usize), f64>,
+    known: HashMap<(Square, u8, usize, Vec<GoblinId>), f64>,
 }
 
 impl<'a> ChaosBounces<'a> {
-    fn new(arena: &'a Arena, ruleset: &'a Ruleset, state: &'a GameState, team: TeamId) -> Self {
+    fn new(arena: &'a Arena, ruleset: &'a Ruleset, team: TeamId) -> Self {
         Self {
             arena,
             ruleset,
-            state,
             team,
             known: HashMap::new(),
         }
     }
 
-    /// Chance a teammate holds the ball once it bounced [`CHAOS_BOUNCES`] times from `square`.
-    fn chance_kept_from(mut self, square: Square) -> Probability {
-        Probability::nearest(self.kept(square, CHAOS_BOUNCES, 0))
+    /// Chance a teammate holds the ball once it bounced [`CHAOS_BOUNCES`] times from `square` on
+    /// `board`.
+    fn chance_kept_from(mut self, board: &GameState, square: Square) -> Probability {
+        Probability::nearest(self.kept(board, &[], square, CHAOS_BOUNCES, 0))
     }
 
-    /// Chance a teammate ends up holding a ball on `square` with `bounces_left` bounces to make,
-    /// `moves` squares into the current one; a bounce sent on [`MOST_MOVES_IN_A_BOUNCE`] times in a
-    /// row counts as lost.
-    fn kept(&mut self, square: Square, bounces_left: u8, moves: usize) -> f64 {
+    /// Chance a teammate ends up holding a ball on `square` of `board`, where the divers of
+    /// `fallen` missed and lie down, with `bounces_left` bounces to make, `moves` squares into the
+    /// current one; a bounce sent on [`MOST_MOVES_IN_A_BOUNCE`] times in a row counts as lost.
+    fn kept(
+        &mut self,
+        board: &GameState,
+        fallen: &[GoblinId],
+        square: Square,
+        bounces_left: u8,
+        moves: usize,
+    ) -> f64 {
         if bounces_left == 0 || moves == MOST_MOVES_IN_A_BOUNCE {
             return 0.0;
         }
-        if let Some(chance) = self.known.get(&(square, bounces_left, moves)) {
+        let key = (square, bounces_left, moves, fallen.to_vec());
+        if let Some(chance) = self.known.get(&key) {
             return *chance;
         }
         let chance = bounce_chances(self.arena, self.ruleset, square)
             .into_iter()
-            .map(|(to, weight)| weight * self.kept_after_landing(to, bounces_left, moves))
+            .map(|(to, weight)| {
+                weight * self.kept_after_landing(board, fallen, to, bounces_left, moves)
+            })
             .sum();
-        self.known.insert((square, bounces_left, moves), chance);
+        self.known.insert(key, chance);
         chance
     }
 
-    fn kept_after_landing(&mut self, square: Square, bounces_left: u8, moves: usize) -> f64 {
-        let state = self.state;
-        let Some(goblin) = state.goblin_at(square) else {
-            return self.kept(square, bounces_left - 1, 0);
+    fn kept_after_landing(
+        &mut self,
+        board: &GameState,
+        fallen: &[GoblinId],
+        square: Square,
+        bounces_left: u8,
+        moves: usize,
+    ) -> f64 {
+        let Some(goblin) = board.goblin_at(square) else {
+            return self.kept_after_dives(board, fallen, square, bounces_left, moves);
         };
         if !goblin.is_standing() {
-            return self.kept(square, bounces_left, moves + 1);
+            return self.kept(board, fallen, square, bounces_left, moves + 1);
         }
         let catch = share(agility_success(
             goblin.characteristics.agility,
-            opponents_in_reach(self.ruleset, state, square, goblin.team()),
+            opponents_in_reach(self.ruleset, board, square, goblin.team()),
             self.ruleset.ball_roll_target,
         ));
         let caught_by_a_teammate = if goblin.team() == self.team {
@@ -693,7 +710,50 @@ impl<'a> ChaosBounces<'a> {
         } else {
             0.0
         };
-        caught_by_a_teammate + (1.0 - catch) * self.kept(square, bounces_left, moves + 1)
+        caught_by_a_teammate
+            + (1.0 - catch) * self.kept(board, fallen, square, bounces_left, moves + 1)
+    }
+
+    /// Chance a teammate ends up holding a ball landing on the empty `square`: a teammate's dive
+    /// catching it, or the ball going on past a diver that missed, which then lies down; with
+    /// nobody to dive, the bounce ends there.
+    fn kept_after_dives(
+        &mut self,
+        board: &GameState,
+        fallen: &[GoblinId],
+        square: Square,
+        bounces_left: u8,
+        moves: usize,
+    ) -> f64 {
+        let dives = dive_chances(self.ruleset, board, square);
+        if dives.is_empty() {
+            return self.kept(board, fallen, square, bounces_left - 1, 0);
+        }
+        dives
+            .into_iter()
+            .map(|dive| {
+                let caught = if dive.diver.team == self.team {
+                    dive.catches
+                } else {
+                    0.0
+                };
+                if dive.misses == 0.0 {
+                    return caught;
+                }
+                let mut after_the_miss = board.clone();
+                if let Some(diver) = after_the_miss.goblin_mut(dive.diver)
+                    && let Presence::Standing(at) = diver.presence
+                {
+                    diver.presence = Presence::Down(at);
+                }
+                let mut fallen = fallen.to_vec();
+                fallen.push(dive.diver);
+                fallen.sort();
+                caught
+                    + dive.misses
+                        * self.kept(&after_the_miss, &fallen, square, bounces_left, moves + 1)
+            })
+            .sum()
     }
 }
 
@@ -1491,6 +1551,78 @@ mod tests {
             .goblin("H6", Sprinter, 7, 7);
         let preview = odds(scenario, &chaos_towards("H2")).unwrap();
         assert_eq!(preview.overall_success, Probability::CERTAIN);
+    }
+
+    fn chaos_with_diving_catches() -> Scenario {
+        Scenario::new().rules(|ruleset| {
+            ruleset.keeps_moving_after_action = true;
+            ruleset.turn_ends_when_no_goblin_can_act = false;
+            ruleset.throws_have_styles = true;
+            ruleset.sprinters_dive_for_loose_balls = true;
+            ruleset.diving_catch_malus = 1;
+        })
+    }
+
+    #[test]
+    fn given_diving_catches_when_previewing_a_chaos_throw_to_a_lone_sprinter_then_its_dive_keeps_the_ball_half_the_time()
+     {
+        let scenario = chaos_with_diving_catches()
+            .goblin("H1", Thrower, 1, 7)
+            .goblin("H2", Sprinter, 8, 7)
+            .ball_carried_by("H1");
+
+        let preview = odds(scenario, &chaos_towards("H2")).unwrap();
+
+        assert!(matches!(
+            preview.action,
+            Some(ActionOdds::Chaos { kept, .. }) if kept == Probability::new(1, 2)
+        ));
+    }
+
+    fn crowd_around_a_chaos_receiver() -> Scenario {
+        chaos_with_diving_catches()
+            .rules(|ruleset| {
+                ruleset.reach_covers_diagonals = true;
+                ruleset.ball_bounces_all_around = true;
+            })
+            .goblin("H1", Thrower, 3, 7)
+            .goblin("H2", Sprinter, 8, 7)
+            .goblin("H3", Sprinter, 9, 6)
+            .goblin("H4", Bruiser, 7, 8)
+            .goblin("A1", Sprinter, 9, 8)
+            .goblin("A2", Sprinter, 7, 6)
+            .goblin("A3", Bruiser, 10, 7)
+            .ball_carried_by("H1")
+    }
+
+    #[test]
+    fn given_diving_catches_when_a_crowded_chaos_throw_is_previewed_then_its_chance_matches_twenty_thousand_throws_played()
+     {
+        let preview = odds(crowd_around_a_chaos_receiver(), &chaos_towards("H2")).unwrap();
+        let throws: u32 = 20_000;
+
+        let kept = (0..throws)
+            .filter(|seed| {
+                let mut game = crowd_around_a_chaos_receiver().seeded_game(u64::from(*seed));
+                let events = game
+                    .apply(
+                        TeamId::HOME,
+                        crate::command::Command::Act(chaos_towards("H2")),
+                    )
+                    .unwrap();
+                !events.contains(&crate::event::GameEvent::TurnEnded {
+                    team: TeamId::HOME,
+                    reason: crate::event::TurnEndReason::Fumble,
+                })
+            })
+            .count();
+
+        let played = f64::from(u32::try_from(kept).unwrap()) / f64::from(throws);
+        assert!(
+            (played - share(preview.overall_success)).abs() < 0.015,
+            "played {played}, previewed {:?}",
+            preview.overall_success
+        );
     }
 
     #[test]

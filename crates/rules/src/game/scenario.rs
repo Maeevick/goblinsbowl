@@ -2,7 +2,7 @@
 
 use crate::arena::BOWL_15_MASK;
 use crate::characteristics::{Archetype, Characteristics};
-use crate::dice::ScriptedDice;
+use crate::dice::{ScriptedDice, SeededDice};
 use crate::formation::Formation;
 use crate::roster::{GoblinId, Roster};
 use crate::ruleset::{ArchetypeCharacteristics, Ruleset};
@@ -162,6 +162,11 @@ impl Scenario {
 
     pub(crate) fn game(self, scripted_rolls: impl IntoIterator<Item = u8>) -> Game<ScriptedDice> {
         Game::resume(self.ruleset, self.state, ScriptedDice::new(scripted_rolls))
+            .expect("scenario ruleset is valid")
+    }
+
+    pub(crate) fn seeded_game(self, seed: u64) -> Game<SeededDice> {
+        Game::resume(self.ruleset, self.state, SeededDice::from_seed(seed))
             .expect("scenario ruleset is valid")
     }
 

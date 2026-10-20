@@ -13,6 +13,7 @@ pub mod bowls;
 pub mod characteristics;
 pub mod command;
 pub mod dice;
+mod dives;
 pub mod event;
 pub mod flight;
 pub mod formation;

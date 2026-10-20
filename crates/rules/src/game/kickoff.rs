@@ -6,13 +6,13 @@ use crate::bounces::{
     MOST_DIRECTION_ROLLS, MOST_DIVE_TIE_BREAKS, MOST_MOVES_IN_A_BOUNCE, direction_die, landing,
     settling_square,
 };
-use crate::characteristics::Archetype;
 use crate::dice::DiceRoller;
+use crate::dives::divers_around;
 use crate::event::{AgilityRoll, DiveRoll, GameEvent};
 use crate::formation::{kickoff_drop_square, kickoff_squares};
 use crate::odds::AgilityDice;
 use crate::roster::{GoblinId, Roster};
-use crate::square::{Reach, Square};
+use crate::square::Square;
 use crate::state::{Ball, Focus, Goblin, Presence};
 use crate::team::TeamId;
 
@@ -182,22 +182,7 @@ impl<D: DiceRoller> Game<D> {
         at: Square,
         events: &mut Vec<GameEvent>,
     ) -> Option<(GoblinId, bool)> {
-        if !self.ruleset.sprinters_dive_for_loose_balls {
-            return None;
-        }
-        let candidates: Vec<GoblinId> = self
-            .state
-            .goblins
-            .iter()
-            .filter(|goblin| {
-                goblin.archetype == Archetype::Sprinter
-                    && goblin.presence.is_standing()
-                    && goblin
-                        .square()
-                        .is_some_and(|square| square.is_within(at, Reach::AllAround))
-            })
-            .map(|goblin| goblin.id)
-            .collect();
+        let candidates = divers_around(&self.ruleset, &self.state, at);
         let DiveRoll {
             goblin: diver,
             roll,
