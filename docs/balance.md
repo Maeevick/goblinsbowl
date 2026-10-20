@@ -410,3 +410,50 @@ What the numbers say:
 - **Fights stay as they were**: assaults per match within 2.5 of 0.10 and knock-outs within 0.3, so the extra goals come from goblins slipping out of the scrum, not from bloodier matches.
 - **Fewer draws pay both appetites, the cautious one a little more**: over both seats, cautious-2 wins 21.2 % of its matches against bold-2 (12.0 % under 0.10) and bold-2 28.0 % (20.4 %). Home edges stay within 4 points.
 - **The bots still barely pass**: three to four throws per match, and still no interception. They go forward and fight; none keeps its receivers out of the scrum or cages its carrier, so these tables say what 0.11 does for that play, not for a positional passing game, which only matches between people, or a coach built for it, will show.
+
+## Rules 0.12, 20 Oct 2026
+
+Rules 0.11 where each archetype has its own ways: only Throwers throw into chaos, and a focused throw needs a Thrower that has not moved, which spends its whole Move for +3 and falls, unhurt, when its throw roll misses; only Bruisers assault brutally or project, a projection losing its −1 to win and taking one Health less; only Sprinters intercept from a square next to the flight line, and Sprinters dive at −1 for a ball landing on an empty square around them, the highest roll diving. Assaults reach the eight squares around, an assault on a downed goblin is an aggression, +1 to attack counted in the Health it takes and the only way to hit it, and a hand-off's receiver catches at +1. Second-generation coaches, seeds 1 to 1,000, on the tiny circle of the rules file. The 0.11 figures quoted here were played again after the odds of focused throws were corrected the same day (a bonus above the target of 2 had lost its excess in the previews the bots weigh, two of a standing Thrower's four points under 0.11), which moves them by a point at most from the 0.11 section.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Assaults per match | Throws per match | Dives per match (caught) | Knock-outs per match |
+|---|---|---|---|---|---|---|---|---|
+| cautious-2 vs cautious-2 | 26.1 % | 24.2 % | 49.7 % | 0.72 | 96.5 | 4.9 | 11.5 (60 %) | 5.99 |
+| balanced-2 vs balanced-2 | 27.6 % | 27.5 % | 44.9 % | 0.78 | 102.1 | 5.3 | 12.1 (59 %) | 5.87 |
+| bold-2 vs bold-2 | 33.8 % | 32.2 % | 34.0 % | 1.18 | 118.4 | 7.4 | 14.0 (60 %) | 6.26 |
+| cautious-2 vs bold-2 | 25.5 % | 35.8 % | 38.7 % | 0.95 | 109.3 | 6.1 | 13.2 (60 %) | 6.11 |
+| bold-2 vs cautious-2 | 35.1 % | 25.1 % | 39.8 % | 0.94 | 109.3 | 6.0 | 13.4 (60 %) | 6.09 |
+
+From 0.11 to 0.12, same seeds (draws, goals per match, knock-outs per match):
+
+| Home vs away | 0.11 | 0.12 |
+|---|---|---|
+| cautious-2 vs cautious-2 | 66.7 %, 0.38, 1.89 | 49.7 %, 0.72, 5.99 |
+| balanced-2 vs balanced-2 | 64.3 %, 0.43, 2.03 | 44.9 %, 0.78, 5.87 |
+| bold-2 vs bold-2 | 42.0 %, 0.87, 4.43 | 34.0 %, 1.18, 6.26 |
+| cautious-2 vs bold-2 | 50.9 %, 0.68, 3.11 | 38.7 %, 0.95, 6.11 |
+| bold-2 vs cautious-2 | 51.1 %, 0.64, 3.21 | 39.8 %, 0.94, 6.09 |
+
+Each change undone on its own in the mirrors, same seeds (draws, goals per match, knock-outs per match):
+
+| 0.12 | cautious-2 | balanced-2 | bold-2 |
+|---|---|---|---|
+| as shipped | 49.7 %, 0.72, 5.99 | 44.9 %, 0.78, 5.87 | 34.0 %, 1.18, 6.26 |
+| without diving catches | 61.2 %, 0.48, 6.36 | 57.4 %, 0.53, 6.35 | 38.1 %, 0.97, 6.87 |
+| every enemy intercepting beside the line | 50.2 %, 0.64, 5.90 | 46.4 %, 0.75, 5.83 | 35.4 %, 1.12, 6.18 |
+| orthogonal assaults | 47.0 %, 0.72, 2.08 | 44.0 %, 0.79, 1.99 | 36.7 %, 1.15, 2.67 |
+| brutal and projection for everyone, projection as in 0.11 | 49.8 %, 0.68, 2.75 | 46.1 %, 0.71, 2.98 | 35.1 %, 1.12, 4.31 |
+| no aggressions, the downed malus back at 2 | 47.6 %, 0.68, 4.49 | 46.7 %, 0.72, 4.59 | 38.7 %, 1.09, 5.04 |
+| no hand-off bonus | 49.7 %, 0.72, 5.99 | 44.9 %, 0.78, 5.87 | 34.0 %, 1.18, 6.26 |
+
+What the numbers say:
+
+- **The game opens again, and gets bloodier.** Draws fall by 8 to 19 points from 0.11 and goals per match rise by a third to nearly double; knock-outs triple in the careful mirrors (1.9 to 6.0 a match) and assaults go up by half.
+- **Diving catches do most of the opening.** Sprinters dive 11 to 14 times a match and catch 60 % of those balls; without dives the careful mirrors fall back to 57 to 61 % draws. A chaos throw towards a lone Sprinter with nobody near is now kept two times in three.
+- **Passes rise too**, from 3 to 5 a match in the careful mirrors and from 4 to 7 in the bold one (chaos throws not counted), dives and clearer flight lines both playing a part: without dives the cautious mirror throws 3.8 times a match, with every enemy intercepting beside the line 3.9.
+- **Diagonal assaults make the bloodshed, not the goals.** With orthogonal assaults the mirrors score about as much (0.72, 0.79 and 1.15 goals) with 76 to 92 assaults a match instead of 97 to 118, and 2.0 to 2.7 knock-outs instead of 5.9 to 6.3.
+- **Keeping brutal hits for Bruisers adds knock-outs through the bots' play.** Their other goblins hit chirurgically, +1 to win, where they would hit brutally at −1, so they take more hits and knock down more goblins, which aggressions then finish, most likely; with brutal hits and projections open to all, knock-outs fall to 2.8 to 4.3 a match and assaults by a fifth in the careful mirrors, while goals barely move.
+- **Aggressions open the bold mirror** (38.7 % to 34.0 % draws) and add a knock-out or so a match in each mirror; the careful mirrors barely move.
+- **Interceptions kept beside the line for Sprinters open a little**: 0.5 to 1.5 points fewer draws, a few more goals, and the bots pass more (4.9 throws a match in the cautious mirror against 3.9 when every enemy intercepts beside the line).
+- **The hand-off bonus changes nothing between bots**, to the decimal: their passes look for an open teammate three squares closer to the den, never an adjacent one, so they never hand off. It matters only to coaches who play hand-offs, like the passing game this release is for.
+- **The bold appetite pays more than before**: over both seats bold-2 wins 35.5 % of its matches against cautious-2 (27.9 % under 0.11) and cautious-2 25.3 % (21.1 %). Home edges stay within 2 points.
+- **A cost of the bots, not of the game**: matches between bots take about five times longer to compute under 0.12, the previews they weigh for every candidate chaos throw now counting every dive; a single preview, as a coach or an agent asks for one, still takes milliseconds.
