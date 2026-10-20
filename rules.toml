@@ -1,4 +1,4 @@
-# Goblins Bowl, rules 0.11: every tunable number of a match.
+# Goblins Bowl, rules 0.12: every tunable number of a match.
 # Attack, Defense and Agility are rolled as dice with that many faces.
 
 turns_per_half = 12
@@ -11,8 +11,13 @@ ball_roll_target = 2
 # Orthogonal steps a throw covers before losing 1 per extra step.
 throw_free_range = 6
 interception_surprise_malus = 1
-# Malus on the defense roll of a goblin assaulted while down.
-downed_defense_malus = 2
+# Malus on the defense roll of a goblin assaulted while down (2 until rules 0.11; since 0.12 an
+# aggression adds to the attack instead).
+downed_defense_malus = 0
+# Added to the attack of an aggression, an assault on a downed goblin, and counted in the Health it takes.
+aggression_bonus = 1
+# Whether an aggression is the only way to assault a downed goblin: no other style on a goblin down.
+aggressions_take_no_style = true
 # The kick-off drops the ball kickoff_depth squares into the receiving half (0: the centre square), plus a
 # die of 0 to kickoff_depth_spread more, up to kickoff_across_spread rows to either side (a die too), then
 # bounces kickoff_bounces times unless a goblin catches it.
@@ -41,6 +46,13 @@ carriers_can_assault = false
 carriers_can_brace = false
 # Whether a throw to an adjacent teammate is a hand-off: no throw roll, only the receiver's catch.
 adjacent_throws_are_hand_offs = true
+# Added to the receiver's catch of a hand-off.
+hand_off_catch_bonus = 1
+# Whether a standing Sprinter dives for a ball landing on an empty square among the eight around it,
+# d(Agility) minus diving_catch_malus and its other maluses: among several, the highest result dives
+# (ties rolled again); caught, it lands there holding the ball, missed, it falls where it stands, unhurt.
+sprinters_dive_for_loose_balls = true
+diving_catch_malus = 1
 # Whether every goblin gets its Health back at a kick-off, a knocked-out one rolling its Health die
 # (false: Health lasts the whole match and a knocked-out goblin stays out of it).
 goblins_heal_at_kick_off = false
@@ -65,21 +77,39 @@ one_action_of_each_kind = true
 braced_tacklers_weigh_double = false
 # Whether a goblin weighs on the eight squares around it rather than the four orthogonal ones:
 # leaving them takes a dodge, rolls made there suffer its malus, and it may intercept a ball flying
-# over them. Moves and assaults stay orthogonal.
+# over them. Moves stay orthogonal.
 reach_covers_diagonals = true
+# Whether a goblin may assault an enemy on any of the eight squares around it (false: the four
+# orthogonal ones only, until rules 0.11).
+assaults_reach_diagonals = true
+# Whether only a Sprinter may intercept from a square next to the flight line, any other enemy having to
+# stand on a square the ball crosses.
+only_sprinters_intercept_beside_the_line = true
 # Whether a bouncing ball goes to one of the eight squares around on a d8, clockwise from north
 # (false: one of the four orthogonal ones on a d4).
 ball_bounces_all_around = true
 # Whether an assault may be chirurgical (+1 to win, no Health lost), brutal (-1 to win, one more
-# Health lost) or a projection (-1 to win, the target falls on a square picked around the attacker).
+# Health lost) or a projection (the target falls on a square picked around the attacker).
 assaults_have_styles = true
+# Whether only a Bruiser may assault brutally or project.
+brutal_and_projection_need_a_bruiser = true
+# Malus on a projection's attack roll (1 until rules 0.11), and Health it takes less than the dice say.
+projection_attack_malus = 0
+projection_health_reduction = 1
 # Whether a goblin that has not moved may throw into chaos (no throw roll, the ball bouncing three
 # times from the receiver's square, the turn ending unless a teammate then holds it), costing its whole
 # Move; under rules 0.9 the carrier could also focus on its own for +1 to its throws next turn.
 throws_have_styles = true
+# Whether only a Thrower may throw into chaos.
+only_throwers_throw_into_chaos = true
 # Whether a Thrower may throw focused, every step it has left after the throw sacrificed for +1 to the
 # throw roll (false: focus, where throws have styles, is a whole turn standing still for +1 next turn).
 focused_throws_spend_steps_left = true
+# A focused throw's flat bonus: only a Thrower that has not moved may then throw focused, spending its
+# whole Move (left out: +1 per step left after the throw, as in rules 0.10 and 0.11).
+focused_throw_bonus = 3
+# Whether a Thrower whose focused throw misses its throw roll falls where it stands, unhurt.
+failed_focused_throws_down_the_thrower = true
 
 # x out of bounds, O in bounds, H home den (west), A away den (east): 7 squares on the outermost column.
 arena = [

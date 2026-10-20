@@ -683,7 +683,7 @@ mod tests {
         MatchHost::start(MatchSetup {
             ruleset,
             rosters: [Roster::DEFAULT, Roster::DEFAULT],
-            seed: 2,
+            seed: 3,
             seats: [SeatKind::Agent, SeatKind::Agent],
             turn_seconds: [60, 60],
             agent_ready_grace_seconds: 15,
@@ -703,11 +703,38 @@ mod tests {
         )
     }
 
-    #[test]
-    fn given_the_kick_off_with_full_hints_when_viewed_then_the_best_pick_comes_with_its_chance() {
+    /// The ball options at kick-off, the ball loose on the empty square just behind the first goblin
+    /// of the team to play.
+    fn ball_loose_next_to_the_team_to_play(hints: OddsHints) -> Vec<BallOption> {
         let host = kick_off();
-        let seat = host.snapshot().state.active_team().unwrap();
-        let options = view_for(&host, seat, OddsHints::Full).ball_options;
+        let mut snapshot = host.snapshot();
+        let seat = snapshot.state.active_team().unwrap();
+        let first = snapshot.state.goblins_of(seat).next().unwrap();
+        let at = first.square().unwrap();
+        let behind = if seat == TeamId::HOME {
+            at.x - 1
+        } else {
+            at.x + 1
+        };
+        snapshot.state.ball = Ball::Loose {
+            at: goblins_rules::square::Square::new(behind, at.y),
+        };
+        coach_view(
+            host.game().arena(),
+            host.game().ruleset(),
+            &snapshot,
+            seat,
+            &[],
+            hints,
+        )
+        .ball_options
+    }
+
+    #[test]
+    fn given_a_loose_ball_at_kick_off_with_full_hints_when_viewed_then_the_best_pick_comes_with_its_chance()
+     {
+        let options = ball_loose_next_to_the_team_to_play(OddsHints::Full);
+
         assert!(
             options
                 .first()
@@ -716,10 +743,10 @@ mod tests {
     }
 
     #[test]
-    fn given_the_kick_off_with_hidden_hints_when_viewed_then_picks_come_without_chances() {
-        let host = kick_off();
-        let seat = host.snapshot().state.active_team().unwrap();
-        let options = view_for(&host, seat, OddsHints::None).ball_options;
+    fn given_a_loose_ball_at_kick_off_with_hidden_hints_when_viewed_then_picks_come_without_chances()
+     {
+        let options = ball_loose_next_to_the_team_to_play(OddsHints::None);
+
         assert!(
             !options.is_empty()
                 && options
@@ -860,9 +887,21 @@ mod tests {
     }
 
     #[test]
-    fn given_an_attacker_next_to_an_enemy_when_viewed_then_an_assault_option() {
-        let view = attacker_next_to_an_enemy(&kick_off(), true);
-        assert_eq!(view.assault_options.len(), 1);
+    fn given_an_attacker_next_to_an_enemy_when_viewed_then_an_assault_option_on_it() {
+        let host = kick_off();
+        let (snapshot, seat, attacker) = beside_an_enemy(&host, true);
+        let target = snapshot
+            .state
+            .goblins_of(seat.duel_opponent())
+            .next()
+            .unwrap()
+            .id;
+
+        let view = attacker_next_to_an_enemy(&host, true);
+
+        assert!(view.assault_options.iter().any(|option| {
+            option.attacker == attacker.to_string() && option.target == target.to_string()
+        }));
     }
 
     #[test]
