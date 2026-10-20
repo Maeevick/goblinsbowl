@@ -25,6 +25,15 @@ pub struct AgilityRoll {
     pub success: bool,
 }
 
+/// A Sprinter's roll for a dive, among those next to the landing ball.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiveRoll {
+    /// The Sprinter.
+    pub goblin: GoblinId,
+    /// Its diving catch roll.
+    pub roll: AgilityRoll,
+}
+
 /// An opposed roll (Assault, Dodge): the actor's die plus its modifier against the opponent's die
 /// plus its modifier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -133,6 +142,24 @@ pub enum GameEvent {
         from: Square,
         /// Square it reached.
         to: Square,
+    },
+    /// Sprinters next to the empty square where the ball landed rolled to dive for it: the highest
+    /// result dives, the tied ones rolling again among themselves.
+    DiveContested {
+        /// Each Sprinter's roll, in the order they rolled.
+        rolls: Vec<DiveRoll>,
+    },
+    /// A Sprinter dived for the ball landing next to it: caught, it lands on that square holding
+    /// it; missed, it falls where it stands.
+    DiveAttempted {
+        /// The Sprinter.
+        goblin: GoblinId,
+        /// Its square before the dive.
+        from: Square,
+        /// The square where the ball landed.
+        to: Square,
+        /// Its catch roll, the diving malus included.
+        roll: AgilityRoll,
     },
     /// A goblin tried to catch the ball.
     CatchAttempted {

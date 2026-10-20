@@ -463,6 +463,10 @@ impl Texts {
             (ShownRoll::Catch(_), true, false) => "Caught!",
             (ShownRoll::Catch(_), false, true) => "Lâchée !",
             (ShownRoll::Catch(_), false, false) => "Dropped!",
+            (ShownRoll::Dive(_), true, true) => "Plongeon !",
+            (ShownRoll::Dive(_), true, false) => "Diving catch!",
+            (ShownRoll::Dive(_), false, true) => "Plat ventre !",
+            (ShownRoll::Dive(_), false, false) => "Belly flop!",
             (ShownRoll::Intercept(_), true, true) => "Interceptée !",
             (ShownRoll::Intercept(_), true, false) => "Intercepted!",
             (ShownRoll::Intercept(_), false, true) => "Manquée !",
@@ -480,6 +484,7 @@ impl Texts {
             | ShownRoll::Pick(ball)
             | ShownRoll::Throw(ball)
             | ShownRoll::Catch(ball)
+            | ShownRoll::Dive(ball)
             | ShownRoll::Intercept(ball) => {
                 if self.french() {
                     format!(
@@ -561,6 +566,48 @@ impl Texts {
                 french,
                 format!("{goblin} reste KO"),
                 format!("{goblin} stays knocked out"),
+            ),
+            GameEvent::DiveContested { rolls } => {
+                let on = if french { "sur" } else { "on" };
+                let rolled = rolls
+                    .iter()
+                    .map(|dive| {
+                        format!("{} {}", dive.goblin, describe_agility_roll(&dive.roll, on))
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                pick(
+                    french,
+                    format!("Qui plonge ? {rolled}"),
+                    format!("Who dives? {rolled}"),
+                )
+            }
+            GameEvent::DiveAttempted { goblin, roll, .. } => pick(
+                french,
+                if roll.success {
+                    format!(
+                        "{goblin} plonge et attrape la balle : {}",
+                        describe_agility_roll(roll, "sur")
+                    )
+                } else {
+                    format!(
+                        "{goblin} plonge et s'étale : {}, il fallait {}",
+                        describe_agility_roll(roll, "sur"),
+                        roll.target
+                    )
+                },
+                if roll.success {
+                    format!(
+                        "{goblin} dives and catches the ball: {}",
+                        describe_agility_roll(roll, "on")
+                    )
+                } else {
+                    format!(
+                        "{goblin} dives and misses: {}, needed {}",
+                        describe_agility_roll(roll, "on"),
+                        roll.target
+                    )
+                },
             ),
             GameEvent::CatchAttempted { goblin, roll } => pick(
                 french,

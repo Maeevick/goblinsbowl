@@ -108,6 +108,15 @@ pub struct Ruleset {
     /// Added to the receiver's catch of a hand-off.
     #[serde(default)]
     pub hand_off_catch_bonus: u8,
+    /// Whether a standing Sprinter dives for a ball landing on an empty square among the eight
+    /// around it, rolling its catch with the diving malus: among several, only the highest result
+    /// dives, the tied ones rolling again among themselves; caught, it lands there holding the
+    /// ball, missed, it falls where it stands, unhurt, and the ball bounces on.
+    #[serde(default)]
+    pub sprinters_dive_for_loose_balls: bool,
+    /// Taken off a diving catch.
+    #[serde(default)]
+    pub diving_catch_malus: u8,
     /// Whether every goblin gets its Health back at a kick-off, a knocked-out one rolling its Health
     /// die; otherwise Health lasts the whole match and a knocked-out goblin stays out of it.
     #[serde(default = "kick_offs_heal")]
@@ -315,6 +324,8 @@ impl Default for Ruleset {
             carriers_can_brace: false,
             adjacent_throws_are_hand_offs: true,
             hand_off_catch_bonus: 0,
+            sprinters_dive_for_loose_balls: false,
+            diving_catch_malus: 0,
             goblins_heal_at_kick_off: false,
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,

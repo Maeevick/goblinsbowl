@@ -54,6 +54,7 @@ pub fn event_team(event: &GameEvent) -> Option<TeamId> {
         GameEvent::ReturnedFromKnockOut { goblin, .. }
         | GameEvent::StillKnockedOut { goblin }
         | GameEvent::CatchAttempted { goblin, .. }
+        | GameEvent::DiveAttempted { goblin, .. }
         | GameEvent::StoodUp { goblin }
         | GameEvent::Moved { goblin, .. }
         | GameEvent::DodgeAttempted { goblin, .. }
@@ -73,6 +74,7 @@ pub fn event_team(event: &GameEvent) -> Option<TeamId> {
         }
         GameEvent::BallDropped { .. }
         | GameEvent::BallBounced { .. }
+        | GameEvent::DiveContested { .. }
         | GameEvent::HalfEnded { .. }
         | GameEvent::GameEnded { .. } => None,
     }

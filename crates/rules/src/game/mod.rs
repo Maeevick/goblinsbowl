@@ -19,6 +19,8 @@ mod action_economy_tests;
 mod activation;
 #[cfg(test)]
 mod chaos_tests;
+#[cfg(test)]
+mod diving_catch_tests;
 mod fight;
 #[cfg(test)]
 mod fight_tests;

@@ -3,14 +3,16 @@
 use std::collections::VecDeque;
 
 use crate::bounces::{
-    MOST_DIRECTION_ROLLS, MOST_MOVES_IN_A_BOUNCE, direction_die, landing, settling_square,
+    MOST_DIRECTION_ROLLS, MOST_DIVE_TIE_BREAKS, MOST_MOVES_IN_A_BOUNCE, direction_die, landing,
+    settling_square,
 };
+use crate::characteristics::Archetype;
 use crate::dice::DiceRoller;
-use crate::event::{AgilityRoll, GameEvent};
+use crate::event::{AgilityRoll, DiveRoll, GameEvent};
 use crate::formation::{kickoff_drop_square, kickoff_squares};
 use crate::odds::AgilityDice;
 use crate::roster::{GoblinId, Roster};
-use crate::square::Square;
+use crate::square::{Reach, Square};
 use crate::state::{Ball, Focus, Goblin, Presence};
 use crate::team::TeamId;
 
@@ -152,7 +154,10 @@ impl<D: DiceRoller> Game<D> {
                 .goblin_at(to)
                 .map(|goblin| (goblin.id, goblin.is_standing()))
             {
-                None => return missed_catches,
+                None => match self.dive_for_the_ball(to, events) {
+                    Some((diver, false)) => missed_catches.push(diver),
+                    _ => return missed_catches,
+                },
                 Some((catcher, true)) => {
                     if self.attempt_catch(catcher, 0, 0, events) {
                         return missed_catches;
@@ -167,6 +172,92 @@ impl<D: DiceRoller> Game<D> {
             self.state.ball = Ball::Loose { at: resting_square };
         }
         missed_catches
+    }
+
+    /// Lets the standing Sprinters next to `at`, the empty square where the ball just landed, dive
+    /// for it where the rules have diving catches: the one rolling highest lands there holding it,
+    /// or falls where it stands. Tells who dived and whether it caught the ball.
+    fn dive_for_the_ball(
+        &mut self,
+        at: Square,
+        events: &mut Vec<GameEvent>,
+    ) -> Option<(GoblinId, bool)> {
+        if !self.ruleset.sprinters_dive_for_loose_balls {
+            return None;
+        }
+        let candidates: Vec<GoblinId> = self
+            .state
+            .goblins
+            .iter()
+            .filter(|goblin| {
+                goblin.archetype == Archetype::Sprinter
+                    && goblin.presence.is_standing()
+                    && goblin
+                        .square()
+                        .is_some_and(|square| square.is_within(at, Reach::AllAround))
+            })
+            .map(|goblin| goblin.id)
+            .collect();
+        let DiveRoll {
+            goblin: diver,
+            roll,
+        } = self.contest_the_dive(&candidates, events)?;
+        let from = self.state.goblin(diver)?.square()?;
+        events.push(GameEvent::DiveAttempted {
+            goblin: diver,
+            from,
+            to: at,
+            roll,
+        });
+        if roll.success {
+            if let Some(goblin) = self.state.goblin_mut(diver) {
+                goblin.presence = Presence::Standing(at);
+            }
+            self.state.ball = Ball::Carried { by: diver };
+        } else {
+            self.knock_down(diver, 0, events);
+        }
+        Some((diver, roll.success))
+    }
+
+    /// Who dives among `candidates`, with the roll that decides its catch: each rolls its diving
+    /// catch, the highest result dives, and those tied roll again among themselves only to tell
+    /// who.
+    fn contest_the_dive(
+        &mut self,
+        candidates: &[GoblinId],
+        events: &mut Vec<GameEvent>,
+    ) -> Option<DiveRoll> {
+        let first_rolls = self.roll_dives(candidates);
+        if first_rolls.len() > 1 {
+            events.push(GameEvent::DiveContested {
+                rolls: first_rolls.clone(),
+            });
+        }
+        let mut tied = highest_dives(&first_rolls);
+        for _ in 0..MOST_DIVE_TIE_BREAKS {
+            if tied.len() < 2 {
+                break;
+            }
+            let rerolls = self.roll_dives(&tied);
+            events.push(GameEvent::DiveContested {
+                rolls: rerolls.clone(),
+            });
+            tied = highest_dives(&rerolls);
+        }
+        let diver = tied.first()?;
+        first_rolls.into_iter().find(|dive| dive.goblin == *diver)
+    }
+
+    fn roll_dives(&mut self, divers: &[GoblinId]) -> Vec<DiveRoll> {
+        let malus = self.ruleset.diving_catch_malus;
+        divers
+            .iter()
+            .map(|diver| DiveRoll {
+                goblin: *diver,
+                roll: self.agility_roll(*diver, malus),
+            })
+            .collect()
     }
 
     fn roll_bounce_destination(&mut self, from: Square) -> Square {
@@ -263,4 +354,17 @@ impl<D: DiceRoller> Game<D> {
         }
         None
     }
+}
+
+/// The divers whose result is the highest among `dives`.
+fn highest_dives(dives: &[DiveRoll]) -> Vec<GoblinId> {
+    let result = |dive: &DiveRoll| {
+        i16::from(dive.roll.rolled) + i16::from(dive.roll.bonus) - i16::from(dive.roll.malus)
+    };
+    let best = dives.iter().map(result).max();
+    dives
+        .iter()
+        .filter(|dive| Some(result(dive)) == best)
+        .map(|dive| dive.goblin)
+        .collect()
 }

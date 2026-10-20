@@ -15,6 +15,10 @@ pub const MOST_DIRECTION_ROLLS: usize = 32;
 /// the ball rests on the nearest empty square.
 pub const MOST_MOVES_IN_A_BOUNCE: usize = 32;
 
+/// Rounds of rolls among Sprinters tied for a dive before the first of them in the bowl's order
+/// dives.
+pub const MOST_DIVE_TIE_BREAKS: usize = 32;
+
 /// Faces of the die picking a bounce's direction: eight where the ball bounces all around, four
 /// where it bounces orthogonally.
 pub fn direction_die(ruleset: &Ruleset) -> u8 {

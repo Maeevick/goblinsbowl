@@ -78,6 +78,8 @@ pub enum ShownRoll {
     Catch(AgilityRoll),
     /// Snatching a ball thrown by the other team.
     Intercept(AgilityRoll),
+    /// A Sprinter diving for a ball landing next to it.
+    Dive(AgilityRoll),
 }
 
 impl ShownRoll {
@@ -89,7 +91,8 @@ impl ShownRoll {
             ShownRoll::Pick(roll)
             | ShownRoll::Throw(roll)
             | ShownRoll::Catch(roll)
-            | ShownRoll::Intercept(roll) => roll.success,
+            | ShownRoll::Intercept(roll)
+            | ShownRoll::Dive(roll) => roll.success,
         }
     }
 }
@@ -171,6 +174,18 @@ pub fn beats_from_events(events: &[GameEvent]) -> Vec<Beat> {
                     goblin,
                     roll: ShownRoll::Catch(roll),
                 });
+            }
+            GameEvent::DiveAttempted {
+                goblin, to, roll, ..
+            } => {
+                beats.push(Beat::Roll {
+                    goblin,
+                    roll: ShownRoll::Dive(roll),
+                });
+                if roll.success {
+                    beats.push(Beat::Step { goblin, to });
+                    beats.push(Beat::BallToGoblin { goblin });
+                }
             }
             _ => {}
         }
@@ -272,6 +287,52 @@ mod tests {
                     to: Square::new(6, 4)
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn given_a_caught_dive_when_turning_events_into_beats_then_its_roll_then_the_diver_lands_with_the_ball()
+     {
+        let events = [GameEvent::DiveAttempted {
+            goblin: goblin("H2"),
+            from: Square::new(7, 5),
+            to: Square::new(6, 6),
+            roll: roll(true),
+        }];
+
+        assert_eq!(
+            beats_from_events(&events),
+            vec![
+                Beat::Roll {
+                    goblin: goblin("H2"),
+                    roll: ShownRoll::Dive(roll(true))
+                },
+                Beat::Step {
+                    goblin: goblin("H2"),
+                    to: Square::new(6, 6)
+                },
+                Beat::BallToGoblin {
+                    goblin: goblin("H2")
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn given_a_missed_dive_when_turning_events_into_beats_then_only_its_roll() {
+        let events = [GameEvent::DiveAttempted {
+            goblin: goblin("H2"),
+            from: Square::new(7, 5),
+            to: Square::new(6, 6),
+            roll: roll(false),
+        }];
+
+        assert_eq!(
+            beats_from_events(&events),
+            vec![Beat::Roll {
+                goblin: goblin("H2"),
+                roll: ShownRoll::Dive(roll(false))
+            }]
         );
     }
 

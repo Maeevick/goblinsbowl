@@ -179,3 +179,26 @@ fn given_chaos_for_throwers_only_when_a_thrower_throws_into_chaos_then_the_ball_
         receiver: id("H2")
     }));
 }
+
+#[test]
+fn given_diving_catches_when_a_chaos_throw_lands_next_to_the_sprinter_it_flew_to_then_it_dives_for_it_and_the_turn_goes_on()
+ {
+    let mut game = thrower_with_the_ball_and_chaos()
+        .rules(|ruleset| {
+            ruleset.sprinters_dive_for_loose_balls = true;
+            ruleset.diving_catch_malus = 1;
+        })
+        .game([NORTH, 3]);
+
+    let events = game.apply(TeamId::HOME, chaos("H1", &[], "H2")).unwrap();
+
+    assert_eq!(
+        (
+            game.state().ball,
+            events
+                .iter()
+                .any(|event| matches!(event, GameEvent::TurnEnded { .. }))
+        ),
+        (Ball::Carried { by: id("H2") }, false)
+    );
+}
