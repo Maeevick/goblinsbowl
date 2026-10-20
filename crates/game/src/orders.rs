@@ -90,8 +90,8 @@ pub enum Variation {
 
 /// The variations offered for the aimed order of `draft`, each with the chance it does what it is
 /// played for (a knock-down for an assault, the turn going on for a throw); none where the rules
-/// have no styles for that action, so a second click on the aim still sends it. A focused throw is
-/// offered only when it beats the plain one.
+/// leave only the plain one for that action and goblin, so a second click on the aim still sends
+/// it. A focused throw is offered only when it beats the plain one.
 pub fn variations(
     arena: &Arena,
     ruleset: &Ruleset,
@@ -137,12 +137,17 @@ pub fn variations(
         .iter()
         .find(|(variation, _)| *variation == Variation::Simple)
         .map(|(_, chance)| *chance);
-    offered
+    let worth_offering: Vec<(Variation, Probability)> = offered
         .into_iter()
         .filter(|(variation, chance)| {
             *variation != Variation::Focused || plain.is_none_or(|plain| *chance > plain)
         })
-        .collect()
+        .collect();
+    if matches!(worth_offering.as_slice(), [(Variation::Simple, _)]) {
+        Vec::new()
+    } else {
+        worth_offering
+    }
 }
 
 /// What focusing its aimed throw would add to the roll of the goblin of `draft`.
@@ -1780,6 +1785,8 @@ mod tests {
     fn with_focused_throws() -> Ruleset {
         Ruleset {
             focused_throws_spend_steps_left: true,
+            focused_throw_bonus: None,
+            only_throwers_throw_into_chaos: false,
             ..with_styles()
         }
     }
@@ -1811,6 +1818,60 @@ mod tests {
             offered_for(&state, &draft),
             [Variation::Simple, Variation::Chaos, Variation::Focused]
         );
+    }
+
+    #[test]
+    fn given_chaos_for_throwers_only_when_a_sprinter_aims_a_teammate_then_nothing_to_pick_and_a_second_click_sends_the_pass()
+     {
+        let state = board(&[("H5", 5, 7), ("H9", 9, 7)], Some("H5"));
+        let click = BoardClick::Goblin(id("H9"));
+        let draft = aimed("H5", &[], Some(Action::throw(id("H9"))), click);
+        let chaos_for_throwers = Ruleset {
+            only_throwers_throw_into_chaos: true,
+            ..with_focused_throws()
+        };
+        let in_these_rules = |reaction_to: BoardClick| {
+            react_to_click(
+                &Arena::bowl_15(),
+                &chaos_for_throwers,
+                &state,
+                TeamId::HOME,
+                Some(&draft),
+                reaction_to,
+            )
+        };
+
+        assert_eq!(
+            (
+                variations(
+                    &Arena::bowl_15(),
+                    &chaos_for_throwers,
+                    &state,
+                    TeamId::HOME,
+                    &draft
+                ),
+                in_these_rules(click)
+            ),
+            (Vec::new(), Reaction::Send(draft.activation.clone()))
+        );
+    }
+
+    #[test]
+    fn given_a_flat_focus_bonus_of_three_when_a_thrower_that_has_not_moved_aims_a_teammate_then_it_may_focus_for_three()
+     {
+        let state = board(&[("H9", 5, 7), ("H5", 9, 7)], Some("H9"));
+        let draft = aimed(
+            "H9",
+            &[],
+            Some(Action::throw(id("H5"))),
+            BoardClick::Goblin(id("H5")),
+        );
+        let flat_focus = Ruleset {
+            focused_throw_bonus: Some(3),
+            ..with_focused_throws()
+        };
+
+        assert_eq!(focus_bonus(&flat_focus, &state, &draft), 3);
     }
 
     #[test]
