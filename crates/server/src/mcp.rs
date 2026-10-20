@@ -19,6 +19,7 @@ use goblins_rules::odds::Probability;
 use goblins_rules::paths::safest_path;
 use goblins_rules::preview::{activation_odds, board_after_success};
 use goblins_rules::roster::GoblinId;
+use goblins_rules::ruleset::Ruleset;
 use goblins_rules::square::{Compass, Square};
 use goblins_rules::state::GameState;
 use goblins_rules::team::TeamId;
@@ -47,7 +48,7 @@ const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based gob
 Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
 resolved in order; add end_turn=true on your last call), then wait again, until status is game_over. \
 Each goblin has its movement in steps, spent over as many orders as you like, even after other goblins \
-played; it may assault once and throw once per turn, each costing a step (steps_left, actions_left). Assaults come in styles (simple, chirurgical, \
+played; it may assault once and throw once per turn, {ACTION_COST} (steps_left, actions_left). Assaults come in styles (simple, chirurgical, \
 brutal, projection), a goblin that has not moved may throw into chaos, and a Thrower may throw focused, \
 every step it has left after the throw sacrificed for +1 to the roll: see the play schema and get_rules. \
 Any failed dodge, assault, pick-up or throw, or your own throw not caught, ends your turn at once, \
@@ -56,6 +57,16 @@ a score, or its clock (time_left_ms) running out. To get exact odds without roll
 from where the previous ones leave the board, and compare_plans weighs alternative plans side by side. \
 Squares are [x, y]; goblins are H1..H9 (home, west den) and A1..A9 (away, east den). Call get_rules once \
 for the full rules.";
+
+/// What agents read on connecting, saying whether actions cost a step under `ruleset`.
+fn instructions(ruleset: &Ruleset) -> String {
+    let action_cost = if ruleset.actions_cost_a_step {
+        "each costing a step"
+    } else {
+        "neither costing a step"
+    };
+    INSTRUCTIONS.replace("{ACTION_COST}", action_cost)
+}
 
 /// The English half of a rules `document`, from the line opening with its English heading on, as
 /// agents read it; the whole document when it has no such line.
@@ -490,7 +501,7 @@ impl ServerHandler for CoachServer {
                 "goblinsbowl",
                 env!("CARGO_PKG_VERSION"),
             ))
-            .with_instructions(INSTRUCTIONS)
+            .with_instructions(instructions(self.client.ruleset()))
     }
 }
 

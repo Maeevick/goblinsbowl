@@ -65,8 +65,12 @@ struct Running {
 }
 
 async fn start_server() -> Outcome<Running> {
+    start_server_with(Ruleset::default()).await
+}
+
+async fn start_server_with(ruleset: Ruleset) -> Outcome<Running> {
     let (host, _) = MatchHost::start(MatchSetup {
-        ruleset: Ruleset::default(),
+        ruleset,
         rosters: [Roster::DEFAULT, Roster::DEFAULT],
         seed: 42,
         seats: [SeatKind::Agent, SeatKind::Agent],
@@ -146,6 +150,44 @@ async fn given_a_coach_when_listing_tools_then_wait_state_rules_play_and_compare
             "play",
             "wait_for_my_turn"
         ]
+    );
+    Ok(())
+}
+
+async fn instructions_under(ruleset: Ruleset) -> Outcome<String> {
+    let server = start_server_with(ruleset).await?;
+    let coach = coach(&server.url, HOME_TOKEN).await?;
+    Ok(coach
+        .peer_info()
+        .and_then(|info| info.instructions.clone())
+        .unwrap_or_default())
+}
+
+#[tokio::test]
+async fn given_rules_where_actions_cost_a_step_when_a_coach_connects_then_its_instructions_say_so()
+-> Outcome<()> {
+    let instructions = instructions_under(Ruleset {
+        actions_cost_a_step: true,
+        ..Ruleset::default()
+    })
+    .await?;
+
+    assert!(instructions.contains("throw once per turn, each costing a step (steps_left"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn given_rules_where_actions_cost_no_step_when_a_coach_connects_then_its_instructions_say_so()
+-> Outcome<()> {
+    let instructions = instructions_under(Ruleset {
+        actions_cost_a_step: false,
+        ..Ruleset::default()
+    })
+    .await?;
+
+    assert!(
+        instructions.contains("throw once per turn, neither costing a step (steps_left")
+            && !instructions.contains("each costing a step")
     );
     Ok(())
 }
