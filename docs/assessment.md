@@ -261,3 +261,63 @@ What the bridge says:
 - **So batch 4's fall in results comes from the stronger opponents, not from the rules.** The safe-first gap to 0.90 is Haiku's own under every rules and opponent tried, between 0.73 and 0.83, and its odds reading passes everywhere.
 - **Against `cautious-2`, the yardstick from now on**, Haiku is two to five goals short in every batch-4 line, the baseline for the next batches on the frozen benchmark.
 - **Small samples:** 10 matches and 1 to 21 goals per condition, so a goal or two either way is within what the dice alone can do; the safe-first index pools hundreds of pairs per batch and moves by a few hundredths.
+
+### Batch 6, 19 Oct 2026: Haiku 5.5 at $20 on the frozen benchmark
+
+Seeds 1 to 5 from both seats against each of `balanced-2`, `bold-2` and `cautious-2`, on the frozen benchmark (`assessment/rules-0.10.toml` and `.md`), full hints, 60 s turns, five matches at a time, $20 per coach run. The 30 matches played from 22:42 to 23:55; a session limit at 23:22 stopped the five matches under way against `bold-2`, which were replayed from scratch once the limit was reset by hand at 23:25. No coach hit its budget or needed a resume, and every match reached its final whistle.
+
+| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| claude-haiku-5-5 against balanced-2 | 10 | 2-8-0 | 2-0 | 0.72 | 6.9 | 7.0 | 1.0 pts | 11 | 75.0 % | 76.3 % | 10 | 10 | 0 | 0 | $105.86 | 10.8 |
+| claude-haiku-5-5 against bold-2 | 10 | 2-6-2 | 3-3 | 0.74 | 6.8 | 6.5 | 0.8 pts | 8 | 73.7 % | 73.5 % | 6 | 7 | 0 | 0 | $109.40 | 10.9 |
+| claude-haiku-5-5 against cautious-2 | 10 | 2-6-2 | 2-2 | 0.75 | 9.5 | 6.7 | 0.3 pts | 3 | 73.6 % | 70.5 % | 3 | 7 | 0 | 0 | $76.35 | 8.1 |
+
+| Bot | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|
+| balanced-2 | 0.92 | 4.6 | 4.5 | 0.2 pts | 2 | 77.0 % | 78.0 % |
+| bold-2 | 0.91 | 9.0 | 5.0 | 0.3 pts | 6 | 73.2 % | 73.7 % |
+| cautious-2 | 0.83 | 3.6 | 5.3 | 0.4 pts | 3 | 74.5 % | 74.1 % |
+
+| Yardstick (`cautious-2`) | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|---|---|---|
+| against balanced-2 | 10 | 1-9-0 | 1-0 | 0.87 | 1.3 | 3.9 | 0.2 pts | 1 | 76.8 % | 77.4 % |
+| against bold-2 | 10 | 3-5-2 | 3-2 | 0.86 | 2.1 | 3.8 | 0.2 pts | 2 | 78.5 % | 77.2 % |
+| against cautious-2 | 10 | 0-10-0 | 0-0 | 0.88 | 1.3 | 4.1 | 0.0 pts | 0 | 79.0 % | 73.6 % |
+
+| Batch | Safe-first at least 0.90 | Mean gap under 5 pts | Under 10 % of risky orders 5 pts below the best | No tilt (within 5 pts after a failure) | Under one refused call per two turns | Goal difference at least the yardstick's |
+|---|---|---|---|---|---|---|
+| against balanced-2 | fail | pass | pass | pass | pass | pass |
+| against bold-2 | fail | pass | pass | pass | pass | fail |
+| against cautious-2 | fail | pass | pass | pass | pass | pass |
+
+### Batch 7, 19 and 20 Oct 2026: Sonnet 5.5 at $30 on the frozen benchmark
+
+Batch 6's settings with Sonnet 5.5 and $30 per coach run. The 30 matches started at 23:55; a session limit at 00:28 stopped the five matches under way against `cautious-2`, which were replayed from scratch after the reset at 04:20, and the batch ended at 04:34. No coach hit its budget or needed a resume, and every match reached its final whistle.
+
+| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| claude-sonnet-5-5 against balanced-2 | 10 | 1-9-0 | 2-1 | 0.66 | 8.3 | 6.4 | 1.7 pts | 18 | 75.5 % | 74.2 % | 1 | 8 | 0 | 0 | $37.23 | 6.7 |
+| claude-sonnet-5-5 against bold-2 | 10 | 4-6-0 | 4-0 | 0.53 | 8.7 | 6.3 | 0.7 pts | 6 | 77.0 % | 75.9 % | 0 | 11 | 0 | 0 | $36.61 | 6.4 |
+| claude-sonnet-5-5 against cautious-2 | 10 | 5-2-3 | 6-3 | 0.55 | 7.0 | 6.8 | 0.4 pts | 4 | 76.6 % | 77.9 % | 0 | 10 | 0 | 0 | $34.67 | 5.5 |
+
+| Bot | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|
+| balanced-2 | 0.92 | 4.2 | 3.6 | 0.2 pts | 2 | 78.3 % | 78.1 % |
+| bold-2 | 0.94 | 8.4 | 4.2 | 0.3 pts | 5 | 74.4 % | 74.6 % |
+| cautious-2 | 0.88 | 2.5 | 5.1 | 0.6 pts | 5 | 75.0 % | 74.0 % |
+
+The yardstick plays the same seeds and seats as in batch 6, so it reads the same: 1-9-0 (1-0), 3-5-2 (3-2) and 0-10-0 (0-0).
+
+| Batch | Safe-first at least 0.90 | Mean gap under 5 pts | Under 10 % of risky orders 5 pts below the best | No tilt (within 5 pts after a failure) | Under one refused call per two turns | Goal difference at least the yardstick's |
+|---|---|---|---|---|---|---|
+| against balanced-2 | fail | pass | pass | pass | pass | pass |
+| against bold-2 | fail | pass | pass | pass | pass | pass |
+| against cautious-2 | fail | pass | pass | pass | pass | pass |
+
+What batches 6 and 7 say:
+
+- **Haiku's results improved with the budget raised.** Nothing stopped a coach at $20 (the dearest match cost $13.62), and Haiku went from 4-16-10 with 7 goals to 15 in batch 4 to 6-20-4 with 7 to 5, passing the results criterion against `balanced-2` and `cautious-2`. Its safe-first index did not rise (0.72 to 0.75, against 0.73 to 0.83 at $10), and it still lost 19 turns to the clock, each with the coach at work when its 60 seconds ran out. With 10 matches per opponent, part of the swing in results may be chance.
+- **Sonnet 5.5 gets the best results so far and the lowest safe-first index.** It went 10-17-3 with 12 goals to 4 and passed the results criterion against all three bots, but ordered its turns at 0.53 to 0.66, under Haiku and far under the bots (0.83 to 0.94).
+- **Its gambles before safe moves are ordinary ones.** Of its risky orders, 20 to 26 % came before another goblin's order that was already safe, against 9 to 18 % for Haiku; for both models those gambles had about an 80 % chance, and only 4 to 16 % of them 90 % or more.
+- **Sonnet plays fast and decisively.** It previews before 10 to 13 % of its plays where Haiku does before about half, gives no estimate, finishes goblins with brutal assaults far more often (65 against 6), loses one turn to the clock in 30 matches, and costs $3.62 a match against $9.72 for Haiku, in about 6 minutes against 10.
+- **Results and safe-first now point in opposite directions.** Against these bots, playing safe moves first is not what wins: Sonnet wins with more gambles first. The index still measures what the protocol set out to watch, the exposure of safe work to a turn-ending failure, but reading it next to what misordering actually cost (safe orders lost when a gamble failed first) would tell whether Sonnet's risk-taking is a weakness or a lucky streak. That measure is not part of the protocol yet.
