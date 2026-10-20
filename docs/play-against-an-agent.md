@@ -231,7 +231,13 @@ GB_PARALLEL=1 GB_TURN_SECONDS=300 GB_BUDGET=1000 scripts/assessment-batch.sh loc
 make assess ARGS="--batch runs/local-qwen"
 ```
 
-It plays seeds 1 to 5 from each seat against the bot of `GB_BOT` (balanced-2 by default), one match at a time on a local model, under the frozen ruleset and rules text of the benchmark (`assessment/rules-0.10.toml` and `assessment/rules-0.10.md`, overridden with `GB_RULES` and `GB_RULES_TEXT`). `GB_BUDGET` caps the cost Claude Code counts per coach run (10 USD by default, sized for a 24-turn match); a local model costs nothing, so lift the cap rather than let an estimate stop the coach. The report has four tables: the model's measures, the bot's measures in the same matches, the yardstick (cautious-2, or the bot given with `--yardstick`, as in `make assess ARGS="--batch runs/local-qwen --yardstick balanced-2"`) replaying the model's seats against the same bot on the same seeds, and the pass or fail of each criterion fixed in [`assessment.md`](assessment.md), results judged against the yardstick's. Results compare fairly between models run through the same client with the same turn time; note both next to any comparison.
+Two models can meet instead: `GB_OPPONENT_MODEL` puts a second coach on the other seat in place of the bot, with its own budget (`GB_OPPONENT_BUDGET`, `GB_BUDGET` when left out), and the report then reads the results head to head:
+
+```bash
+GB_BUDGET=20 GB_OPPONENT_MODEL=claude-sonnet-5-5 GB_OPPONENT_BUDGET=30 scripts/assessment-batch.sh haiku-vs-sonnet claude-haiku-5-5
+```
+
+It plays seeds 1 to 5 from each seat against the bot of `GB_BOT` (balanced-2 by default), or against the opponent model, one match at a time on a local model, under the frozen ruleset and rules text of the benchmark (`assessment/rules-0.10.toml` and `assessment/rules-0.10.md`, overridden with `GB_RULES` and `GB_RULES_TEXT`). `GB_BUDGET` caps the cost Claude Code counts per coach run (10 USD by default, sized for a 24-turn match); a local model costs nothing, so lift the cap rather than let an estimate stop the coach. The report has four tables: the model's measures, the bot's measures in the same matches, the yardstick (cautious-2, or the bot given with `--yardstick`, as in `make assess ARGS="--batch runs/local-qwen --yardstick balanced-2"`) replaying the model's seats against the same bot on the same seeds, and the pass or fail of each criterion fixed in [`assessment.md`](assessment.md), results judged against the yardstick's. Results compare fairly between models run through the same client with the same turn time; note both next to any comparison.
 
 ## Troubleshooting
 

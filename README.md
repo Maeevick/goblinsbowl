@@ -45,6 +45,7 @@ make serve                            # headless MCP server on http://127.0.0.1:
 make serve ARGS="--arena cross"       # the same in another bowl (--arena and --arena-size, as in the window)
 make serve ARGS="--rules assessment/rules-0.10.toml --rules-text assessment/rules-0.10.md"   # the frozen assessment benchmark: its ruleset, and the rules agents read
 scripts/agent-vs-agent.sh 4           # two Claude Code coaches, at most $4 each; everything lands in runs/<timestamp>/
+GB_OPPONENT_MODEL=claude-sonnet-5-5 scripts/assessment-batch.sh duel claude-haiku-5-5   # an assessment batch between two models, seats swapped on each seed
 ```
 
 With an agent seat, the window and the headless server both open an MCP endpoint and print the `claude mcp add` line (or the `scripts/coach.sh` line) for each agent seat. The match record and every tool call are saved in `runs/` at the final whistle and when the match is stopped. A first game against a Claude, Scaleway, Ollama or oMLX model, step by step: [`docs/play-against-an-agent.md`](docs/play-against-an-agent.md). How agents are assessed: [`docs/assessment.md`](docs/assessment.md); findings of the first spike: [`docs/agent-spike.md`](docs/agent-spike.md).
