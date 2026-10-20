@@ -25,13 +25,13 @@
       "health": 6,
       "presence": {
         "standing": [
-          7,
-          11
+          13,
+          1
         ]
       },
       "in_stance": false,
-      "steps_left": 4,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "H2",
@@ -43,16 +43,16 @@
         "health": 7,
         "movement": 4
       },
-      "health": 4,
+      "health": 7,
       "presence": {
         "standing": [
-          2,
-          14
+          7,
+          12
         ]
       },
       "in_stance": false,
-      "steps_left": 4,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "H3",
@@ -64,11 +64,11 @@
         "health": 7,
         "movement": 4
       },
-      "health": 5,
+      "health": 7,
       "presence": {
         "down": [
           9,
-          9
+          10
         ]
       },
       "in_stance": false,
@@ -88,12 +88,12 @@
       "health": 5,
       "presence": {
         "standing": [
-          5,
-          3
+          3,
+          4
         ]
       },
       "in_stance": false,
-      "steps_left": 6,
+      "steps_left": 4,
       "has_action_left": true
     },
     {
@@ -106,15 +106,15 @@
         "health": 5,
         "movement": 6
       },
-      "health": 4,
+      "health": 5,
       "presence": {
         "standing": [
-          9,
-          6
+          10,
+          2
         ]
       },
       "in_stance": false,
-      "steps_left": 6,
+      "steps_left": 3,
       "has_action_left": true
     },
     {
@@ -127,15 +127,15 @@
         "health": 5,
         "movement": 6
       },
-      "health": 5,
+      "health": 4,
       "presence": {
         "standing": [
-          13,
-          8
+          9,
+          20
         ]
       },
       "in_stance": false,
-      "steps_left": 6,
+      "steps_left": 0,
       "has_action_left": true
     },
     {
@@ -151,12 +151,12 @@
       "health": 5,
       "presence": {
         "standing": [
-          8,
-          18
+          11,
+          20
         ]
       },
       "in_stance": false,
-      "steps_left": 6,
+      "steps_left": 1,
       "has_action_left": true
     },
     {
@@ -172,13 +172,13 @@
       "health": 6,
       "presence": {
         "standing": [
-          4,
-          6
+          3,
+          14
         ]
       },
       "in_stance": false,
-      "steps_left": 4,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "H9",
@@ -190,11 +190,11 @@
         "health": 6,
         "movement": 4
       },
-      "health": 6,
+      "health": 5,
       "presence": {
         "standing": [
-          3,
-          10
+          5,
+          11
         ]
       },
       "in_stance": false,
@@ -211,15 +211,15 @@
         "health": 7,
         "movement": 4
       },
-      "health": 6,
+      "health": 7,
       "presence": {
         "standing": [
-          8,
-          10
+          13,
+          11
         ]
       },
       "in_stance": false,
-      "steps_left": 4,
+      "steps_left": 1,
       "has_action_left": true
     },
     {
@@ -235,8 +235,8 @@
       "health": 6,
       "presence": {
         "standing": [
-          12,
-          10
+          13,
+          6
         ]
       },
       "in_stance": false,
@@ -256,8 +256,8 @@
       "health": 7,
       "presence": {
         "standing": [
-          9,
-          17
+          10,
+          11
         ]
       },
       "in_stance": false,
@@ -274,16 +274,16 @@
         "health": 5,
         "movement": 6
       },
-      "health": 4,
+      "health": 5,
       "presence": {
         "standing": [
-          14,
+          17,
           3
         ]
       },
       "in_stance": false,
-      "steps_left": 1,
-      "has_action_left": true
+      "steps_left": 0,
+      "has_action_left": false
     },
     {
       "id": "A5",
@@ -298,12 +298,12 @@
       "health": 5,
       "presence": {
         "standing": [
-          17,
-          9
+          12,
+          14
         ]
       },
       "in_stance": false,
-      "steps_left": 1,
+      "steps_left": 6,
       "has_action_left": true
     },
     {
@@ -319,13 +319,13 @@
       "health": 5,
       "presence": {
         "standing": [
-          9,
-          19
+          4,
+          11
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
-      "has_action_left": false
+      "steps_left": 6,
+      "has_action_left": true
     },
     {
       "id": "A7",
@@ -340,8 +340,8 @@
       "health": 5,
       "presence": {
         "standing": [
-          17,
-          15
+          9,
+          14
         ]
       },
       "in_stance": false,
@@ -361,13 +361,13 @@
       "health": 6,
       "presence": {
         "standing": [
-          14,
-          12
+          20,
+          11
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
-      "has_action_left": false
+      "steps_left": 1,
+      "has_action_left": true
     },
     {
       "id": "A9",
@@ -382,19 +382,19 @@
       "health": 6,
       "presence": {
         "standing": [
-          17,
-          6
+          13,
+          14
         ]
       },
       "in_stance": false,
-      "steps_left": 0,
-      "has_action_left": false
+      "steps_left": 4,
+      "has_action_left": true
     }
   ],
   "ball": {
     "loose": {
       "at": [
-        4,
+        5,
         5
       ]
     }
