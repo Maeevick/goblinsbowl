@@ -48,9 +48,7 @@ const INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based gob
 Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
 resolved in order; add end_turn=true on your last call), then wait again, until status is game_over. \
 Each goblin has its movement in steps, spent over as many orders as you like, even after other goblins \
-played; it may assault once and throw once per turn, {ACTION_COST} (steps_left, actions_left). Assaults come in styles (simple, chirurgical, \
-brutal, projection), a goblin that has not moved may throw into chaos, and a Thrower may throw focused, \
-every step it has left after the throw sacrificed for +1 to the roll: see the play schema and get_rules. \
+played; it may assault once and throw once per turn, {ACTION_COST} (steps_left, actions_left). {STYLES}: see the play schema and get_rules{PREVAIL}. \
 Any failed dodge, assault, pick-up or throw, or your own throw not caught, ends your turn at once, \
 so order safe moves first and keep risky ones for last. Otherwise your turn ends only with end_turn=true, \
 a score, or its clock (time_left_ms) running out. To get exact odds without rolling, play with dry_run=true previews its orders as one plan, each \
@@ -58,14 +56,71 @@ from where the previous ones leave the board, and compare_plans weighs alternati
 Squares are [x, y]; goblins are H1..H9 (home, west den) and A1..A9 (away, east den). Call get_rules once \
 for the full rules.";
 
-/// What agents read on connecting, saying whether actions cost a step under `ruleset`.
+/// What agents read on connecting, saying whether actions cost a step under `ruleset` and who may
+/// assault or throw in which style.
 fn instructions(ruleset: &Ruleset) -> String {
     let action_cost = if ruleset.actions_cost_a_step {
         "each costing a step"
     } else {
         "neither costing a step"
     };
-    INSTRUCTIONS.replace("{ACTION_COST}", action_cost)
+    let prevail = if schema_tells_older_styles(ruleset) {
+        ", whose rules prevail over the schema's descriptions"
+    } else {
+        ""
+    };
+    INSTRUCTIONS
+        .replace("{ACTION_COST}", action_cost)
+        .replace("{STYLES}", &styles(ruleset))
+        .replace("{PREVAIL}", prevail)
+}
+
+/// Who may assault and throw in which style under `ruleset`, as one sentence.
+fn styles(ruleset: &Ruleset) -> String {
+    let assaults = if ruleset.assaults_reach_diagonals {
+        "Assaults reach the eight squares around and come in styles"
+    } else {
+        "Assaults come in styles"
+    };
+    let assault_styles = if ruleset.brutal_and_projection_need_a_bruiser {
+        "(simple, chirurgical; brutal and projection for Bruisers only)"
+    } else {
+        "(simple, chirurgical, brutal, projection)"
+    };
+    let aggressions = if ruleset.aggressions_take_no_style {
+        ", an assault on a downed goblin being an aggression that takes no style"
+    } else {
+        ""
+    };
+    let chaos = if ruleset.only_throwers_throw_into_chaos {
+        "a Thrower that has not moved may throw into chaos"
+    } else {
+        "a goblin that has not moved may throw into chaos"
+    };
+    let focus = match ruleset.focused_throw_bonus {
+        Some(bonus) => {
+            let falls = if ruleset.failed_focused_throws_down_the_thrower {
+                " and falling if its throw roll misses"
+            } else {
+                ""
+            };
+            format!(
+                "a Thrower that has not moved may throw focused for +{bonus}, spending its whole Move{falls}"
+            )
+        }
+        None => "a Thrower may throw focused, every step it has left after the throw sacrificed for +1 to the roll".to_string(),
+    };
+    format!("{assaults} {assault_styles}{aggressions}, {chaos}, and {focus}")
+}
+
+/// Whether the play schema, written for rules 0.10, tells styles `ruleset` changed.
+fn schema_tells_older_styles(ruleset: &Ruleset) -> bool {
+    ruleset.brutal_and_projection_need_a_bruiser
+        || ruleset.aggressions_take_no_style
+        || ruleset.only_throwers_throw_into_chaos
+        || ruleset.focused_throw_bonus.is_some()
+        || ruleset.projection_attack_malus != 1
+        || ruleset.projection_health_reduction > 0
 }
 
 /// The English half of a rules `document`, from the line opening with its English heading on, as

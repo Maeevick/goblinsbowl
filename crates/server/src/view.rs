@@ -546,7 +546,7 @@ fn assault_options(
                     defender.team() != seat
                         && square
                             .zip(defender.square())
-                            .is_some_and(|(from, to)| from.is_orthogonally_adjacent(to))
+                            .is_some_and(|(from, to)| from.is_within(to, ruleset.assault_reach()))
                 })
                 .map(move |defender| (attacker, defender))
         })
@@ -817,6 +817,46 @@ mod tests {
             OddsHints::Full,
         );
         assert!(view.assault_options.is_empty());
+    }
+
+    #[test]
+    fn given_assaults_reaching_diagonals_when_an_attacker_stands_corner_to_corner_with_an_enemy_then_an_assault_option_on_it()
+     {
+        let host = kick_off();
+        let (mut snapshot, seat, attacker) = beside_an_enemy(&host, true);
+        let defender = snapshot
+            .state
+            .goblins_of(seat.duel_opponent())
+            .next()
+            .unwrap();
+        let (defender_id, target) = (defender.id, defender.square().unwrap());
+        let corner = if seat == TeamId::HOME {
+            goblins_rules::square::Square::new(target.x - 1, target.y - 1)
+        } else {
+            goblins_rules::square::Square::new(target.x + 1, target.y - 1)
+        };
+        for goblin in &mut snapshot.state.goblins {
+            if goblin.id == attacker {
+                goblin.presence = Presence::Standing(corner);
+            }
+        }
+        let ruleset = Ruleset {
+            assaults_reach_diagonals: true,
+            ..host.game().ruleset().clone()
+        };
+
+        let view = coach_view(
+            host.game().arena(),
+            &ruleset,
+            &snapshot,
+            seat,
+            &[],
+            OddsHints::Full,
+        );
+
+        assert!(view.assault_options.iter().any(|option| {
+            option.attacker == attacker.to_string() && option.target == defender_id.to_string()
+        }));
     }
 
     #[test]

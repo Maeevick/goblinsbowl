@@ -192,6 +192,56 @@ async fn given_rules_where_actions_cost_no_step_when_a_coach_connects_then_its_i
     Ok(())
 }
 
+const FROZEN_INSTRUCTIONS: &str = "You coach one team of Goblins Bowl, a turn-based goblin football game played with dice. \
+Loop: call wait_for_my_turn; when status is your_turn, play your goblins with play (several orders per call, \
+resolved in order; add end_turn=true on your last call), then wait again, until status is game_over. \
+Each goblin has its movement in steps, spent over as many orders as you like, even after other goblins \
+played; it may assault once and throw once per turn, each costing a step (steps_left, actions_left). Assaults come in styles (simple, chirurgical, \
+brutal, projection), a goblin that has not moved may throw into chaos, and a Thrower may throw focused, \
+every step it has left after the throw sacrificed for +1 to the roll: see the play schema and get_rules. \
+Any failed dodge, assault, pick-up or throw, or your own throw not caught, ends your turn at once, \
+so order safe moves first and keep risky ones for last. Otherwise your turn ends only with end_turn=true, \
+a score, or its clock (time_left_ms) running out. To get exact odds without rolling, play with dry_run=true previews its orders as one plan, each \
+from where the previous ones leave the board, and compare_plans weighs alternative plans side by side. \
+Squares are [x, y]; goblins are H1..H9 (home, west den) and A1..A9 (away, east den). Call get_rules once \
+for the full rules.";
+
+fn frozen_benchmark_rules() -> Outcome<Ruleset> {
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../assessment/rules-0.10.toml");
+    Ok(Ruleset::from_toml_str(&std::fs::read_to_string(path)?)?)
+}
+
+#[tokio::test]
+async fn given_the_frozen_benchmark_rules_when_a_coach_connects_then_it_reads_the_instructions_of_the_benchmark_word_for_word()
+-> Outcome<()> {
+    let instructions = instructions_under(frozen_benchmark_rules()?).await?;
+
+    assert_eq!(instructions, FROZEN_INSTRUCTIONS);
+    Ok(())
+}
+
+#[tokio::test]
+async fn given_styles_kept_for_some_archetypes_when_a_coach_connects_then_its_instructions_say_who_may_use_which()
+-> Outcome<()> {
+    let instructions = instructions_under(Ruleset {
+        assaults_reach_diagonals: true,
+        brutal_and_projection_need_a_bruiser: true,
+        aggressions_take_no_style: true,
+        only_throwers_throw_into_chaos: true,
+        focused_throw_bonus: Some(3),
+        failed_focused_throws_down_the_thrower: true,
+        ..Ruleset::default()
+    })
+    .await?;
+
+    assert!(
+        instructions.contains("Assaults reach the eight squares around and come in styles (simple, chirurgical; brutal and projection for Bruisers only), an assault on a downed goblin being an aggression that takes no style, a Thrower that has not moved may throw into chaos, and a Thrower that has not moved may throw focused for +3, spending its whole Move and falling if its throw roll misses: see the play schema and get_rules, whose rules prevail over the schema's descriptions."),
+        "{instructions}"
+    );
+    Ok(())
+}
+
 #[tokio::test]
 async fn given_a_server_serving_frozen_rules_when_a_coach_reads_the_rules_then_it_reads_those()
 -> Outcome<()> {
