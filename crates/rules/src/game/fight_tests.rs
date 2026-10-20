@@ -308,6 +308,39 @@ fn given_a_goblin_moving_next_to_an_enemy_when_assaulting_then_the_assault_happe
     );
 }
 
+fn bruisers_corner_to_corner() -> Scenario {
+    Scenario::new()
+        .goblin("H1", Bruiser, 5, 7)
+        .goblin("H2", Sprinter, 3, 3)
+        .goblin("A1", Bruiser, 6, 8)
+}
+
+#[test]
+fn given_assaults_reaching_diagonals_when_a_bruiser_assaults_an_enemy_corner_to_corner_then_it_falls()
+ {
+    let mut game = bruisers_corner_to_corner()
+        .rules(|ruleset| ruleset.assaults_reach_diagonals = true)
+        .game([4, 2]);
+
+    game.apply(TeamId::HOME, assault("H1", &[], "A1")).unwrap();
+
+    assert_eq!(
+        game.state().goblin(id("A1")).unwrap().presence,
+        Presence::Down(Square::new(6, 8))
+    );
+}
+
+#[test]
+fn given_orthogonal_assaults_when_a_bruiser_assaults_an_enemy_corner_to_corner_then_target_not_adjacent()
+ {
+    let mut game = bruisers_corner_to_corner().game([]);
+
+    assert_eq!(
+        game.apply(TeamId::HOME, assault("H1", &[], "A1")),
+        Err(RuleViolation::TargetNotAdjacent { target: id("A1") })
+    );
+}
+
 #[test]
 fn given_a_target_out_of_reach_when_assaulting_then_target_not_adjacent() {
     let mut game = bruisers_face_to_face().goblin("A2", Bruiser, 9, 9).game([]);

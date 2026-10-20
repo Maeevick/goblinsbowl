@@ -139,6 +139,10 @@ pub struct Ruleset {
     /// flying over one of them, not only over its own square, may be intercepted.
     #[serde(default)]
     pub reach_covers_diagonals: bool,
+    /// Whether a goblin may assault an enemy on any of the eight squares around it, not only on
+    /// the four orthogonal ones.
+    #[serde(default)]
+    pub assaults_reach_diagonals: bool,
     /// Whether a bouncing ball goes to one of the eight squares around, rolled on a d8 clockwise
     /// from north, instead of one of the four orthogonal ones on a d4.
     #[serde(default)]
@@ -294,6 +298,7 @@ impl Default for Ruleset {
             one_action_of_each_kind: true,
             braced_tacklers_weigh_double: false,
             reach_covers_diagonals: true,
+            assaults_reach_diagonals: false,
             ball_bounces_all_around: true,
             assaults_have_styles: true,
             throws_have_styles: true,
@@ -418,6 +423,15 @@ impl Ruleset {
     /// The squares a standing goblin weighs on around it.
     pub fn reach(&self) -> Reach {
         if self.reach_covers_diagonals {
+            Reach::AllAround
+        } else {
+            Reach::Orthogonal
+        }
+    }
+
+    /// The squares around a goblin it may assault an enemy on.
+    pub fn assault_reach(&self) -> Reach {
+        if self.assaults_reach_diagonals {
             Reach::AllAround
         } else {
             Reach::Orthogonal

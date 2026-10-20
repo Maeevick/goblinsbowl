@@ -147,7 +147,7 @@ pub fn validate_activation(
             Err(RuleViolation::CarrierCannotAssault { goblin: id })
         }
         Some(Action::Assault { target, style }) => {
-            validate_assault(state, team, final_square, target)?;
+            validate_assault(ruleset, state, team, final_square, target)?;
             match style {
                 AssaultStyle::Projection(direction) => {
                     validate_projection(arena, state, id, final_square, target, direction)
@@ -169,6 +169,7 @@ fn holds_the_ball_after(state: &GameState, goblin: GoblinId, path: &[Square]) ->
 }
 
 fn validate_assault(
+    ruleset: &Ruleset,
     state: &GameState,
     team: TeamId,
     attacker_square: Square,
@@ -183,7 +184,7 @@ fn validate_assault(
     let Some(defender_square) = defender.square() else {
         return Err(RuleViolation::TargetNotOnTheBowl { target });
     };
-    if !attacker_square.is_orthogonally_adjacent(defender_square) {
+    if !attacker_square.is_within(defender_square, ruleset.assault_reach()) {
         return Err(RuleViolation::TargetNotAdjacent { target });
     }
     Ok(())
