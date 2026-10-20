@@ -642,6 +642,53 @@ fn given_assault_styles_when_projecting_a_downed_goblin_then_refused() {
     );
 }
 
+fn bruiser_over_a_downed_bruiser_with_aggressions() -> Scenario {
+    bruisers_face_to_face_with_styles()
+        .rules(|ruleset| {
+            ruleset.downed_defense_malus = 0;
+            ruleset.aggression_bonus = 1;
+            ruleset.aggressions_take_no_style = true;
+        })
+        .edit("A1", |goblin| {
+            goblin.presence = Presence::Down(Square::new(6, 7));
+        })
+}
+
+#[test]
+fn given_aggressions_at_plus_one_when_a_bruiser_rolls_level_with_a_downed_bruiser_then_the_one_counts_in_the_health_lost()
+ {
+    let mut game = bruiser_over_a_downed_bruiser_with_aggressions().game([2, 2]);
+
+    let events = game.apply(TeamId::HOME, assault("H1", &[], "A1")).unwrap();
+
+    assert_eq!(
+        (
+            game.state().goblin(id("A1")).unwrap().health,
+            events.iter().find_map(|event| match event {
+                GameEvent::AssaultResolved { contest, .. } => Some(contest.actor_modifier),
+                _ => None,
+            })
+        ),
+        (5, Some(1))
+    );
+}
+
+#[test]
+fn given_aggressions_taking_no_style_when_a_downed_goblin_is_assaulted_chirurgically_then_refused()
+{
+    let mut game = bruiser_over_a_downed_bruiser_with_aggressions().game([]);
+
+    let refusal = game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", AssaultStyle::Chirurgical),
+    );
+
+    assert_eq!(
+        refusal,
+        Err(RuleViolation::OnlyAggressionsOnADownedGoblin { target: id("A1") })
+    );
+}
+
 #[test]
 fn given_assault_styles_when_the_carrier_is_projected_then_the_ball_bounces_from_its_landing_square()
  {

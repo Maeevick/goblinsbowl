@@ -82,6 +82,12 @@ pub enum RuleViolation {
         /// The goblin.
         goblin: GoblinId,
     },
+    /// An assault on a downed goblin is an aggression, under rules that allow no other style there.
+    #[error("{target} lies down: an assault on it is an aggression, with no other style")]
+    OnlyAggressionsOnADownedGoblin {
+        /// The target.
+        target: GoblinId,
+    },
     /// A projection throws a standing enemy down; this one already lies down.
     #[error("{target} already lies down and cannot be projected")]
     ProjectionNeedsAStandingTarget {

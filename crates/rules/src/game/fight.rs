@@ -162,7 +162,9 @@ impl<D: DiceRoller> Game<D> {
             events.push(GameEvent::StandOff { attacker, defender });
             return None;
         }
-        let margin_as_rolled = contest.margin.saturating_sub(contest.actor_modifier);
+        let margin_as_rolled = contest
+            .margin
+            .saturating_sub(style.attack_modifier(&self.ruleset));
         if !contest.actor_won() {
             let damage = margin_as_rolled.unsigned_abs().saturating_sub(1);
             self.knock_down(attacker, damage, events);

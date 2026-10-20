@@ -157,6 +157,12 @@ pub fn validate_activation(
         }
         Some(Action::Assault { target, style }) => {
             validate_assault(ruleset, state, team, final_square, target)?;
+            let target_lies_down = state
+                .goblin(target)
+                .is_some_and(|defender| !defender.is_standing());
+            if ruleset.aggressions_take_no_style && target_lies_down && !style.is_simple() {
+                return Err(RuleViolation::OnlyAggressionsOnADownedGoblin { target });
+            }
             match style {
                 AssaultStyle::Projection(direction) => {
                     validate_projection(arena, state, id, final_square, target, direction)

@@ -53,6 +53,14 @@ pub struct Ruleset {
     pub interception_surprise_malus: u8,
     /// Malus on the defense roll of a goblin assaulted while down.
     pub downed_defense_malus: u8,
+    /// Added to the attack roll of an aggression, an assault on a downed goblin, and counted in the
+    /// Health it takes.
+    #[serde(default)]
+    pub aggression_bonus: u8,
+    /// Whether an aggression is the only way to assault a downed goblin: no chirurgical, brutal
+    /// or projection assault on a goblin lying down.
+    #[serde(default)]
+    pub aggressions_take_no_style: bool,
     /// Fewest squares the kick-off drops the ball into the receiving team's half, from the centre.
     #[serde(default)]
     pub kickoff_depth: u8,
@@ -287,6 +295,8 @@ impl Default for Ruleset {
             throw_free_range: 6,
             interception_surprise_malus: 1,
             downed_defense_malus: 2,
+            aggression_bonus: 0,
+            aggressions_take_no_style: false,
             kickoff_depth: 4,
             kickoff_depth_spread: 3,
             kickoff_across_spread: 5,

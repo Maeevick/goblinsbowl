@@ -142,7 +142,7 @@ pub fn stance_bonus(ruleset: &Ruleset, state: &GameState, id: GoblinId) -> u8 {
 
 /// The dice of `attacker` assaulting `defender`: Attack against Defense plus the defender's Stance
 /// bonus, minus the downed malus when the defender lies on the ground and the carrier's malus when
-/// it holds the ball.
+/// it holds the ball, the aggression bonus added to the attack against a goblin down.
 pub fn assault_dice(
     ruleset: &Ruleset,
     state: &GameState,
@@ -151,8 +151,14 @@ pub fn assault_dice(
 ) -> Option<ContestDice> {
     let actor_faces = state.goblin(attacker)?.characteristics.attack;
     let target = state.goblin(defender)?;
-    let downed_malus = if matches!(target.presence, Presence::Down(_)) {
+    let lies_down = matches!(target.presence, Presence::Down(_));
+    let downed_malus = if lies_down {
         i16::from(ruleset.downed_defense_malus)
+    } else {
+        0
+    };
+    let aggression_bonus = if lies_down {
+        ruleset.aggression_bonus
     } else {
         0
     };
@@ -163,7 +169,7 @@ pub fn assault_dice(
     };
     let modifier = i16::from(stance_bonus(ruleset, state, defender)) - downed_malus - carrier_malus;
     Some(ContestDice {
-        actor_modifier: 0,
+        actor_modifier: i8::try_from(aggression_bonus).unwrap_or(i8::MAX),
         actor_faces,
         opponent_faces: target.characteristics.defense,
         opponent_modifier: i8::try_from(modifier).unwrap_or(i8::MIN),
@@ -171,7 +177,7 @@ pub fn assault_dice(
 }
 
 /// The dice of `attacker` assaulting `defender` in `style`: the situation's dice, the style's
-/// modifier on the attack roll.
+/// modifier added to the attack roll.
 pub fn styled_assault_dice(
     ruleset: &Ruleset,
     state: &GameState,
@@ -180,7 +186,9 @@ pub fn styled_assault_dice(
     style: AssaultStyle,
 ) -> Option<ContestDice> {
     assault_dice(ruleset, state, attacker, defender).map(|dice| ContestDice {
-        actor_modifier: style.attack_modifier(ruleset),
+        actor_modifier: dice
+            .actor_modifier
+            .saturating_add(style.attack_modifier(ruleset)),
         ..dice
     })
 }
@@ -1165,6 +1173,31 @@ mod tests {
             )),
             None
         );
+    }
+
+    #[test]
+    fn given_aggressions_at_plus_one_when_previewing_a_bruiser_on_a_downed_bruiser_then_it_hurts_five_times_in_eight()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| {
+                ruleset.downed_defense_malus = 0;
+                ruleset.aggression_bonus = 1;
+                ruleset.assault_ties_knock_down = false;
+            })
+            .goblin("H1", Bruiser, 5, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .edit("A1", |goblin| {
+                goblin.presence = Presence::Down(Square::new(6, 7));
+            });
+        let aggression = order("H1", &[], Some(Action::assault(id("A1"))));
+
+        let preview = odds(scenario, &aggression).unwrap();
+
+        assert!(matches!(
+            preview.action,
+            Some(ActionOdds::Assault { knock_down, stand_off, .. })
+                if knock_down == Probability::new(5, 8) && stand_off == Probability::new(3, 16)
+        ));
     }
 
     fn sprinter_next_to_a_bruiser() -> Scenario {
