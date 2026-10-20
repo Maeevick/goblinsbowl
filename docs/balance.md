@@ -381,3 +381,32 @@ What the numbers say:
 - **Focused throws change little between bots,** whose Throwers pass about twice a match: with them switched off every mirror lands within about a point, and throws are caught one to three points less often. The bots never set up long passes, so this says little about what a coach who plays around the Thrower gets from them.
 - **The medium circle**, where the latest recorded match was played, is a little more closed than the tiny one: 85.0 % draws in the cautious-2 mirror, 82.3 % for balanced-2, 58.8 % for bold-2.
 - **The second generation still beats the first**, 22.7 % of its matches over both seats against 13.0 %, a narrower gap than under 0.9. Home edges stay small in the second-generation mirrors (+1.6, +1.3 and +3.7 points) and remain in the first generation's (+4.3 cautious, +10.6 bold).
+
+## Rules 0.11, 20 Oct 2026
+
+Rules 0.10 with two changes to make the game more mobile: an assault or a throw no longer costs a step, so a goblin may still act after its last step (`actions_cost_a_step = false`), and every agility dodge gets +1 (`dodge_bonus = 1`), so leaving one enemy is as easy as a ball roll with nobody around: a Sprinter gets away from 1, 2 or 3 enemies 83, 67 or 50 % of the time instead of 67, 50 or 33 %, a Bruiser from 1 or 2 enemies 67 or 33 % instead of 33 or 0 %. Hand-offs keep their catch and interceptions the eight squares around the flight line. Second-generation coaches, seeds 1 to 1,000, on the tiny circle of the rules file; the 0.10 figures quoted below were played again on `assessment/rules-0.10.toml` with today's bots and match the 0.10 section to the decimal.
+
+| Home vs away | Home wins | Away wins | Draws | Goals per match | Dodges per match (made) | Throws per match | Knock-outs per match |
+|---|---|---|---|---|---|---|---|
+| cautious-2 vs cautious-2 | 18.0 % | 14.3 % | 67.7 % | 0.38 | 10.2 (80 %) | 2.9 | 1.85 |
+| balanced-2 vs balanced-2 | 18.9 % | 16.4 % | 64.7 % | 0.43 | 12.3 (80 %) | 3.0 | 2.00 |
+| bold-2 vs bold-2 | 29.2 % | 29.4 % | 41.4 % | 0.87 | 26.2 (79 %) | 4.3 | 4.43 |
+| cautious-2 vs bold-2 | 21.9 % | 27.0 % | 51.1 % | 0.68 | 18.3 (79 %) | 3.6 | 3.11 |
+| bold-2 vs cautious-2 | 28.9 % | 20.4 % | 50.7 % | 0.65 | 18.1 (79 %) | 3.6 | 3.17 |
+
+Each change on its own in the mirrors, same seeds (draws, goals per match):
+
+| Mirror | 0.10 | 0.10 with free actions | 0.10 with the dodge bonus | 0.11 |
+|---|---|---|---|---|
+| cautious-2 | 81.4 %, 0.20 | 81.9 %, 0.19 | 67.5 %, 0.39 | 67.7 %, 0.38 |
+| balanced-2 | 78.1 %, 0.24 | 79.9 %, 0.21 | 62.1 %, 0.47 | 64.7 %, 0.43 |
+| bold-2 | 50.7 %, 0.66 | 44.5 %, 0.77 | 44.4 %, 0.74 | 41.4 %, 0.87 |
+
+What the numbers say:
+
+- **The game opens in every pairing.** Draws fall by 9 to 18 points and goals per match rise by a third to nearly double, a bigger step than 0.10 took in any second-generation mirror; the mixed pairings move most, from 69.5 % and 65.8 % draws to about 51 %.
+- **The dodge bonus does most of it.** Coaches dodge two to four times as often (2.4 to 10.2 per match in the cautious-2 mirror, 12.4 to 26.2 in the bold-2 one) and make about 80 % of their dodges instead of 62 to 66 %. With the bonus alone the careful mirrors open as far as under the whole of 0.11, the balanced-2 one a little further.
+- **Free actions help the bold coaches.** On their own they open only the bold-2 mirror (44.5 % draws), whose goblins now run their whole Move and still assault or throw; careful coaches gain nothing from them, and the balanced-2 mirror even closes a little, probably because defenders too can now run their whole Move and still hit the carrier. Throws rise with them (2.6 to 3.8 per match in the bold-2 mirror), dodges do not.
+- **Fights stay as they were**: assaults per match within 2.5 of 0.10 and knock-outs within 0.3, so the extra goals come from goblins slipping out of the scrum, not from bloodier matches.
+- **Fewer draws pay both appetites, the cautious one a little more**: over both seats, cautious-2 wins 21.2 % of its matches against bold-2 (12.0 % under 0.10) and bold-2 28.0 % (20.4 %). Home edges stay within 4 points.
+- **The bots still barely pass**: three to four throws per match, and still no interception. They go forward and fight; none keeps its receivers out of the scrum or cages its carrier, so these tables say what 0.11 does for that play, not for a positional passing game, which only matches between people, or a coach built for it, will show.
