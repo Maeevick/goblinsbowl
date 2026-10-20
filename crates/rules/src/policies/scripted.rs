@@ -398,12 +398,12 @@ impl Coach<'_> {
             .flat_map(|mover| {
                 let in_contact = mover
                     .square()
-                    .is_some_and(|square| square.is_orthogonally_adjacent(target));
+                    .is_some_and(|square| self.may_assault_from(square, target));
                 let stay = in_contact.then(Vec::new);
                 let walks = self
                     .paths(mover.id)
                     .into_iter()
-                    .filter(|path| path.destination.is_orthogonally_adjacent(target))
+                    .filter(|path| self.may_assault_from(path.destination, target))
                     .map(|path| path.squares);
                 stay.into_iter().chain(walks).map(move |path| Activation {
                     goblin: mover.id,
@@ -458,13 +458,13 @@ impl Coach<'_> {
                 let walks = self.paths(mover.id);
                 markers.iter().flat_map(move |(marker, marker_square)| {
                     let stay = here
-                        .is_some_and(|square| square.is_orthogonally_adjacent(*marker_square))
+                        .is_some_and(|square| self.may_assault_from(square, *marker_square))
                         .then(Vec::new);
                     let certain_walks = walks
                         .iter()
                         .filter(|path| {
                             path.success == Probability::CERTAIN
-                                && path.destination.is_orthogonally_adjacent(*marker_square)
+                                && self.may_assault_from(path.destination, *marker_square)
                         })
                         .map(|path| path.squares.clone())
                         .collect::<Vec<_>>();
@@ -576,7 +576,11 @@ impl Coach<'_> {
     /// enemy den at least, the one around whom a teammate most likely ends up holding the ball, when
     /// that chance is worth its appetite for passes; otherwise nothing.
     fn chaos_pass(&self, carrier: &Goblin) -> Option<Activation> {
-        if !self.ruleset.throws_have_styles || carrier.steps_left < carrier.characteristics.movement
+        let may_throw_into_chaos =
+            !self.ruleset.only_throwers_throw_into_chaos || carrier.archetype == Archetype::Thrower;
+        if !self.ruleset.throws_have_styles
+            || !may_throw_into_chaos
+            || carrier.steps_left < carrier.characteristics.movement
         {
             return None;
         }
@@ -616,14 +620,26 @@ impl Coach<'_> {
         }
     }
 
-    /// How a coach hits `enemy` where the rules have styles: brutally when it lies
-    /// down or has 3 Health or less, a win then knocking it out; chirurgically otherwise.
-    fn style_to_hit(&self, enemy: &Goblin) -> AssaultStyle {
+    /// How `attacker` hits `enemy` where the rules have styles: simply on a goblin lying down where
+    /// an aggression is the only way to hit it; brutally when it lies down or has 3 Health or less
+    /// and the rules let the attacker, a win then knocking it out; chirurgically otherwise.
+    fn style_to_hit(&self, attacker: &Goblin, enemy: &Goblin) -> AssaultStyle {
+        if !enemy.is_standing() && self.ruleset.aggressions_take_no_style {
+            return AssaultStyle::Simple;
+        }
         let finishable = !enemy.is_standing() || enemy.health <= 3;
+        let may_be_brutal = !self.ruleset.brutal_and_projection_need_a_bruiser
+            || attacker.archetype == Archetype::Bruiser;
         match self.style_to_knock_down() {
-            AssaultStyle::Chirurgical if finishable => AssaultStyle::Brutal,
+            AssaultStyle::Chirurgical if finishable && may_be_brutal => AssaultStyle::Brutal,
             style => style,
         }
+    }
+
+    /// Whether a goblin on `square` may assault an enemy on `target`, orthogonally or, where
+    /// assaults reach them, diagonally.
+    fn may_assault_from(&self, square: Square, target: Square) -> bool {
+        square.is_within(target, self.ruleset.assault_reach())
     }
 
     fn advance_carrier(&self) -> Option<Activation> {
@@ -725,14 +741,14 @@ impl Coach<'_> {
                         enemy.team() != self.team
                             && here
                                 .zip(enemy.square())
-                                .is_some_and(|(from, to)| from.is_orthogonally_adjacent(to))
+                                .is_some_and(|(from, to)| self.may_assault_from(from, to))
                     })
                     .map(move |enemy| Activation {
                         goblin: mover.id,
                         path: Vec::new(),
                         action: Some(Action::Assault {
                             target: enemy.id,
-                            style: self.style_to_hit(enemy),
+                            style: self.style_to_hit(mover, enemy),
                         }),
                     })
             })
@@ -1316,6 +1332,80 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn given_assaults_reaching_diagonals_when_the_enemy_carrier_stands_corner_to_corner_then_the_bruiser_sacks_it_where_it_stands()
+     {
+        let scenario = with_styles(
+            Scenario::new()
+                .rules(|ruleset| ruleset.assaults_reach_diagonals = true)
+                .goblin("H1", Bruiser, 5, 7)
+                .goblin("A5", Sprinter, 6, 8)
+                .ball_carried_by("A5"),
+        );
+
+        assert!(matches!(
+            styled_command_of(scenario, Style::fixed(Appetite::cautious())),
+            Command::Act(Activation {
+                goblin,
+                path,
+                action: Some(Action::Assault { target, .. }),
+            }) if goblin == id("H1") && path.is_empty() && target == id("A5")
+        ));
+    }
+
+    #[test]
+    fn given_brutal_assaults_for_bruisers_only_when_the_second_bold_coach_s_sprinter_hits_an_enemy_left_on_two_health_then_chirurgically()
+     {
+        let scenario = with_styles(
+            Scenario::new()
+                .rules(|ruleset| ruleset.brutal_and_projection_need_a_bruiser = true)
+                .goblin("H1", Sprinter, 5, 7)
+                .goblin("A5", Sprinter, 6, 7)
+                .goblin("A9", Sprinter, 13, 13)
+                .ball_carried_by("A9")
+                .edit("A5", |goblin| goblin.health = 2),
+        );
+
+        assert!(matches!(
+            styled_command_of(scenario, Style::fixed(Appetite::bold())),
+            Command::Act(Activation {
+                action: Some(Action::Assault {
+                    style: AssaultStyle::Chirurgical,
+                    ..
+                }),
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn given_aggressions_taking_no_style_when_the_second_bold_coach_hits_a_downed_goblin_then_simply()
+     {
+        let scenario = with_styles(
+            Scenario::new()
+                .rules(|ruleset| ruleset.aggressions_take_no_style = true)
+                .goblin("H1", Bruiser, 5, 7)
+                .goblin("A5", Sprinter, 6, 7)
+                .goblin("A9", Sprinter, 13, 13)
+                .ball_carried_by("A9")
+                .edit("A5", |goblin| {
+                    goblin.presence = Presence::Down(Square::new(6, 7));
+                    goblin.health = 2;
+                }),
+        );
+
+        assert!(matches!(
+            styled_command_of(scenario, Style::fixed(Appetite::bold())),
+            Command::Act(Activation {
+                action: Some(Action::Assault {
+                    style: AssaultStyle::Simple,
+                    ..
+                }),
+                ..
+            })
+        ));
+    }
+
     fn thrower_far_from_its_receiver_with_focused_throws() -> Scenario {
         Scenario::new()
             .rules(|ruleset| ruleset.focused_throws_spend_steps_left = true)
@@ -1458,6 +1548,40 @@ mod tests {
         let ruleset = Ruleset {
             goblins_can_take_stance: false,
             focused_throws_spend_steps_left: true,
+            ..rules_where_goblins_act_often_at_a_cost()
+        };
+        assert_eq!(
+            [
+                Style::fixed(Appetite::cautious()),
+                Style::balanced(),
+                Style::fixed(Appetite::bold()),
+            ]
+            .map(|style| refusals_over_whole_matches(style, &ruleset, 2)),
+            [0, 0, 0]
+        );
+    }
+
+    #[test]
+    fn given_every_rule_of_0_12_when_every_coach_plays_whole_matches_then_no_order_is_refused() {
+        let ruleset = Ruleset {
+            goblins_can_take_stance: false,
+            actions_cost_a_step: false,
+            dodge_bonus: 1,
+            focused_throws_spend_steps_left: true,
+            focused_throw_bonus: Some(3),
+            failed_focused_throws_down_the_thrower: true,
+            only_throwers_throw_into_chaos: true,
+            hand_off_catch_bonus: 1,
+            sprinters_dive_for_loose_balls: true,
+            diving_catch_malus: 1,
+            only_sprinters_intercept_beside_the_line: true,
+            assaults_reach_diagonals: true,
+            brutal_and_projection_need_a_bruiser: true,
+            projection_attack_malus: 0,
+            projection_health_reduction: 1,
+            downed_defense_malus: 0,
+            aggression_bonus: 1,
+            aggressions_take_no_style: true,
             ..rules_where_goblins_act_often_at_a_cost()
         };
         assert_eq!(
