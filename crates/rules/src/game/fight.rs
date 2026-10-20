@@ -168,7 +168,7 @@ impl<D: DiceRoller> Game<D> {
             self.knock_down(attacker, damage, events);
             return Some(TurnEndReason::Knockdown);
         }
-        let damage = style.damage(margin_as_rolled);
+        let damage = style.damage(margin_as_rolled, &self.ruleset);
         let landed_on_the_ball = match style {
             AssaultStyle::Projection(direction) => {
                 self.project(attacker, defender, direction, events)

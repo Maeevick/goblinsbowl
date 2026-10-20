@@ -565,6 +565,51 @@ fn given_assault_styles_when_a_projection_wins_then_the_defender_falls_on_the_ch
     );
 }
 
+fn projections_without_malus_and_one_health_less() -> Scenario {
+    bruisers_face_to_face_with_styles().rules(|ruleset| {
+        ruleset.projection_attack_malus = 0;
+        ruleset.projection_health_reduction = 1;
+    })
+}
+
+#[test]
+fn given_projections_taking_one_health_less_when_a_projection_beats_the_defence_by_three_then_the_defender_loses_two()
+ {
+    let mut game = projections_without_malus_and_one_health_less().game([4, 1]);
+
+    game.apply(
+        TeamId::HOME,
+        styled_assault("H1", "A1", projection_north_east()),
+    )
+    .unwrap();
+
+    let defender = game.state().goblin(id("A1")).unwrap();
+    assert_eq!(
+        (defender.presence, defender.health),
+        (Presence::Down(Square::new(6, 6)), 4)
+    );
+}
+
+#[test]
+fn given_projections_without_malus_when_the_dice_tie_then_nobody_falls() {
+    let mut game = projections_without_malus_and_one_health_less().game([3, 3]);
+
+    let events = game
+        .apply(
+            TeamId::HOME,
+            styled_assault("H1", "A1", projection_north_east()),
+        )
+        .unwrap();
+
+    assert_eq!(
+        events.last(),
+        Some(&GameEvent::StandOff {
+            attacker: id("H1"),
+            defender: id("A1")
+        })
+    );
+}
+
 #[test]
 fn given_assault_styles_when_a_projection_aims_at_a_taken_square_then_refused() {
     let mut game = bruisers_face_to_face_with_styles()

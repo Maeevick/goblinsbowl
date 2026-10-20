@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::roster::GoblinId;
+use crate::ruleset::Ruleset;
 use crate::square::{Compass, Square};
 
 /// What a goblin does once it has moved.
@@ -105,8 +106,8 @@ pub enum AssaultStyle {
     Chirurgical,
     /// −1 to the attack roll, and the target loses one more Health.
     Brutal,
-    /// −1 to the attack roll, and the target falls on this square around the attacker, numbered 1
-    /// to 8 clockwise from north.
+    /// The rules' malus to the attack roll, the target falling on this square around the
+    /// attacker, numbered 1 to 8 clockwise from north, and losing the rules' reduction less Health.
     Projection(Compass),
 }
 
@@ -116,21 +117,28 @@ impl AssaultStyle {
         *self == AssaultStyle::Simple
     }
 
-    /// What the style adds to the attack roll.
-    pub fn attack_modifier(self) -> i8 {
+    /// What the style adds to the attack roll under `ruleset`.
+    pub fn attack_modifier(self, ruleset: &Ruleset) -> i8 {
         match self {
             AssaultStyle::Simple => 0,
             AssaultStyle::Chirurgical => 1,
-            AssaultStyle::Brutal | AssaultStyle::Projection(_) => -1,
+            AssaultStyle::Brutal => -1,
+            AssaultStyle::Projection(_) => {
+                -i8::try_from(ruleset.projection_attack_malus).unwrap_or(i8::MAX)
+            }
         }
     }
 
-    /// Health a won assault takes from its target, from the margin the dice show without the
-    /// style's modifier: that margin, none when chirurgical, one more when brutal.
-    pub fn damage(self, margin_as_rolled: i8) -> u8 {
+    /// Health a won assault takes from its target under `ruleset`, from the margin the dice show
+    /// without the style's modifier: that margin, none when chirurgical, one more when brutal, the
+    /// rules' reduction less for a projection.
+    pub fn damage(self, margin_as_rolled: i8, ruleset: &Ruleset) -> u8 {
         let margin = u8::try_from(margin_as_rolled.max(0)).unwrap_or_default();
         match self {
-            AssaultStyle::Simple | AssaultStyle::Projection(_) => margin,
+            AssaultStyle::Simple => margin,
+            AssaultStyle::Projection(_) => {
+                margin.saturating_sub(ruleset.projection_health_reduction)
+            }
             AssaultStyle::Chirurgical => 0,
             AssaultStyle::Brutal => margin.saturating_add(1),
         }

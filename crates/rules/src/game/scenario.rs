@@ -52,6 +52,8 @@ fn rules_0_1() -> Ruleset {
         ball_bounces_all_around: false,
         assaults_have_styles: false,
         brutal_and_projection_need_a_bruiser: false,
+        projection_attack_malus: 1,
+        projection_health_reduction: 0,
         throws_have_styles: false,
         only_throwers_throw_into_chaos: false,
         focused_throws_spend_steps_left: false,

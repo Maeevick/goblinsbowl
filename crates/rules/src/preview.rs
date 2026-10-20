@@ -180,7 +180,7 @@ pub fn styled_assault_dice(
     style: AssaultStyle,
 ) -> Option<ContestDice> {
     assault_dice(ruleset, state, attacker, defender).map(|dice| ContestDice {
-        actor_modifier: style.attack_modifier(),
+        actor_modifier: style.attack_modifier(ruleset),
         ..dice
     })
 }

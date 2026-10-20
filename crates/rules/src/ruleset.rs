@@ -155,6 +155,12 @@ pub struct Ruleset {
     /// Whether only a Bruiser may assault brutally or project, where assaults have styles.
     #[serde(default)]
     pub brutal_and_projection_need_a_bruiser: bool,
+    /// Taken off the attack roll of a projection, where assaults have styles.
+    #[serde(default = "projection_malus_of_one")]
+    pub projection_attack_malus: u8,
+    /// Taken off the Health a won projection costs its target.
+    #[serde(default)]
+    pub projection_health_reduction: u8,
     /// Whether a goblin that has not moved this turn may throw into chaos, with no throw roll, the
     /// ball bouncing three times from the receiver's square and the turn ending unless a teammate
     /// then holds it, or, holding the ball, focus, +1 to its throws on its team's next turn;
@@ -266,6 +272,10 @@ fn braced_tacklers_weigh_double() -> bool {
     true
 }
 
+fn projection_malus_of_one() -> u8 {
+    1
+}
+
 impl Default for Ruleset {
     fn default() -> Self {
         Self {
@@ -305,6 +315,8 @@ impl Default for Ruleset {
             ball_bounces_all_around: true,
             assaults_have_styles: true,
             brutal_and_projection_need_a_bruiser: false,
+            projection_attack_malus: 1,
+            projection_health_reduction: 0,
             throws_have_styles: true,
             only_throwers_throw_into_chaos: false,
             focused_throws_spend_steps_left: true,
