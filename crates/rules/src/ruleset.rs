@@ -151,6 +151,10 @@ pub struct Ruleset {
     /// the four orthogonal ones.
     #[serde(default)]
     pub assaults_reach_diagonals: bool,
+    /// Whether, where a goblin's reach covers the diagonals, only a Sprinter may intercept a ball
+    /// flying past it on a neighbouring square; any other enemy must stand on a square it crosses.
+    #[serde(default)]
+    pub only_sprinters_intercept_beside_the_line: bool,
     /// Whether a bouncing ball goes to one of the eight squares around, rolled on a d8 clockwise
     /// from north, instead of one of the four orthogonal ones on a d4.
     #[serde(default)]
@@ -322,6 +326,7 @@ impl Default for Ruleset {
             braced_tacklers_weigh_double: false,
             reach_covers_diagonals: true,
             assaults_reach_diagonals: false,
+            only_sprinters_intercept_beside_the_line: false,
             ball_bounces_all_around: true,
             assaults_have_styles: true,
             brutal_and_projection_need_a_bruiser: false,

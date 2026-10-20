@@ -949,6 +949,59 @@ mod tests {
         )));
     }
 
+    fn interceptions_beside_the_line_for_sprinters_only() -> Scenario {
+        thrower_with_the_ball().rules(|ruleset| {
+            ruleset.reach_covers_diagonals = true;
+            ruleset.only_sprinters_intercept_beside_the_line = true;
+        })
+    }
+
+    fn interceptors_of(events: &[GameEvent]) -> Vec<GoblinId> {
+        events
+            .iter()
+            .filter_map(|event| match event {
+                GameEvent::InterceptAttempted { goblin, .. } => Some(*goblin),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn given_interceptions_beside_the_line_for_sprinters_only_when_a_ball_flies_past_a_bruiser_next_to_the_line_then_it_does_not_intercept()
+     {
+        let mut game = interceptions_beside_the_line_for_sprinters_only()
+            .goblin("A2", Bruiser, 6, 8)
+            .game([3, 3]);
+
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+
+        assert_eq!(interceptors_of(&events), []);
+    }
+
+    #[test]
+    fn given_interceptions_beside_the_line_for_sprinters_only_when_a_bruiser_stands_on_the_line_then_it_tries_to_intercept()
+     {
+        let mut game = interceptions_beside_the_line_for_sprinters_only()
+            .goblin("A2", Bruiser, 6, 7)
+            .game([3, 1, 3]);
+
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+
+        assert_eq!(interceptors_of(&events), [id("A2")]);
+    }
+
+    #[test]
+    fn given_interceptions_beside_the_line_for_sprinters_only_when_a_ball_flies_past_a_sprinter_next_to_the_line_then_it_tries_to_intercept()
+     {
+        let mut game = interceptions_beside_the_line_for_sprinters_only()
+            .goblin("A2", Sprinter, 6, 8)
+            .game([3, 1, 3]);
+
+        let events = game.apply(TeamId::HOME, throw("H1", &[], "H2")).unwrap();
+
+        assert_eq!(interceptors_of(&events), [id("A2")]);
+    }
+
     #[test]
     fn given_an_orthogonal_reach_when_a_ball_flies_past_an_enemy_next_to_the_line_then_nobody_intercepts()
      {

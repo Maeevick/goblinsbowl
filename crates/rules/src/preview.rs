@@ -9,6 +9,7 @@ use crate::bounces::{
     CHAOS_BOUNCES, MOST_DIRECTION_ROLLS, MOST_MOVES_IN_A_BOUNCE, direction_die, landing,
     settling_square,
 };
+use crate::characteristics::Archetype;
 use crate::command::{Action, Activation, AssaultStyle, ThrowStyle};
 use crate::flight::squares_crossed;
 use crate::odds::{AgilityDice, ContestDice, Probability, agility_success};
@@ -537,7 +538,8 @@ fn throw_odds(
 
 /// Standing enemies of `team` that may try to intercept a ball thrown from `from` to `to`, in the
 /// order the ball reaches them: those on a square it flies over and, where a goblin's reach covers
-/// the diagonals, those standing next to one of those squares too.
+/// the diagonals, those standing next to one of those squares too, only Sprinters under rules
+/// that keep it for them.
 pub fn interceptors(
     ruleset: &Ruleset,
     state: &GameState,
@@ -552,9 +554,11 @@ pub fn interceptors(
             .iter()
             .filter(|goblin| goblin.team() != team && goblin.is_standing())
         {
+            let reaches_beside_the_line = ruleset.reach_covers_diagonals
+                && (!ruleset.only_sprinters_intercept_beside_the_line
+                    || enemy.archetype == Archetype::Sprinter);
             let on_the_line = enemy.square().is_some_and(|at| {
-                at == square
-                    || (ruleset.reach_covers_diagonals && at.is_within(square, Reach::AllAround))
+                at == square || (reaches_beside_the_line && at.is_within(square, Reach::AllAround))
             });
             if on_the_line && !found.contains(&enemy.id) {
                 found.push(enemy.id);

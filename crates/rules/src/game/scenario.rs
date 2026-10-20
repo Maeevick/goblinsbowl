@@ -52,6 +52,7 @@ fn rules_0_1() -> Ruleset {
         braced_tacklers_weigh_double: true,
         reach_covers_diagonals: false,
         assaults_reach_diagonals: false,
+        only_sprinters_intercept_beside_the_line: false,
         ball_bounces_all_around: false,
         assaults_have_styles: false,
         brutal_and_projection_need_a_bruiser: false,
