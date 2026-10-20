@@ -443,6 +443,7 @@ Each change undone on its own in the mirrors, same seeds (draws, goals per match
 | orthogonal assaults | 47.0 %, 0.72, 2.08 | 44.0 %, 0.79, 1.99 | 36.7 %, 1.15, 2.67 |
 | brutal and projection for everyone, projection as in 0.11 | 49.8 %, 0.68, 2.75 | 46.1 %, 0.71, 2.98 | 35.1 %, 1.12, 4.31 |
 | no aggressions, the downed malus back at 2 | 47.6 %, 0.68, 4.49 | 46.7 %, 0.72, 4.59 | 38.7 %, 1.09, 5.04 |
+| the Throwers' throws of 0.11: chaos for anyone, focus +1 a step left, no fall | 45.4 %, 0.77, 6.03 | 41.7 %, 0.84, 6.05 | 34.3 %, 1.23, 6.31 |
 | no hand-off bonus | 49.7 %, 0.72, 5.99 | 44.9 %, 0.78, 5.87 | 34.0 %, 1.18, 6.26 |
 
 What the numbers say:
@@ -452,6 +453,7 @@ What the numbers say:
 - **Passes rise too**, from 3 to 5 a match in the careful mirrors and from 4 to 7 in the bold one (chaos throws not counted), dives and clearer flight lines both playing a part: without dives the cautious mirror throws 3.8 times a match, with every enemy intercepting beside the line 3.9.
 - **Diagonal assaults make the bloodshed, not the goals.** With orthogonal assaults the mirrors score about as much (0.72, 0.79 and 1.15 goals) with 76 to 92 assaults a match instead of 97 to 118, and 2.0 to 2.7 knock-outs instead of 5.9 to 6.3.
 - **Keeping brutal hits for Bruisers adds knock-outs through the bots' play.** Their other goblins hit chirurgically, +1 to win, where they would hit brutally at −1, so they take more hits and knock down more goblins, which aggressions then finish, most likely; with brutal hits and projections open to all, knock-outs fall to 2.8 to 4.3 a match and assaults by a fifth in the careful mirrors, while goals barely move.
+- **Keeping chaos and focus for Throwers closes the careful mirrors a little**: with the Throwers' throws of 0.11 they draw 45.4 % and 41.7 % instead of 49.7 % and 44.9 %, with a few more goals, likely from chaos thrown by any goblin towards a diving Sprinter; the bold mirror does not move.
 - **Aggressions open the bold mirror** (38.7 % to 34.0 % draws) and add a knock-out or so a match in each mirror; the careful mirrors barely move.
 - **Interceptions kept beside the line for Sprinters open a little**: 0.5 to 1.5 points fewer draws, a few more goals, and the bots pass more (4.9 throws a match in the cautious mirror against 3.9 when every enemy intercepts beside the line).
 - **The hand-off bonus changes nothing between bots**, to the decimal: their passes look for an open teammate three squares closer to the den, never an adjacent one, so they never hand off. It matters only to coaches who play hand-offs, like the passing game this release is for.
