@@ -448,10 +448,10 @@ fn action_odds(
             receiver,
             style: ThrowStyle::Focused,
         } => {
-            let steps_sacrificed = sketch.goblin(actor).map_or(0, |goblin| {
-                goblin.steps_to_focus_with(steps_walked, ruleset)
+            let focused_throw_bonus = sketch.goblin(actor).map_or(0, |goblin| {
+                goblin.focused_throw_bonus(steps_walked, ruleset)
             });
-            throw_odds(ruleset, sketch, actor, receiver, steps_sacrificed)
+            throw_odds(ruleset, sketch, actor, receiver, focused_throw_bonus)
         }
         Action::Throw {
             receiver,
@@ -465,7 +465,7 @@ fn throw_odds(
     sketch: &GameState,
     thrower: GoblinId,
     receiver: GoblinId,
-    steps_sacrificed: u8,
+    focused_throw_bonus: u8,
 ) -> ActionOdds {
     let target = ruleset.ball_roll_target;
     let thrower_goblin = sketch.goblin(thrower);
@@ -494,7 +494,7 @@ fn throw_odds(
                 .saturating_add(distance_malus),
             bonus: thrower_goblin
                 .map_or(0, |goblin| goblin.focus.throw_bonus())
-                .saturating_add(steps_sacrificed),
+                .saturating_add(focused_throw_bonus),
             target,
         }
         .success()

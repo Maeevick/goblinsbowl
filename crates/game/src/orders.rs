@@ -134,10 +134,10 @@ pub fn variations(
         .collect()
 }
 
-/// Steps the goblin of `draft` would sacrifice to focus its aimed throw, +1 each to the roll.
-pub fn steps_to_focus(ruleset: &Ruleset, state: &GameState, draft: &Draft) -> u8 {
+/// What focusing its aimed throw would add to the roll of the goblin of `draft`.
+pub fn focus_bonus(ruleset: &Ruleset, state: &GameState, draft: &Draft) -> u8 {
     state.goblin(draft.activation.goblin).map_or(0, |goblin| {
-        goblin.steps_to_focus_with(draft.activation.path.len(), ruleset)
+        goblin.focused_throw_bonus(draft.activation.path.len(), ruleset)
     })
 }
 
@@ -1159,14 +1159,14 @@ fn refresh_variation_buttons(
             node.display = display;
         }
     }
-    let steps_sacrificed = prepared.0.as_ref().map_or(0, |draft| {
-        steps_to_focus(&view.ruleset, &view.snapshot.state, draft)
+    let focus_bonus = prepared.0.as_ref().map_or(0, |draft| {
+        focus_bonus(&view.ruleset, &view.snapshot.state, draft)
     });
     for (label, mut text) in &mut labels {
         if let Some((variation, chance)) =
             offered.iter().find(|(variation, _)| *variation == label.0)
         {
-            let wanted = texts.variation_label(*variation, *chance, steps_sacrificed);
+            let wanted = texts.variation_label(*variation, *chance, focus_bonus);
             if text.0 != wanted {
                 text.0 = wanted;
             }
@@ -1794,7 +1794,7 @@ mod tests {
             ..with_focused_throws()
         };
 
-        assert_eq!(steps_to_focus(&throws_costing_a_step, &state, &draft), 2);
+        assert_eq!(focus_bonus(&throws_costing_a_step, &state, &draft), 2);
     }
 
     #[test]
@@ -1806,7 +1806,7 @@ mod tests {
             ..with_focused_throws()
         };
 
-        assert_eq!(steps_to_focus(&free_throws, &state, &draft), 3);
+        assert_eq!(focus_bonus(&free_throws, &state, &draft), 3);
     }
 
     #[test]

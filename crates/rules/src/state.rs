@@ -193,9 +193,10 @@ impl Goblin {
             && (!ruleset.actions_cost_a_step || steps_walked < usize::from(self.steps_left))
     }
 
-    /// Steps a focused throw sacrifices, +1 each to its throw roll, once the goblin walked
-    /// `steps_walked` squares and paid for the throw where actions cost a step.
-    pub fn steps_to_focus_with(&self, steps_walked: usize, ruleset: &Ruleset) -> u8 {
+    /// What a focused throw adds to the throw roll once the goblin walked `steps_walked` squares:
+    /// +1 per step it sacrifices, every step it has left after paying for the throw where actions
+    /// cost a step.
+    pub fn focused_throw_bonus(&self, steps_walked: usize, ruleset: &Ruleset) -> u8 {
         let walked = u8::try_from(steps_walked).unwrap_or(u8::MAX);
         self.steps_left
             .saturating_sub(walked)

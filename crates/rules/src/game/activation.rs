@@ -49,12 +49,12 @@ impl<D: DiceRoller> Game<D> {
                 return;
             }
         }
-        let steps_sacrificed = match activation.action {
+        let focused_throw_bonus = match activation.action {
             Some(Action::Throw {
                 style: ThrowStyle::Focused,
                 ..
             }) => self.state.goblin(id).map_or(0, |goblin| {
-                goblin.steps_to_focus_with(activation.path.len(), &self.ruleset)
+                goblin.focused_throw_bonus(activation.path.len(), &self.ruleset)
             }),
             _ => 0,
         };
@@ -77,7 +77,7 @@ impl<D: DiceRoller> Game<D> {
             Some(Action::Throw {
                 receiver,
                 style: ThrowStyle::Simple | ThrowStyle::Focused,
-            }) => (!self.throw_completes(id, receiver, steps_sacrificed, events))
+            }) => (!self.throw_completes(id, receiver, focused_throw_bonus, events))
                 .then_some(TurnEndReason::Fumble),
             Some(Action::Throw {
                 receiver,

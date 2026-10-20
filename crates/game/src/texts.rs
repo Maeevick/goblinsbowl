@@ -219,16 +219,16 @@ impl Texts {
     }
 
     /// A variation's button with its chance, for example "Concentration +3 97 %": a focused throw
-    /// tells the bonus its `steps_sacrificed` give.
+    /// tells its `focus_bonus`.
     pub fn variation_label(
         &self,
         variation: Variation,
         chance: Probability,
-        steps_sacrificed: u8,
+        focus_bonus: u8,
     ) -> String {
         let name = self.variation_name(variation);
         match variation {
-            Variation::Focused => format!("{name} +{steps_sacrificed} {}", self.chance(chance)),
+            Variation::Focused => format!("{name} +{focus_bonus} {}", self.chance(chance)),
             _ => format!("{name} {}", self.chance(chance)),
         }
     }
