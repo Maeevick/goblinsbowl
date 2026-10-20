@@ -147,7 +147,8 @@ fn failed_dodge_damage(roll: &DodgeRoll) -> u8 {
         DodgeRoll::Contest { contest, .. } => contest.margin.unsigned_abs(),
         DodgeRoll::Agility(roll) => {
             let needed = u16::from(roll.target) + u16::from(roll.malus);
-            u8::try_from(needed.saturating_sub(u16::from(roll.rolled))).unwrap_or(u8::MAX)
+            let reached = u16::from(roll.rolled) + u16::from(roll.bonus);
+            u8::try_from(needed.saturating_sub(reached)).unwrap_or(u8::MAX)
         }
     };
     missed_by.saturating_sub(1)
@@ -700,6 +701,50 @@ mod tests {
         game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
 
         assert_eq!(game.state().goblin(id("H1")).unwrap().health, 1);
+    }
+
+    fn sprinter_dodging_with_a_bonus_of_one() -> Scenario {
+        sprinter_dodging_by_agility().rules(|ruleset| ruleset.dodge_bonus = 1)
+    }
+
+    #[test]
+    fn given_a_dodge_bonus_of_one_when_a_sprinter_rolls_two_to_leave_a_bruiser_then_it_slips_away()
+    {
+        let mut game = sprinter_dodging_with_a_bonus_of_one().game([2]);
+
+        let events = game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+
+        assert_eq!(
+            (
+                events.first(),
+                game.state().goblin(id("H1")).unwrap().presence
+            ),
+            (
+                Some(&GameEvent::DodgeAttempted {
+                    goblin: id("H1"),
+                    roll: DodgeRoll::Agility(AgilityRoll {
+                        bonus: 1,
+                        faces: 4,
+                        rolled: 2,
+                        malus: 1,
+                        target: 2,
+                        success: true
+                    })
+                }),
+                Presence::Standing(Square::new(4, 7))
+            )
+        );
+    }
+
+    #[test]
+    fn given_a_dodge_bonus_of_one_when_the_sprinter_misses_by_two_then_it_loses_one_health() {
+        let mut game = sprinter_dodging_with_a_bonus_of_one()
+            .edit("A1", |goblin| goblin.in_stance = true)
+            .game([1]);
+
+        game.apply(TeamId::HOME, act("H1", &[(4, 7)])).unwrap();
+
+        assert_eq!(game.state().goblin(id("H1")).unwrap().health, 2);
     }
 
     #[test]

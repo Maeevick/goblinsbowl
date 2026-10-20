@@ -196,7 +196,7 @@ pub fn dodge_dice(
     if ruleset.dodges_test_agility {
         let malus = dodge_malus(ruleset, state, from, goblin.team());
         return (malus > 0).then_some(DodgeDice::Agility(AgilityDice {
-            bonus: 0,
+            bonus: ruleset.dodge_bonus,
             faces: goblin.characteristics.agility,
             malus,
             target: ruleset.ball_roll_target,

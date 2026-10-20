@@ -31,6 +31,7 @@ fn rules_0_1() -> Ruleset {
         stance_bonus_cap: 5,
         neighbour_stance_bonus_cap: 4,
         dodges_test_agility: false,
+        dodge_bonus: 0,
         goblins_can_take_stance: true,
         missed_bounces_end_the_turn: true,
         carriers_can_assault: true,

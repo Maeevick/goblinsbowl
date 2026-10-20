@@ -75,6 +75,10 @@ pub struct Ruleset {
     /// in Stance; otherwise the Agility die faces the Defense die of the most dangerous enemy.
     #[serde(default)]
     pub dodges_test_agility: bool,
+    /// Added to every agility dodge: at 1, one of the enemies around the square left makes no
+    /// difference.
+    #[serde(default)]
+    pub dodge_bonus: u8,
     /// Whether a goblin can spend its action bracing in Stance, a Defense bonus until its team's
     /// next turn.
     #[serde(default = "stance_in_the_rules")]
@@ -258,6 +262,7 @@ impl Default for Ruleset {
             stance_bonus_cap: 1,
             neighbour_stance_bonus_cap: 0,
             dodges_test_agility: true,
+            dodge_bonus: 0,
             goblins_can_take_stance: false,
             missed_bounces_end_the_turn: false,
             carriers_can_assault: false,
