@@ -151,6 +151,9 @@ pub struct Ruleset {
     /// otherwise every throw is simple and nobody focuses.
     #[serde(default)]
     pub throws_have_styles: bool,
+    /// Whether only a Thrower may throw into chaos, where throws have styles.
+    #[serde(default)]
+    pub only_throwers_throw_into_chaos: bool,
     /// Whether a Thrower may throw focused, sacrificing every step it has left after the throw for
     /// +1 each to its throw roll; the focus of `throws_have_styles`, a whole turn standing still
     /// for +1 on the next one, is then gone.
@@ -281,6 +284,7 @@ impl Default for Ruleset {
             ball_bounces_all_around: true,
             assaults_have_styles: true,
             throws_have_styles: true,
+            only_throwers_throw_into_chaos: false,
             focused_throws_spend_steps_left: true,
             arena: ROUND_BOWL_21_MASK
                 .iter()

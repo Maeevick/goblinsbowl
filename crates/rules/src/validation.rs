@@ -71,6 +71,9 @@ pub fn validate_activation(
         if !ruleset.throws_have_styles {
             return Err(RuleViolation::StyleNotInTheseRules { goblin: id });
         }
+        if ruleset.only_throwers_throw_into_chaos && goblin.archetype != Archetype::Thrower {
+            return Err(RuleViolation::OnlyThrowersThrowIntoChaos { goblin: id });
+        }
         if !activation.path.is_empty() || goblin.steps_left < goblin.characteristics.movement {
             return Err(RuleViolation::MustStandStillFirst { goblin: id });
         }

@@ -106,6 +106,12 @@ pub enum RuleViolation {
         /// The goblin.
         goblin: GoblinId,
     },
+    /// Only Throwers throw into chaos, under rules that keep chaos for them.
+    #[error("{goblin} is no Thrower: only Throwers throw into chaos")]
+    OnlyThrowersThrowIntoChaos {
+        /// The goblin.
+        goblin: GoblinId,
+    },
     /// Only Throwers focus their throws.
     #[error("{goblin} is no Thrower: only Throwers focus their throws")]
     OnlyThrowersFocus {

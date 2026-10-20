@@ -148,3 +148,34 @@ fn given_chaos_throws_when_an_enemy_on_the_line_intercepts_then_the_turn_ends_on
         reason: TurnEndReason::Fumble
     }));
 }
+
+fn chaos_for_throwers_only() -> Scenario {
+    thrower_with_the_ball_and_chaos().rules(|ruleset| ruleset.only_throwers_throw_into_chaos = true)
+}
+
+#[test]
+fn given_chaos_for_throwers_only_when_a_sprinter_throws_into_chaos_then_refused() {
+    let mut game = chaos_for_throwers_only()
+        .goblin("H3", Sprinter, 10, 7)
+        .ball_carried_by("H2")
+        .game([]);
+
+    let refusal = game.apply(TeamId::HOME, chaos("H2", &[], "H3"));
+
+    assert_eq!(
+        refusal,
+        Err(RuleViolation::OnlyThrowersThrowIntoChaos { goblin: id("H2") })
+    );
+}
+
+#[test]
+fn given_chaos_for_throwers_only_when_a_thrower_throws_into_chaos_then_the_ball_flies() {
+    let mut game = chaos_for_throwers_only().game([NORTH, EAST, SOUTH]);
+
+    let events = game.apply(TeamId::HOME, chaos("H1", &[], "H2")).unwrap();
+
+    assert!(events.contains(&GameEvent::ChaosThrown {
+        thrower: id("H1"),
+        receiver: id("H2")
+    }));
+}
