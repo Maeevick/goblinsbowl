@@ -70,6 +70,8 @@ pub struct MatchStats {
     pub picks: Attempts,
     /// Throws made, and caught by their receiver.
     pub throws: Attempts,
+    /// Sprinters' dives for a landing ball, and catches.
+    pub dives: Attempts,
     /// The team that received the opening kick-off.
     pub first_receiver: Option<TeamId>,
 }
@@ -108,6 +110,7 @@ impl MatchStats {
                 }
                 GameEvent::DodgeAttempted { roll, .. } => stats.dodges.record(roll.succeeded()),
                 GameEvent::PickAttempted { roll, .. } => stats.picks.record(roll.success),
+                GameEvent::DiveAttempted { roll, .. } => stats.dives.record(roll.success),
                 GameEvent::ThrowAttempted { receiver, roll, .. } => {
                     stats.throws.tried += 1;
                     awaited_receiver = roll.success.then_some(receiver);
@@ -152,6 +155,7 @@ impl MatchStats {
         self.dodges.absorb(other.dodges);
         self.picks.absorb(other.picks);
         self.throws.absorb(other.throws);
+        self.dives.absorb(other.dives);
     }
 }
 
@@ -231,7 +235,7 @@ impl BalanceSummary {
                 per_turn(totals.stances)
             ),
             format!(
-                "Per match: assaults {:.1} (won {}), dodges {:.1} (made {}), pick-ups {:.1} (made {}), throws {:.1} (caught {}), knock-outs {:.2}",
+                "Per match: assaults {:.1} (won {}), dodges {:.1} (made {}), pick-ups {:.1} (made {}), throws {:.1} (caught {}), dives {:.1} (caught {}), knock-outs {:.2}",
                 per_match(totals.assaults.tried),
                 rate(totals.assaults),
                 per_match(totals.dodges.tried),
@@ -240,6 +244,8 @@ impl BalanceSummary {
                 rate(totals.picks),
                 per_match(totals.throws.tried),
                 rate(totals.throws),
+                per_match(totals.dives.tried),
+                rate(totals.dives),
                 per_match(totals.knock_outs[0] + totals.knock_outs[1])
             ),
         ]
@@ -277,6 +283,26 @@ mod tests {
         ];
         let stats = MatchStats::from_events(&events);
         assert_eq!((stats.goals, stats.goals_by_half), ([0, 1], [0, 1]));
+    }
+
+    #[test]
+    fn given_a_dive_caught_and_one_missed_when_counting_then_two_dives_one_of_them_caught() {
+        let dive = |success| GameEvent::DiveAttempted {
+            goblin: id("H5"),
+            from: crate::square::Square::new(5, 5),
+            to: crate::square::Square::new(6, 6),
+            roll: roll(success),
+        };
+
+        let stats = MatchStats::from_events(&[dive(true), dive(false)]);
+
+        assert_eq!(
+            stats.dives,
+            Attempts {
+                tried: 2,
+                succeeded: 1
+            }
+        );
     }
 
     #[test]
