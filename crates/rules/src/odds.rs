@@ -77,10 +77,9 @@ pub struct AgilityDice {
 impl AgilityDice {
     /// Chance that the face minus the malus plus the bonus reaches the target.
     pub fn success(self) -> Probability {
-        agility_success(
+        faces_reaching(
             self.faces,
-            self.malus,
-            self.target.saturating_sub(self.bonus),
+            i16::from(self.target) + i16::from(self.malus) - i16::from(self.bonus),
         )
     }
 }
@@ -202,9 +201,14 @@ pub fn contest_success(actor_faces: u8, opponent_faces: u8, opponent_modifier: i
 
 /// Chance that a d`faces` agility test minus `malus` reaches `target`.
 pub fn agility_success(faces: u8, malus: u8, target: u8) -> Probability {
+    faces_reaching(faces, i16::from(target) + i16::from(malus))
+}
+
+/// Chance a die of `faces` shows `lowest` or more.
+fn faces_reaching(faces: u8, lowest: i16) -> Probability {
     let faces = faces.max(1);
     let successful_faces = (1..=faces)
-        .filter(|face| i16::from(*face) - i16::from(malus) >= i16::from(target))
+        .filter(|face| i16::from(*face) >= lowest)
         .count();
     Probability::new(
         u64::try_from(successful_faces).unwrap_or(u64::MAX),
@@ -382,5 +386,18 @@ mod tests {
             target: 2,
         };
         assert_eq!(dice.success(), Probability::new(1, 2));
+    }
+
+    #[test]
+    fn given_a_bonus_above_the_target_when_reading_an_agility_test_s_chance_then_every_point_of_it_counts()
+     {
+        let dice = AgilityDice {
+            bonus: 3,
+            faces: 4,
+            malus: 5,
+            target: 2,
+        };
+
+        assert_eq!(dice.success(), Probability::new(1, 4));
     }
 }
