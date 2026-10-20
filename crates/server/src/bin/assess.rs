@@ -13,8 +13,8 @@ use goblins_rules::host::MatchRecord;
 use goblins_rules::policies::Bot;
 use goblins_rules::team::TeamId;
 use goblins_server::assess::{
-    BatchMatch, batch_report, calibration, estimates_by_entry, model_verdicts, refused_calls,
-    team_of_seat, turns_lost_to_the_clock, yardstick_match,
+    BatchMatch, Yardstick, batch_report, calibration, estimates_by_entry, model_verdicts,
+    refused_calls, team_of_seat, turns_lost_to_the_clock, yardstick_match,
 };
 use goblins_server::call_log::CallEntry;
 
@@ -149,11 +149,29 @@ fn print_batch(folder: &Path, yardstick: Bot) -> anyhow::Result<()> {
             }
         }
     }
-    let yardstick = model_verdicts(&yardstick_matches).into_iter().next();
-    for line in batch_report(&model_verdicts(&matches), yardstick.as_ref()) {
+    let yardstick_verdict = model_verdicts(&yardstick_matches).into_iter().next();
+    let yardstick = match (opponent_agent(&folders)?, &yardstick_verdict) {
+        (Some(agent), _) => Yardstick::AgentOpponent(agent),
+        (None, Some(verdict)) => Yardstick::Bot(verdict),
+        (None, None) => Yardstick::Unavailable,
+    };
+    for line in batch_report(&model_verdicts(&matches), &yardstick) {
         println!("{line}");
     }
     Ok(())
+}
+
+/// The model coaching the other seat in the matches of `folders`, when an agent rather than a bot
+/// played against the model assessed.
+fn opponent_agent(folders: &[PathBuf]) -> anyhow::Result<Option<String>> {
+    for folder in folders {
+        let summary: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(folder.join("match.json"))?)?;
+        if let Some(model) = summary["opponent_model"].as_str() {
+            return Ok(Some(model.to_string()));
+        }
+    }
+    Ok(None)
 }
 
 fn main() -> anyhow::Result<()> {

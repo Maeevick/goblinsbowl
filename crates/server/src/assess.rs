@@ -355,9 +355,20 @@ pub fn yardstick_match(
     })
 }
 
-/// The verdicts as Markdown: a table of measures, the opponent bot's and the `yardstick`'s, then
-/// the protocol's criteria for each model, its results judged against the yardstick's.
-pub fn batch_report(verdicts: &[ModelVerdict], yardstick: Option<&ModelVerdict>) -> Vec<String> {
+/// What a batch's results are judged against.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Yardstick<'a> {
+    /// The yardstick bot, replayed from the agent's seats against the same bot on the same seeds.
+    Bot(&'a ModelVerdict),
+    /// No yardstick: the opponent is this agent, so the results are head to head.
+    AgentOpponent(String),
+    /// No yardstick: the matches do not name a bot that still plays.
+    Unavailable,
+}
+
+/// The verdicts as Markdown: a table of measures, the opponent's and the `yardstick`'s, then the
+/// protocol's criteria for each model, its results judged against the yardstick's where one plays.
+pub fn batch_report(verdicts: &[ModelVerdict], yardstick: &Yardstick) -> Vec<String> {
     let mut lines = vec![
         "| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |".to_string(),
         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|".to_string(),
@@ -382,7 +393,14 @@ pub fn batch_report(verdicts: &[ModelVerdict], yardstick: Option<&ModelVerdict>)
         ));
     }
     lines.push(String::new());
-    lines.push("The opponent bot in the same matches:".to_string());
+    lines.push(match yardstick {
+        Yardstick::AgentOpponent(opponent) => {
+            format!("The opponent agent, {opponent}, in the same matches:")
+        }
+        Yardstick::Bot(_) | Yardstick::Unavailable => {
+            "The opponent bot in the same matches:".to_string()
+        }
+    });
     lines.push(String::new());
     lines.push("| Against | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |".to_string());
     lines.push("|---|---|---|---|---|---|---|---|".to_string());
@@ -395,7 +413,7 @@ pub fn batch_report(verdicts: &[ModelVerdict], yardstick: Option<&ModelVerdict>)
     }
     lines.push(String::new());
     match yardstick {
-        Some(yardstick) => {
+        Yardstick::Bot(yardstick) => {
             lines.push(format!(
                 "The yardstick, {}, from the agent's seat against the same bot on the same seeds:",
                 yardstick.model
@@ -415,7 +433,10 @@ pub fn batch_report(verdicts: &[ModelVerdict], yardstick: Option<&ModelVerdict>)
                 risk_cells(&yardstick.agent, yardstick.matches)
             ));
         }
-        None => {
+        Yardstick::AgentOpponent(_) => {
+            lines.push("No yardstick against an agent: the results are head to head.".to_string())
+        }
+        Yardstick::Unavailable => {
             lines.push("No yardstick: the matches do not name a bot that still plays.".to_string())
         }
     }
@@ -443,7 +464,12 @@ pub fn batch_report(verdicts: &[ModelVerdict], yardstick: Option<&ModelVerdict>)
             mark((verdict.agent_turns > 0).then(|| {
                 f64::from(verdict.refused_calls) < 0.5 * f64::from(verdict.agent_turns)
             })),
-            mark(yardstick.map(|yardstick| goal_difference(verdict) >= goal_difference(yardstick))),
+            mark(match yardstick {
+                Yardstick::Bot(yardstick) => {
+                    Some(goal_difference(verdict) >= goal_difference(yardstick))
+                }
+                Yardstick::AgentOpponent(_) | Yardstick::Unavailable => None,
+            }),
         ));
     }
     lines
@@ -606,9 +632,25 @@ mod tests {
     fn given_a_verdict_when_reporting_the_batch_then_its_model_has_a_row_in_the_table() {
         let verdicts = model_verdicts(&[batch_match("haiku", TeamId::HOME, [1, 0], Vec::new())]);
         assert!(
-            batch_report(&verdicts, None)
+            batch_report(&verdicts, &Yardstick::Unavailable)
                 .iter()
                 .any(|line| line.starts_with("| haiku | 1 | 1-0-0 |"))
+        );
+    }
+
+    #[test]
+    fn given_a_batch_against_an_agent_when_reporting_then_the_opponent_agent_is_named_and_no_yardstick_judges_the_results()
+     {
+        let verdicts = model_verdicts(&[batch_match("haiku", TeamId::HOME, [1, 3], Vec::new())]);
+        let report = batch_report(&verdicts, &Yardstick::AgentOpponent("sonnet".to_string()));
+        assert_eq!(
+            (
+                report
+                    .iter()
+                    .any(|line| line == "The opponent agent, sonnet, in the same matches:"),
+                report.last().map(|line| line.ends_with("| n/a |"))
+            ),
+            (true, Some(true))
         );
     }
 
@@ -618,7 +660,7 @@ mod tests {
         let verdicts = model_verdicts(&[batch_match("haiku", TeamId::HOME, [1, 3], Vec::new())]);
         let yardstick =
             &model_verdicts(&[batch_match("cautious-2", TeamId::HOME, [2, 2], Vec::new())])[0];
-        let report = batch_report(&verdicts, Some(yardstick));
+        let report = batch_report(&verdicts, &Yardstick::Bot(yardstick));
         assert_eq!(
             (
                 report
