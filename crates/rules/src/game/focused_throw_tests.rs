@@ -6,7 +6,7 @@ use crate::event::GameEvent;
 use crate::game::scenario::Scenario;
 use crate::roster::GoblinId;
 use crate::square::Square;
-use crate::state::Ball;
+use crate::state::{Ball, Presence};
 use crate::team::TeamId;
 use crate::violation::RuleViolation;
 
@@ -155,5 +155,62 @@ fn given_a_flat_focus_bonus_when_a_thrower_walks_a_square_first_then_refused_as_
     assert_eq!(
         refusal,
         Err(RuleViolation::MustStandStillFirst { goblin: id("H1") })
+    );
+}
+
+const NORTH: u8 = 1;
+
+fn thrower_falling_on_a_missed_focused_throw() -> Scenario {
+    thrower_focusing_for_a_flat_three()
+        .rules(|ruleset| ruleset.failed_focused_throws_down_the_thrower = true)
+        .goblin("H3", Sprinter, 13, 7)
+}
+
+fn thrower_square() -> Square {
+    Square::new(4, 7)
+}
+
+#[test]
+fn given_failed_focused_throws_down_the_thrower_when_its_throw_roll_misses_then_it_falls_unhurt_and_the_ball_bounces_from_its_square()
+ {
+    let mut game = thrower_falling_on_a_missed_focused_throw().game([THROW_ROLL_OF_ONE, NORTH]);
+
+    let events = game
+        .apply(TeamId::HOME, focused_throw("H1", &[], "H3"))
+        .unwrap();
+
+    assert_eq!(
+        (
+            game.state().goblin(id("H1")).unwrap().presence,
+            game.state().ball,
+            events
+                .iter()
+                .any(|event| matches!(event, GameEvent::HealthLost { .. }))
+        ),
+        (
+            Presence::Down(thrower_square()),
+            Ball::Loose {
+                at: Square::new(4, 6)
+            },
+            false
+        )
+    );
+}
+
+#[test]
+fn given_failed_focused_throws_down_the_thrower_when_a_simple_throw_misses_then_the_thrower_stays_up()
+ {
+    let mut game = thrower_falling_on_a_missed_focused_throw().game([THROW_ROLL_OF_ONE, NORTH]);
+    let simple_throw = Command::Act(Activation {
+        goblin: id("H1"),
+        path: Vec::new(),
+        action: Some(Action::throw(id("H3"))),
+    });
+
+    game.apply(TeamId::HOME, simple_throw).unwrap();
+
+    assert_eq!(
+        game.state().goblin(id("H1")).unwrap().presence,
+        Presence::Standing(thrower_square())
     );
 }

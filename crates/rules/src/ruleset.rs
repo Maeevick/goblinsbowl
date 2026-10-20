@@ -164,6 +164,10 @@ pub struct Ruleset {
     /// left out, every step it has left after the throw adds +1.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub focused_throw_bonus: Option<u8>,
+    /// Whether a Thrower whose focused throw misses its throw roll falls where it stands, losing no
+    /// Health; an interception or a dropped catch leaves it on its feet.
+    #[serde(default)]
+    pub failed_focused_throws_down_the_thrower: bool,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -292,6 +296,7 @@ impl Default for Ruleset {
             only_throwers_throw_into_chaos: false,
             focused_throws_spend_steps_left: true,
             focused_throw_bonus: None,
+            failed_focused_throws_down_the_thrower: false,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

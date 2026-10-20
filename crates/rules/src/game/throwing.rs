@@ -11,11 +11,13 @@ use crate::state::Ball;
 use super::Game;
 
 impl<D: DiceRoller> Game<D> {
+    /// Throws the ball from `thrower` to `receiver`, `focus` the bonus of a focused throw, and
+    /// tells whether the receiver ends up holding it.
     pub(super) fn throw_completes(
         &mut self,
         thrower: GoblinId,
         receiver: GoblinId,
-        focused_throw_bonus: u8,
+        focus: Option<u8>,
         events: &mut Vec<GameEvent>,
     ) -> bool {
         let Some((thrower_square, team)) = self
@@ -45,7 +47,7 @@ impl<D: DiceRoller> Game<D> {
             .state
             .goblin(thrower)
             .map_or(0, |goblin| goblin.focus.throw_bonus())
-            .saturating_add(focused_throw_bonus);
+            .saturating_add(focus.unwrap_or(0));
         let roll = self.agility_roll_with_bonus(thrower, distance_malus, focus_bonus);
         events.push(GameEvent::ThrowAttempted {
             thrower,
@@ -54,8 +56,12 @@ impl<D: DiceRoller> Game<D> {
             distance,
         });
         if !roll.success {
-            self.state.ball = Ball::Loose { at: thrower_square };
-            self.bounce_ball(thrower_square, events);
+            if focus.is_some() && self.ruleset.failed_focused_throws_down_the_thrower {
+                self.knock_down(thrower, 0, events);
+            } else {
+                self.state.ball = Ball::Loose { at: thrower_square };
+                self.bounce_ball(thrower_square, events);
+            }
             return false;
         }
         for interceptor in interceptors(

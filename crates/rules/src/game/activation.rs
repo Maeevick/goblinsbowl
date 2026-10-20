@@ -49,14 +49,15 @@ impl<D: DiceRoller> Game<D> {
                 return;
             }
         }
-        let focused_throw_bonus = match activation.action {
+        let focus = match activation.action {
             Some(Action::Throw {
                 style: ThrowStyle::Focused,
                 ..
-            }) => self.state.goblin(id).map_or(0, |goblin| {
-                goblin.focused_throw_bonus(activation.path.len(), &self.ruleset)
-            }),
-            _ => 0,
+            }) => self
+                .state
+                .goblin(id)
+                .map(|goblin| goblin.focused_throw_bonus(activation.path.len(), &self.ruleset)),
+            _ => None,
         };
         if let Some(goblin) = self.state.goblin_mut(id) {
             goblin.spend_order(&activation, &self.ruleset);
@@ -77,7 +78,7 @@ impl<D: DiceRoller> Game<D> {
             Some(Action::Throw {
                 receiver,
                 style: ThrowStyle::Simple | ThrowStyle::Focused,
-            }) => (!self.throw_completes(id, receiver, focused_throw_bonus, events))
+            }) => (!self.throw_completes(id, receiver, focus, events))
                 .then_some(TurnEndReason::Fumble),
             Some(Action::Throw {
                 receiver,
