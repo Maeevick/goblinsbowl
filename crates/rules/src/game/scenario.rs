@@ -52,6 +52,7 @@ fn rules_0_1() -> Ruleset {
         throws_have_styles: false,
         only_throwers_throw_into_chaos: false,
         focused_throws_spend_steps_left: false,
+        focused_throw_bonus: None,
         archetypes: ArchetypeCharacteristics {
             bruiser: Characteristics {
                 attack: 4,

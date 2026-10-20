@@ -89,6 +89,11 @@ pub fn validate_activation(
         if goblin.archetype != Archetype::Thrower {
             return Err(RuleViolation::OnlyThrowersFocus { goblin: id });
         }
+        if ruleset.focused_throw_bonus.is_some()
+            && (!activation.path.is_empty() || goblin.steps_left < goblin.characteristics.movement)
+        {
+            return Err(RuleViolation::MustStandStillFirst { goblin: id });
+        }
     }
     let mut visited = vec![start];
     for (index, square) in activation.path.iter().copied().enumerate() {

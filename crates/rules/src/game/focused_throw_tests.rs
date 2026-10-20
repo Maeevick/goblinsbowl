@@ -118,3 +118,42 @@ fn given_rules_without_focused_throws_when_a_thrower_throws_focused_then_refused
         Err(RuleViolation::StyleNotInTheseRules { goblin: id("H1") })
     );
 }
+
+fn thrower_focusing_for_a_flat_three() -> Scenario {
+    thrower_with_the_ball_and_focused_throws().rules(|ruleset| {
+        ruleset.actions_cost_a_step = false;
+        ruleset.focused_throw_bonus = Some(3);
+    })
+}
+
+#[test]
+fn given_a_flat_focus_bonus_of_three_when_a_thrower_that_has_not_moved_throws_focused_then_three_and_its_whole_move_spent()
+ {
+    let mut game = thrower_focusing_for_a_flat_three().game([THROW_ROLL_OF_ONE, CATCH]);
+
+    let events = game
+        .apply(TeamId::HOME, focused_throw("H1", &[], "H2"))
+        .unwrap();
+
+    assert_eq!(
+        (
+            throw_bonus(&events),
+            game.state().ball,
+            game.state().goblin(id("H1")).unwrap().steps_left
+        ),
+        (Some(3), Ball::Carried { by: id("H2") }, 0)
+    );
+}
+
+#[test]
+fn given_a_flat_focus_bonus_when_a_thrower_walks_a_square_first_then_refused_as_it_must_stand_still()
+ {
+    let mut game = thrower_focusing_for_a_flat_three().game([]);
+
+    let refusal = game.apply(TeamId::HOME, focused_throw("H1", &[(5, 7)], "H2"));
+
+    assert_eq!(
+        refusal,
+        Err(RuleViolation::MustStandStillFirst { goblin: id("H1") })
+    );
+}

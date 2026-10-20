@@ -194,13 +194,20 @@ impl Goblin {
     }
 
     /// What a focused throw adds to the throw roll once the goblin walked `steps_walked` squares:
-    /// +1 per step it sacrifices, every step it has left after paying for the throw where actions
+    /// the rules' flat bonus while it has not moved this turn, nothing once it has; without one, +1
+    /// per step it sacrifices, every step it has left after paying for the throw where actions
     /// cost a step.
     pub fn focused_throw_bonus(&self, steps_walked: usize, ruleset: &Ruleset) -> u8 {
         let walked = u8::try_from(steps_walked).unwrap_or(u8::MAX);
-        self.steps_left
-            .saturating_sub(walked)
-            .saturating_sub(u8::from(ruleset.actions_cost_a_step))
+        let standing_still = walked == 0 && self.steps_left == self.characteristics.movement;
+        match ruleset.focused_throw_bonus {
+            Some(bonus) if standing_still => bonus,
+            Some(_) => 0,
+            None => self
+                .steps_left
+                .saturating_sub(walked)
+                .saturating_sub(u8::from(ruleset.actions_cost_a_step)),
+        }
     }
 
     /// Gives it a whole turn: every step of its Move and its action.

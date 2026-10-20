@@ -88,7 +88,8 @@ pub enum RuleViolation {
         /// The target.
         target: GoblinId,
     },
-    /// A chaos throw takes the goblin's whole Move, so it must not have moved this turn.
+    /// A chaos throw, or a focused throw for a flat bonus, takes the goblin's whole Move, so it
+    /// must not have moved this turn.
     #[error("{goblin} has already moved this turn: it must stand still for this")]
     MustStandStillFirst {
         /// The goblin.

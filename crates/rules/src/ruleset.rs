@@ -159,6 +159,11 @@ pub struct Ruleset {
     /// for +1 on the next one, is then gone.
     #[serde(default)]
     pub focused_throws_spend_steps_left: bool,
+    /// A focused throw's flat bonus, where Throwers throw focused: only a Thrower that has not moved
+    /// this turn may then throw focused, spending its whole Move for this bonus to its throw roll;
+    /// left out, every step it has left after the throw adds +1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focused_throw_bonus: Option<u8>,
     /// Arena mask rows (`x` out of bounds, `O` in bounds, `H` home den, `A` away den).
     pub arena: Vec<String>,
     /// Where goblins stand at kick-off; match records of rules 0.1 leave out their den lines.
@@ -286,6 +291,7 @@ impl Default for Ruleset {
             throws_have_styles: true,
             only_throwers_throw_into_chaos: false,
             focused_throws_spend_steps_left: true,
+            focused_throw_bonus: None,
             arena: ROUND_BOWL_21_MASK
                 .iter()
                 .map(|row| (*row).to_string())

@@ -1455,6 +1455,35 @@ mod tests {
     }
 
     #[test]
+    fn given_a_flat_focus_bonus_of_three_when_previewing_a_standing_thrower_s_eleven_step_focused_pass_then_one_chance_in_four()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| {
+                ruleset.keeps_moving_after_action = true;
+                ruleset.focused_throws_spend_steps_left = true;
+                ruleset.focused_throw_bonus = Some(3);
+            })
+            .goblin("H1", Thrower, 2, 7)
+            .goblin("H2", Sprinter, 13, 7)
+            .ball_carried_by("H1");
+        let focused = order(
+            "H1",
+            &[],
+            Some(Action::Throw {
+                receiver: id("H2"),
+                style: ThrowStyle::Focused,
+            }),
+        );
+
+        let preview = odds(scenario, &focused).unwrap();
+
+        assert!(matches!(
+            preview.action,
+            Some(ActionOdds::Throw { throw, .. }) if throw == Probability::new(1, 4)
+        ));
+    }
+
+    #[test]
     fn given_a_carrier_reaching_the_enemy_den_when_previewed_then_it_scores_before_acting() {
         let scenario = Scenario::new()
             .goblin("H1", Sprinter, 13, 7)
