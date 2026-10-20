@@ -37,6 +37,7 @@ fn rules_0_1() -> Ruleset {
         carriers_can_assault: true,
         carriers_can_brace: true,
         adjacent_throws_are_hand_offs: false,
+        hand_off_catch_bonus: 0,
         goblins_heal_at_kick_off: true,
         keeps_moving_after_action: false,
         turn_ends_when_no_goblin_can_act: true,

@@ -40,7 +40,8 @@ impl<D: DiceRoller> Game<D> {
                 giver: thrower,
                 receiver,
             });
-            return self.receiver_catches(receiver, receiver_square, events);
+            let bonus = self.ruleset.hand_off_catch_bonus;
+            return self.receiver_catches(receiver, receiver_square, bonus, events);
         }
         let distance_malus = distance.saturating_sub(self.ruleset.throw_free_range);
         let focus_bonus = self
@@ -81,7 +82,7 @@ impl<D: DiceRoller> Game<D> {
                 return false;
             }
         }
-        self.receiver_catches(receiver, receiver_square, events)
+        self.receiver_catches(receiver, receiver_square, 0, events)
     }
 
     /// Throws the ball into chaos towards `receiver`: no throw roll; enemies near the line may
@@ -133,9 +134,10 @@ impl<D: DiceRoller> Game<D> {
         &mut self,
         receiver: GoblinId,
         receiver_square: Square,
+        bonus: u8,
         events: &mut Vec<GameEvent>,
     ) -> bool {
-        if self.attempt_catch(receiver, 0, events) {
+        if self.attempt_catch(receiver, 0, bonus, events) {
             return true;
         }
         self.state.ball = Ball::Loose {

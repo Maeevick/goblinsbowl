@@ -154,7 +154,7 @@ impl<D: DiceRoller> Game<D> {
             {
                 None => return missed_catches,
                 Some((catcher, true)) => {
-                    if self.attempt_catch(catcher, 0, events) {
+                    if self.attempt_catch(catcher, 0, 0, events) {
                         return missed_catches;
                     }
                     missed_catches.push(catcher);
@@ -184,9 +184,10 @@ impl<D: DiceRoller> Game<D> {
         &mut self,
         catcher: GoblinId,
         extra_malus: u8,
+        bonus: u8,
         events: &mut Vec<GameEvent>,
     ) -> bool {
-        let roll = self.agility_roll(catcher, extra_malus);
+        let roll = self.agility_roll_with_bonus(catcher, extra_malus, bonus);
         events.push(GameEvent::CatchAttempted {
             goblin: catcher,
             roll,

@@ -501,11 +501,17 @@ fn throw_odds(
     };
     let interceptions =
         interception_chances(ruleset, sketch, thrower_square, receiver_square, team);
-    let catch = agility_success(
-        receiver_goblin.map_or(1, |goblin| goblin.characteristics.agility),
-        opponents_in_reach(ruleset, sketch, receiver_square, team),
+    let catch = AgilityDice {
+        faces: receiver_goblin.map_or(1, |goblin| goblin.characteristics.agility),
+        malus: opponents_in_reach(ruleset, sketch, receiver_square, team),
+        bonus: if hands_off {
+            ruleset.hand_off_catch_bonus
+        } else {
+            0
+        },
         target,
-    );
+    }
+    .success();
     let success = interceptions
         .iter()
         .fold(throw, |chance, (_, interception)| {
@@ -1188,6 +1194,28 @@ mod tests {
             preview.action,
             Some(ActionOdds::Throw { throw, catch, .. })
                 if throw == Probability::CERTAIN && catch == Probability::new(3, 4)
+        ));
+    }
+
+    #[test]
+    fn given_a_hand_off_catch_bonus_of_one_when_previewing_a_hand_off_to_a_marked_sprinter_then_three_chances_in_four()
+     {
+        let scenario = Scenario::new()
+            .rules(|ruleset| {
+                ruleset.adjacent_throws_are_hand_offs = true;
+                ruleset.hand_off_catch_bonus = 1;
+            })
+            .goblin("H1", Thrower, 4, 7)
+            .goblin("H2", Sprinter, 5, 7)
+            .goblin("A1", Bruiser, 6, 7)
+            .ball_carried_by("H1");
+        let hand_off = order("H1", &[], Some(Action::throw(id("H2"))));
+
+        let preview = odds(scenario, &hand_off).unwrap();
+
+        assert!(matches!(
+            preview.action,
+            Some(ActionOdds::Throw { catch, .. }) if catch == Probability::new(3, 4)
         ));
     }
 

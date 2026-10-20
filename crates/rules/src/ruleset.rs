@@ -97,6 +97,9 @@ pub struct Ruleset {
     /// receiver's catch.
     #[serde(default)]
     pub adjacent_throws_are_hand_offs: bool,
+    /// Added to the receiver's catch of a hand-off.
+    #[serde(default)]
+    pub hand_off_catch_bonus: u8,
     /// Whether every goblin gets its Health back at a kick-off, a knocked-out one rolling its Health
     /// die; otherwise Health lasts the whole match and a knocked-out goblin stays out of it.
     #[serde(default = "kick_offs_heal")]
@@ -280,6 +283,7 @@ impl Default for Ruleset {
             carriers_can_assault: false,
             carriers_can_brace: false,
             adjacent_throws_are_hand_offs: true,
+            hand_off_catch_bonus: 0,
             goblins_heal_at_kick_off: false,
             keeps_moving_after_action: true,
             turn_ends_when_no_goblin_can_act: false,

@@ -914,6 +914,17 @@ mod tests {
     }
 
     #[test]
+    fn given_a_hand_off_catch_bonus_of_one_when_the_receiver_rolls_a_one_then_it_still_catches() {
+        let mut game = thrower_next_to_a_teammate()
+            .rules(|ruleset| ruleset.hand_off_catch_bonus = 1)
+            .game([1]);
+
+        game.apply(TeamId::HOME, throw("H1", &[], "H4")).unwrap();
+
+        assert_eq!(game.state().ball, Ball::Carried { by: id("H4") });
+    }
+
+    #[test]
     fn given_hand_offs_when_the_adjacent_teammate_misses_the_catch_then_the_turn_ends_on_a_fumble()
     {
         let mut game = thrower_next_to_a_teammate().game([1, 2]);
