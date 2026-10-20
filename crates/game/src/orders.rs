@@ -1774,9 +1774,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn given_a_thrower_walking_one_square_before_its_throw_when_asking_its_steps_to_focus_then_two()
-    {
+    fn thrower_walking_one_square_before_its_throw() -> (GameState, Draft) {
         let state = board(&[("H9", 5, 7), ("H5", 9, 7)], Some("H9"));
         let draft = aimed(
             "H9",
@@ -1784,7 +1782,31 @@ mod tests {
             Some(Action::throw(id("H5"))),
             BoardClick::Goblin(id("H5")),
         );
-        assert_eq!(steps_to_focus(&with_focused_throws(), &state, &draft), 2);
+        (state, draft)
+    }
+
+    #[test]
+    fn given_throws_costing_a_step_when_a_thrower_walks_one_square_before_its_throw_then_it_focuses_two()
+     {
+        let (state, draft) = thrower_walking_one_square_before_its_throw();
+        let throws_costing_a_step = Ruleset {
+            actions_cost_a_step: true,
+            ..with_focused_throws()
+        };
+
+        assert_eq!(steps_to_focus(&throws_costing_a_step, &state, &draft), 2);
+    }
+
+    #[test]
+    fn given_throws_costing_no_step_when_a_thrower_walks_one_square_before_its_throw_then_it_focuses_three()
+     {
+        let (state, draft) = thrower_walking_one_square_before_its_throw();
+        let free_throws = Ruleset {
+            actions_cost_a_step: false,
+            ..with_focused_throws()
+        };
+
+        assert_eq!(steps_to_focus(&free_throws, &state, &draft), 3);
     }
 
     #[test]

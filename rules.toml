@@ -1,4 +1,4 @@
-# Goblins Bowl, rules 0.10: every tunable number of a match.
+# Goblins Bowl, rules 0.11: every tunable number of a match.
 # Attack, Defense and Agility are rolled as dice with that many faces.
 
 turns_per_half = 12
@@ -23,6 +23,8 @@ kickoff_bounces = 3
 # Whether a dodge is an agility test, each adjacent standing enemy a malus of 1
 # (false: the Agility die against the Defense die of the most dangerous enemy).
 dodges_test_agility = true
+# Added to every agility dodge: at 1, the first enemy around the square left makes no difference.
+dodge_bonus = 1
 # Whether a goblin can brace in Stance, a Defense bonus until its team's next turn (rules 0.1 to 0.4,
 # then 0.8 and 0.9, where it cost every step the goblin had left).
 goblins_can_take_stance = false
@@ -54,8 +56,9 @@ carrier_defense_malus = 1
 # Whether a knocked-out goblin rolls its Health die minus 1 at each kick-off, coming back with that
 # much Health unless it rolls 0 (only where goblins_heal_at_kick_off is false).
 knocked_out_goblins_may_return = true
-# Whether an assault or a throw costs a step of the goblin's Move, and a Stance every step it has left.
-actions_cost_a_step = true
+# Whether an assault or a throw costs a step of the goblin's Move, and a Stance every step it has left
+# (rules 0.8 to 0.10; false: a goblin may act after its last step).
+actions_cost_a_step = false
 # Whether a goblin may assault, throw and brace once each per turn (false: one action in all).
 one_action_of_each_kind = true
 # Whether an enemy braced in Stance weighs two on an agility dodge (false: one, like any enemy).
