@@ -215,6 +215,8 @@ impl Texts {
             (Variation::Chaos, _) => "Chaos",
             (Variation::Focused, true) => "Concentration",
             (Variation::Focused, false) => "Focused",
+            (Variation::Aggression, true) => "Agression",
+            (Variation::Aggression, false) => "Aggression",
         }
     }
 

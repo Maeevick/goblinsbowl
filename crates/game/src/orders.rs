@@ -83,6 +83,9 @@ pub enum Variation {
     Chaos,
     /// A Thrower's throw sacrificing every step it has left after it, +1 each to the roll.
     Focused,
+    /// An assault on a downed goblin, +1 to the attack: the only way to hit it under rules with
+    /// aggressions.
+    Aggression,
 }
 
 /// The variations offered for the aimed order of `draft`, each with the chance it does what it is
@@ -97,6 +100,14 @@ pub fn variations(
     draft: &Draft,
 ) -> Vec<(Variation, Probability)> {
     let candidates: &[Variation] = match draft.activation.action {
+        Some(Action::Assault { target, .. })
+            if ruleset.aggressions_take_no_style
+                && state
+                    .goblin(target)
+                    .is_some_and(|goblin| !goblin.is_standing()) =>
+        {
+            &[Variation::Aggression]
+        }
         Some(Action::Assault { .. }) if ruleset.assaults_have_styles => &[
             Variation::Simple,
             Variation::Chirurgical,
@@ -171,7 +182,9 @@ fn varied(
     variation: Variation,
 ) -> Option<Activation> {
     let action = match (activation.action?, variation) {
-        (Action::Assault { target, .. }, Variation::Simple) => Action::assault(target),
+        (Action::Assault { target, .. }, Variation::Simple | Variation::Aggression) => {
+            Action::assault(target)
+        }
         (Action::Assault { target, .. }, Variation::Chirurgical) => Action::Assault {
             target,
             style: AssaultStyle::Chirurgical,
@@ -436,14 +449,15 @@ fn aim_assault(
         return Reaction::Ignore;
     };
     let planned_end = draft.activation.path.last().copied().unwrap_or(start);
-    let path = if planned_end.is_orthogonally_adjacent(target_square) {
+    let reach = ruleset.assault_reach();
+    let path = if planned_end.is_within(target_square, reach) {
         Some(draft.activation.path.clone())
-    } else if start.is_orthogonally_adjacent(target_square) {
+    } else if start.is_within(target_square, reach) {
         Some(Vec::new())
     } else {
         reachable_squares(arena, ruleset, state, selected)
             .into_iter()
-            .filter(|path| path.destination.is_orthogonally_adjacent(target_square))
+            .filter(|path| path.destination.is_within(target_square, reach))
             .min_by_key(|path| {
                 (
                     Reverse(path.success),
@@ -642,11 +656,12 @@ struct VariationButton(Variation);
 #[derive(Component)]
 struct VariationLabel(Variation);
 
-const ALL_VARIATIONS: [Variation; 6] = [
+const ALL_VARIATIONS: [Variation; 7] = [
     Variation::Simple,
     Variation::Chirurgical,
     Variation::Brutal,
     Variation::Projection,
+    Variation::Aggression,
     Variation::Chaos,
     Variation::Focused,
 ];
@@ -1606,6 +1621,86 @@ mod tests {
                 Variation::Projection
             ]
         );
+    }
+
+    #[test]
+    fn given_assaults_reaching_diagonals_when_a_selected_bruiser_clicks_an_enemy_corner_to_corner_then_it_assaults_where_it_stands()
+     {
+        let state = board(&[("H1", 7, 7), ("A1", 8, 8)], None);
+        let click = BoardClick::Goblin(id("A1"));
+        let diagonal_assaults = Ruleset {
+            assaults_reach_diagonals: true,
+            ..Ruleset::default()
+        };
+
+        let reaction = react_to_click(
+            &Arena::bowl_15(),
+            &diagonal_assaults,
+            &state,
+            TeamId::HOME,
+            Some(&Draft::selecting(id("H1"))),
+            click,
+        );
+
+        assert_eq!(
+            reaction,
+            Reaction::Prepare(aimed("H1", &[], Some(Action::assault(id("A1"))), click))
+        );
+    }
+
+    fn with_aggressions() -> Ruleset {
+        Ruleset {
+            downed_defense_malus: 0,
+            aggression_bonus: 1,
+            aggressions_take_no_style: true,
+            ..with_styles()
+        }
+    }
+
+    fn assault_aimed_at_a_downed_a1() -> (GameState, Draft) {
+        let (mut state, draft) = assault_aimed_at_a1();
+        if let Some(target) = state
+            .goblins
+            .iter_mut()
+            .find(|goblin| goblin.id == id("A1"))
+        {
+            target.presence = Presence::Down(square(8, 7));
+        }
+        (state, draft)
+    }
+
+    #[test]
+    fn given_aggressions_when_a_downed_enemy_is_aimed_then_only_the_aggression_is_offered() {
+        let (state, draft) = assault_aimed_at_a_downed_a1();
+
+        let offered: Vec<Variation> = variations(
+            &Arena::bowl_15(),
+            &with_aggressions(),
+            &state,
+            TeamId::HOME,
+            &draft,
+        )
+        .into_iter()
+        .map(|(variation, _)| variation)
+        .collect();
+
+        assert_eq!(offered, [Variation::Aggression]);
+    }
+
+    #[test]
+    fn given_aggressions_when_the_aggression_is_picked_then_a_simple_assault_is_sent() {
+        let (state, draft) = assault_aimed_at_a_downed_a1();
+
+        let reaction = pick_variation(
+            &Arena::bowl_15(),
+            &with_aggressions(),
+            &state,
+            TeamId::HOME,
+            &draft,
+            Variation::Aggression,
+        );
+
+        assert_eq!(reaction, Reaction::Send(draft.activation.clone()));
     }
 
     #[test]
