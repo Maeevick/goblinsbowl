@@ -2,9 +2,9 @@
 # Usage: scripts/assessment-batch.sh <batch-name> <model>...
 # Plays every model against the built-in bot on each seed, once from each seat (docs/assessment.md),
 # GB_PARALLEL matches at a time, each on its own server and port. Re-running the same batch name
-# only plays the matches still missing. When the account's session limit is hit, the batch waits
-# for the reset time the limit message gives (or GB_LIMIT_WAIT seconds, 1800 by default), then plays
-# the missing matches. Settings: GB_SEEDS ("1 2 3 4 5"), GB_PARALLEL (5), GB_FIRST_PORT (7920),
+# only plays the matches still missing. When the account's session limit is hit or the API is out
+# of reach, the batch waits for the reset time the message gives (or GB_LIMIT_WAIT seconds, 1800 by
+# default), then plays the missing matches. Settings: GB_SEEDS ("1 2 3 4 5"), GB_PARALLEL (5), GB_FIRST_PORT (7920),
 # plus those of scripts/assessment-match.sh.
 set -euo pipefail
 

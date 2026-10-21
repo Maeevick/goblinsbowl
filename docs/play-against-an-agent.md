@@ -251,6 +251,7 @@ It plays seeds 1 to 5 from each seat against the bot of `GB_BOT` (balanced-2 by 
 | Claude Code ignores the variables you exported | An `env` block in `~/.claude/settings.json` overrides them | Remove those entries while you play |
 | A local coach forgets the match or repeats old orders | Its conversation outgrew the model's window | Raise `OLLAMA_CONTEXT_LENGTH` and set `CLAUDE_CODE_MAX_CONTEXT_TOKENS` to the same value |
 | `You've hit your session limit` | Your Claude plan's limit for the next hours is used up | Wait for the reset, or use an API key |
+| `API Error: Can't reach the API server` | No connection to Anthropic: the coach cannot play and the clock runs its turns down | Reconnect; an assessment batch abandons the match and replays it after `GB_LIMIT_WAIT` seconds |
 | The coach stops before the final whistle | The model ended its session early | Resume it with `GB_RESUME_SESSION` (section 2) |
 
 ## Sources

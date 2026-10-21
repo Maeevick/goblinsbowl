@@ -4,8 +4,9 @@
 # against a second coach (GB_OPPONENT_MODEL) on the other seat, on its own server, until the final
 # whistle. A coach that stops early is resumed once with its context, unless it ran out of budget.
 # Everything lands in <batch-dir>/<model>/seed<seed>-<seat>/.
-# When a coach hits the account's session or usage limit, the match is abandoned without a
-# match.json (a later run replays it) and <batch-dir>/LIMIT_HIT tells the other jobs to stand down.
+# When a coach hits the account's session or usage limit, or cannot reach the API, the match is
+# abandoned without a match.json (a later run replays it) and <batch-dir>/LIMIT_HIT tells the other
+# jobs to stand down.
 # Settings: GB_BOT (balanced-2), GB_OPPONENT_MODEL (none: the bot plays the other seat),
 # GB_OPPONENT_BUDGET (GB_BUDGET), GB_TURN_SECONDS (60), GB_HINTS (full), GB_RULES and GB_RULES_TEXT (the
 # frozen ruleset and rules text of the benchmark, assessment/rules-0.10.toml and .md),
@@ -53,14 +54,14 @@ for _ in $(seq 1 100); do nc -z 127.0.0.1 "$port" 2>/dev/null && break; sleep 0.
 
 url="http://127.0.0.1:$port/mcp"
 started=$(date +%s)
-limit_pattern='"result":"[^"]*(hit your [a-z]* ?limit|usage limit)[^"]*"'
+limit_pattern='"result":"[^"]*(hit your [a-z]* ?limit|usage limit|reach the API server)[^"]*"'
 limited() {
   grep -q "Final whistle" "$dir/server.log" && return 1
   grep -q -i -E "$limit_pattern" "$dir"/*-transcript.jsonl 2>/dev/null
 }
 abandon_if_limited() {
   limited || return 0
-  grep -h -o -i -E '"result":"[^"]*limit[^"]*"' "$dir"/*-transcript.jsonl | tail -1 > "$batch_dir/LIMIT_HIT"
+  grep -h -o -i -E "$limit_pattern" "$dir"/*-transcript.jsonl | tail -1 > "$batch_dir/LIMIT_HIT"
   [ -s "$batch_dir/LIMIT_HIT" ] || echo "limit hit in $dir" > "$batch_dir/LIMIT_HIT"
   exit 0
 }
