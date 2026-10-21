@@ -96,6 +96,7 @@ An agent meeting all six manages risk well under these conditions; the report sa
 - **20 Oct 2026, later the same day, the odds of focused throws corrected.** The chance of an agility test whose bonus exceeded its target of 2 dropped the excess, so under rules 0.10 a focused throw by a Thrower that had not moved (+3, one step paid for the throw) was previewed as if at +2 whenever its roll had a malus: 50 % instead of 67 % for a 10-step pass with nobody around. The dice were always rolled right; the previews agents read (dry runs and `compare_plans`) and the chances the bots weigh were wrong. Since the fix the recorded benchmark matches still replay command for command, and over 1,000 matches of each second-generation mirror on the frozen ruleset the draws move by 0.4 to 1.1 points (cautious-2 81.4 % to 82.5 %, balanced-2 78.1 % to 77.7 %, bold-2 50.7 % to 51.4 %). Agents asked for a focused throw in 70 calls of batches 4 to 7, dry runs included; their results stand, to be read with this in mind.
 - **20 Oct 2026, evening, rules 0.12 in the game, the benchmark unchanged.** The game now ships rules 0.12, each change behind its own setting: assaults reach the eight squares around; brutal assaults and projections are a Bruiser's, a projection losing its −1 to win and taking one Health less; an assault on a downed goblin is an aggression, +1 to attack counted in the Health it takes, the only way to hit a goblin down; chaos throws are a Thrower's, and a focused throw needs a Thrower that has not moved, which spends its whole Move for +3 and falls, unhurt, when its throw roll misses; a hand-off's receiver catches at +1; only Sprinters intercept from a square next to the flight line, the others having to stand on it; and Sprinters dive for a ball landing on an empty square around them, the highest roll diving at −1, a catch landing the diver there with the ball and a miss leaving it on the ground. A chaos throw's previewed chance counts those dives, which bring a lone Sprinter's chaos throw to 67 %. The benchmark stays on the frozen rules 0.10, where none of these settings is on, so its conditions do not move: the MCP instructions now say who may use which style from the ruleset served and read word for word as before under the frozen one, which a test pins, and the agents' view lists diagonal assault options only under rules that have them. The 195 local records replay and assess.
 - **20 Oct 2026, night, batches 9 and 10 under rules 0.12.** Batch 9 is a smoke test of seven conditions under rules 0.12, one match each on seed 1 with the agent at home: Haiku 5.5 and Sonnet 5.5 each against `balanced-2`, `bold-2` and `cautious-2`, and Haiku 5.5 against Sonnet 5.5. Batch 10 plays the same seven conditions on seeds 1 to 5 from both seats, 70 matches. Both use the ruleset and the rules text frozen for them, `assessment/rules-0.12.toml` and `.md`; the 0.10 benchmark stays the scripts' default and the reference of every earlier batch, so batches 9 and 10 compare with each other, not with batches 4 to 8. Settings as in batches 6 and 7: full hints, 60 s turns, five matches at a time, $20 per Haiku coach run and $30 per Sonnet one. Agents read rules 0.12 with `get_rules` and instructions that say who may use which style, and that `get_rules` prevails over the play schema, whose descriptions of the projection and the focused throw were written for rules 0.10.
+- **21 Oct 2026, the network outage of batch 10.** At dawn a network outage left both coaches of the duel's two seed-5 matches unable to reach the API ("Can't reach the API server"). The match script recognised only session and usage limits, so the server ran every turn down on the clock and the script recorded both matches as finished, at no cost. They are void, kept apart in `runs/assessment-10-void-network/`, and were replayed from scratch on 21 Oct. Since then a coach that cannot reach the API abandons its match as one stopped by a session limit does: no result is recorded, and the batch waits `GB_LIMIT_WAIT` seconds before replaying it.
 
 ## Results
 
@@ -325,3 +326,58 @@ What batches 6 and 7 say:
 - **Its gambles before safe moves are ordinary ones.** Of its risky orders, 20 to 26 % came before another goblin's order that was already safe, against 9 to 18 % for Haiku; for both models those gambles had about an 80 % chance, and only 4 to 15 % of them 90 % or more.
 - **Sonnet plays fast and decisively.** It previews before 10 to 13 % of its plays where Haiku does before about half, gives no estimate, finishes goblins with brutal assaults far more often (65 against 6), loses one turn to the clock in 30 matches, and costs $3.62 a match against $9.72 for Haiku, in about 6 minutes against 10.
 - **Results and safe-first now point in opposite directions.** Against these bots, playing safe moves first is not what wins: Sonnet wins with more gambles first. The index still measures what the protocol set out to watch, the exposure of safe work to a turn-ending failure, but reading it next to what misordering actually cost (safe orders lost when a gamble failed first) would tell whether Sonnet's risk-taking is a weakness or a lucky streak. That measure is not part of the protocol yet.
+
+### Batches 9 and 10, 20 and 21 Oct 2026: Haiku 5.5 and Sonnet 5.5 under rules 0.12
+
+Batch 9, the smoke test, played one match per condition on seed 1 with the agent at home, from 20:37 to 20:49, without a session limit, a resume or a budget stop, for $42: Haiku 5.5 drew 0-0 with `balanced-2` and lost 0-1 to `bold-2` and 0-2 to `cautious-2`; Sonnet 5.5 lost 0-1 to `balanced-2` and beat `bold-2` 2-0 and `cautious-2` 1-0; Haiku beat Sonnet 1-0. The only refusals the new rules caused were four styled assaults on downed goblins, which the refusal explains.
+
+Batch 10 played the seven conditions on seeds 1 to 5 from both seats with batch 9's settings, from 20:50. Session limits stopped it at 22:11 until 00:30 and at 01:29 until 05:30, the matches under way being replayed from scratch each time; the duel's two seed-5 matches, played without network at dawn, were replayed on 21 Oct from 18:13 to 18:26 (see the change of that day). One coach stopped early and was resumed once, none hit its budget (the dearest Haiku match cost $8.06, the dearest Sonnet one $5.38), and every match reached its final whistle. The 70 matches cost $426.
+
+| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| claude-haiku-5-5 against balanced-2 | 10 | 2-4-4 | 3-9 | 0.75 | 6.1 | 6.7 | 0.5 pts | 11 | 77.9 % | 75.8 % | 0 | 2 | 0 | 0 | $66.19 | 8.6 |
+| claude-haiku-5-5 against bold-2 | 10 | 1-4-5 | 1-8 | 0.69 | 7.7 | 5.6 | 0.7 pts | 11 | 74.8 % | 74.1 % | 0 | 0 | 0 | 0 | $65.64 | 8.6 |
+| claude-haiku-5-5 against cautious-2 | 10 | 1-1-8 | 1-10 | 0.72 | 7.6 | 6.2 | 1.2 pts | 15 | 76.7 % | 75.9 % | 0 | 3 | 1 | 0 | $64.10 | 7.9 |
+| claude-sonnet-5-5 against balanced-2 | 10 | 3-3-4 | 5-8 | 0.52 | 8.0 | 6.2 | 0.8 pts | 11 | 79.6 % | 80.0 % | 1 | 9 | 0 | 0 | $40.01 | 6.8 |
+| claude-sonnet-5-5 against bold-2 | 10 | 3-3-4 | 6-7 | 0.59 | 7.6 | 5.9 | 0.6 pts | 9 | 78.3 % | 77.9 % | 0 | 7 | 0 | 0 | $44.09 | 7.0 |
+| claude-sonnet-5-5 against cautious-2 | 10 | 6-3-1 | 8-3 | 0.61 | 7.7 | 6.2 | 0.5 pts | 9 | 78.8 % | 78.7 % | 1 | 15 | 0 | 0 | $43.43 | 6.6 |
+| claude-haiku-5-5 against claude-sonnet-5-5 | 10 | 3-2-5 | 4-6 | 0.81 | 6.2 | 5.7 | 1.1 pts | 17 | 74.5 % | 71.0 % | 1 | 7 | 0 | 0 | $63.87 | 12.2 |
+
+| Opponent in the same matches | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|
+| balanced-2 against Haiku | 0.81 | 7.3 | 5.8 | 1.8 pts | 12 | 75.8 % | 75.8 % |
+| bold-2 against Haiku | 0.91 | 13.3 | 6.1 | 0.8 pts | 9 | 74.1 % | 74.3 % |
+| cautious-2 against Haiku | 0.81 | 4.8 | 6.6 | 2.8 pts | 17 | 75.4 % | 73.1 % |
+| balanced-2 against Sonnet | 0.88 | 5.3 | 5.9 | 1.3 pts | 7 | 75.9 % | 76.4 % |
+| bold-2 against Sonnet | 0.92 | 10.5 | 5.8 | 0.8 pts | 10 | 75.9 % | 75.1 % |
+| cautious-2 against Sonnet | 0.81 | 4.0 | 6.3 | 2.1 pts | 8 | 75.3 % | 74.8 % |
+| Sonnet 5.5 against Haiku | 0.70 | 8.6 | 6.6 | 0.6 pts | 12 | 77.6 % | 78.0 % |
+
+The yardstick, `cautious-2` replaying the agents' seats against the same bot on the same seeds, reads the same for both models: 3-3-4 (4-6) against `balanced-2`, 2-6-2 (4-4) against `bold-2` and 2-6-2 (4-4) against `cautious-2`. The duel has no yardstick: its results are head to head.
+
+| Batch | Safe-first at least 0.90 | Mean gap under 5 pts | Under 10 % of risky orders 5 pts below the best | No tilt (within 5 pts after a failure) | Under one refused call per two turns | Goal difference at least the yardstick's |
+|---|---|---|---|---|---|---|
+| Haiku against balanced-2, bold-2, cautious-2 | fail | pass | pass | pass | pass | fail |
+| Sonnet against balanced-2 and bold-2 | fail | pass | pass | pass | pass | fail |
+| Sonnet against cautious-2 | fail | pass | pass | pass | pass | pass |
+| Haiku against Sonnet | fail | pass | pass | pass | pass | head to head |
+
+Moves per match, counted by replaying the records (dives with the share caught; knock-outs counted against the side that lost the goblin):
+
+| Side | Passes | Hand-offs | Chaos throws | Simple assaults | Chirurgical | Aggressions | Dives | Own goblins knocked out |
+|---|---|---|---|---|---|---|---|---|
+| Haiku against the bots | 0.5 | 0.4 | 0 | 14.1 | 20.6 | 2.7 | 5.1 (56 %) | 2.0 |
+| Sonnet against the bots | 1.4 | 0.6 | 0 | 20.9 | 8.9 | 7.5 | 5.6 (59 %) | 1.7 |
+| The bots against Haiku | 3.6 | 0 | 0.2 | 0 | 34.1 | 9.3 | 7.2 (59 %) | 3.0 |
+| The bots against Sonnet | 2.4 | 0 | 0.0 | 0 | 33.2 | 8.9 | 4.6 (59 %) | 6.5 |
+| Haiku against Sonnet | 0.4 | 0.4 | 0 | 7.0 | 24.2 | 1.1 | 3.4 (56 %) | 4.8 |
+| Sonnet against Haiku | 0.8 | 0.2 | 0 | 20.0 | 11.3 | 5.9 | 5.1 (57 %) | 0.8 |
+
+What batches 9 and 10 say:
+
+- **Under rules 0.12 the agents draw less and Haiku loses most.** Against the same three bots under rules 0.10 (batches 6 and 7, other rules, read as context only), Haiku drew 20 of its 30 matches and Sonnet 17; under 0.12 both draw 9. Haiku went 4-9-17 with 5 goals to 27, Sonnet 12-9-9 with 19 to 18.
+- **Only Sonnet against `cautious-2` reaches the yardstick.** `cautious-2` replaying the agents' seats goes 7-15-8 with 12 goals to 14; Sonnet passes the results criterion against `cautious-2` (8-3 against 4-4) and misses it by one goal against the two other bots, Haiku against all three.
+- **Sonnet hits to hurt, Haiku to knock down.** Sonnet's assaults are mostly simple and it finishes downed goblins with 7 or 8 aggressions a match, knocking out 6.5 bot goblins a match for 1.7 of its own; Haiku's are mostly chirurgical, which knock down without hurting, with 3 aggressions, for 3.0 knock-outs against 2.0 of its own. The duel shows it plainly: Sonnet knocked out 4.8 of Haiku's goblins a match, lost 0.8, and won 5-2-3 with 6 goals to 4.
+- **Neither model plays the archetypes' new ways much.** The agents pass once a match or less where the bots pass two to four times, hand off a little where the bots never do, never throw into chaos, threw a focused pass five times in 60 matches and never projected; their Sprinters dive five or six times a match, which happens on its own.
+- **Safe-first barely moves with the rules**: Haiku 0.69 to 0.75 (0.72 to 0.75 under 0.10), Sonnet 0.52 to 0.61 (0.53 to 0.66), and in the duel 0.81 for Haiku against 0.70 for Sonnet. Refused calls stay rare, 15 at most in ten matches.
+- **Sonnet stays cheaper and faster**: $4.25 a match against $6.53 for Haiku, in about 7 minutes against 8.4; a duel match takes 12 minutes.
