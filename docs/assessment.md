@@ -401,7 +401,7 @@ Batch 10's conditions with Opus 5.5 at $50 per coach run, Sonnet keeping its $30
 | balanced-2 against Opus | 0.88 | 5.7 | 6.0 | 1.6 pts | 9 | 76.9 % | 76.4 % |
 | Sonnet 5.5 against Opus | 0.73 | 7.4 | 6.1 | 0.7 pts | 10 | 77.0 % | 75.8 % |
 
-The yardstick plays batch 10's seeds and seats, so it reads the same: 2-6-2 (4-4) against `cautious-2` and `bold-2`, 3-3-4 (4-6) against `balanced-2`. Opus passes the results criterion against all three bots and fails only the safe-first one, as every model so far has; Sonnet, as its opponent, sent $35.11 of calls.
+The yardstick plays batch 10's seeds and seats, so it reads the same: 2-6-2 (4-4) against `cautious-2` and `bold-2`, 3-3-4 (4-6) against `balanced-2`. Opus passes the results criterion against all three bots and fails only the safe-first one, as every model so far has. Sonnet's coach runs in the duel cost $35.11.
 
 Moves per match, counted by replaying the records (dives with the share caught; knock-outs counted against the side that lost the goblin):
 
@@ -426,4 +426,4 @@ What batch 11 says:
 - **It orders its turns best, and still under the bar.** Its safe-first index, 0.80 to 0.87, is the highest of any model so far, above Haiku's and well above Sonnet's, but under the 0.90 the protocol sets, so winning and ordering safe moves first point the same way here, unlike for Sonnet in batches 7 and 10.
 - **It knocks down, then finishes.** Like Haiku it assaults mostly chirurgically (29 a match), which knocks down without hurting, but unlike Haiku it follows with 7 aggressions a match on the goblins it downed, knocking out 4.5 bot goblins a match for 1.5 of its own. Against Sonnet, which hits to hurt, it lost more goblins (3.9 a match against 2.5) and still won every decided match.
 - **It hands off more than any model, and still barely passes.** Opus makes 1.5 hand-offs a match, two to four times Haiku's and Sonnet's, but 0.9 passes, against the bots' 2.5; nobody throws into chaos, and focused throws stay rare (0.2 a match).
-- **It costs about what Haiku costs, and takes a little longer**: $6.17 a match against the bots, 9.1 minutes, with 8 turns lost to the clock in 40 matches (Sonnet lost 2 in 30, Haiku none).
+- **It costs about what Haiku costs, and takes a little longer**: $6.17 a match against the bots, 9.1 minutes, with 8 turns lost to the clock in 40 matches, where Sonnet lost 2 and Haiku none in their 30 matches against the bots.
