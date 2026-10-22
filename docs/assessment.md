@@ -382,3 +382,48 @@ What batches 9 and 10 say:
 - **Neither model plays the archetypes' new ways much.** The agents pass once a match or less where the bots pass two to four times, hand off a little where the bots never do, never throw into chaos, threw a focused pass five times in 60 matches and never projected; their Sprinters dive five or six times a match, which happens on its own.
 - **Safe-first barely moves with the rules**: Haiku 0.69 to 0.75 (0.72 to 0.75 under 0.10), Sonnet 0.52 to 0.61 (0.53 to 0.66), and in the duel 0.81 for Haiku against 0.70 for Sonnet. Refused calls stay rare, 15 at most in ten matches.
 - **Sonnet stays cheaper and faster**: $4.25 a match against $6.53 for Haiku, in about 7 minutes against 8.4; a duel match takes 12 minutes.
+
+### Batch 11, 21 and 22 Oct 2026: Opus 5.5 under rules 0.12
+
+Batch 10's conditions with Opus 5.5 at $50 per coach run, Sonnet keeping its $30. The 40 matches started at 23:16; session limits stopped the batch at 23:55 until 04:10 and at 04:54 until 09:10, the matches under way being replayed from scratch each time, and it ended at 09:35. No coach hit its budget (the dearest Opus match cost $8.31) or needed a resume, no coach lost the API, and every match reached its final whistle. The 40 matches cost $275.
+
+| Model | Matches | W-D-L | Goals | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure | Turns lost to the clock | Refused calls | Resumed | Unfinished | Cost | Minutes per match |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| claude-opus-5-5 against cautious-2 | 10 | 7-2-1 | 8-2 | 0.81 | 5.1 | 6.2 | 0.9 pts | 10 | 81.3 % | 80.6 % | 4 | 11 | 0 | 0 | $62.87 | 9.7 |
+| claude-opus-5-5 against bold-2 | 10 | 9-1-0 | 12-1 | 0.80 | 3.9 | 6.1 | 1.5 pts | 14 | 80.6 % | 81.7 % | 1 | 7 | 0 | 0 | $62.68 | 9.4 |
+| claude-opus-5-5 against balanced-2 | 10 | 8-2-0 | 12-2 | 0.85 | 5.7 | 6.0 | 1.1 pts | 13 | 80.3 % | 80.6 % | 1 | 8 | 0 | 0 | $59.51 | 8.2 |
+| claude-opus-5-5 against claude-sonnet-5-5 | 10 | 8-2-0 | 8-0 | 0.87 | 5.2 | 6.3 | 1.4 pts | 13 | 80.3 % | 79.2 % | 2 | 4 | 0 | 0 | $55.13 | 11.4 |
+
+| Opponent in the same matches | Safe-first | Failures per match | Ready at failure | Mean gap | Risky gaps over 5 pts | Chance taken | After a failure |
+|---|---|---|---|---|---|---|---|
+| cautious-2 against Opus | 0.84 | 3.5 | 6.5 | 2.6 pts | 10 | 77.2 % | 76.4 % |
+| bold-2 against Opus | 0.94 | 10.3 | 5.9 | 0.9 pts | 13 | 76.8 % | 76.2 % |
+| balanced-2 against Opus | 0.88 | 5.7 | 6.0 | 1.6 pts | 9 | 76.9 % | 76.4 % |
+| Sonnet 5.5 against Opus | 0.73 | 7.4 | 6.1 | 0.7 pts | 10 | 77.0 % | 75.8 % |
+
+The yardstick plays batch 10's seeds and seats, so it reads the same: 2-6-2 (4-4) against `cautious-2` and `bold-2`, 3-3-4 (4-6) against `balanced-2`. Opus passes the results criterion against all three bots and fails only the safe-first one, as every model so far has; Sonnet, as its opponent, sent $35.11 of calls.
+
+Moves per match, counted by replaying the records (dives with the share caught; knock-outs counted against the side that lost the goblin):
+
+| Side | Passes | Hand-offs | Chaos throws | Simple assaults | Chirurgical | Aggressions | Dives | Own goblins knocked out |
+|---|---|---|---|---|---|---|---|---|
+| Opus against the bots | 0.9 | 1.5 | 0 | 10.6 | 28.9 | 7.1 | 4.8 (58 %) | 1.5 |
+| The bots against Opus | 2.5 | 0 | 0.0 | 0 | 34.0 | 8.5 | 4.9 (59 %) | 4.5 |
+| Opus against Sonnet | 0.7 | 0.8 | 0 | 5.8 | 30.0 | 6.9 | 3.5 (60 %) | 3.9 |
+| Sonnet against Opus | 1.0 | 0.1 | 0 | 14.4 | 17.2 | 7.5 | 4.0 (48 %) | 2.5 |
+
+Batches 10 and 11 side by side, against the same bots on the same seeds and seats:
+
+| Model | W-D-L | Goals | Safe-first | Cost per match | Minutes per match | Head to head |
+|---|---|---|---|---|---|---|
+| Haiku 5.5 | 4-9-17 | 5-27 | 0.69 to 0.75 | $6.53 | 8.4 | lost 3-2-5 to Sonnet |
+| Sonnet 5.5 | 12-9-9 | 19-18 | 0.52 to 0.61 | $4.25 | 6.8 | lost 0-2-8 to Opus |
+| Opus 5.5 | 24-5-1 | 32-5 | 0.80 to 0.85 | $6.17 | 9.1 | beat Sonnet 8-2-0, 8-0 |
+
+What batch 11 says:
+
+- **Opus 5.5 plays in another class.** It went 24-5-1 against the three bots with 32 goals to 5, where Sonnet went 12-9-9 and Haiku 4-9-17 in the same conditions, and beat Sonnet 8-2-0 without conceding a goal. It passes the results criterion against every bot, the first model to do so under rules 0.12.
+- **It orders its turns best, and still under the bar.** Its safe-first index, 0.80 to 0.87, is the highest of any model so far, above Haiku's and well above Sonnet's, but under the 0.90 the protocol sets, so winning and ordering safe moves first point the same way here, unlike for Sonnet in batches 7 and 10.
+- **It knocks down, then finishes.** Like Haiku it assaults mostly chirurgically (29 a match), which knocks down without hurting, but unlike Haiku it follows with 7 aggressions a match on the goblins it downed, knocking out 4.5 bot goblins a match for 1.5 of its own. Against Sonnet, which hits to hurt, it lost more goblins (3.9 a match against 2.5) and still won every decided match.
+- **It hands off more than any model, and still barely passes.** Opus makes 1.5 hand-offs a match, two to four times Haiku's and Sonnet's, but 0.9 passes, against the bots' 2.5; nobody throws into chaos, and focused throws stay rare (0.2 a match).
+- **It costs about what Haiku costs, and takes a little longer**: $6.17 a match against the bots, 9.1 minutes, with 8 turns lost to the clock in 40 matches (Sonnet lost 2 in 30, Haiku none).
